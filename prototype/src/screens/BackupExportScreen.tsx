@@ -1,10 +1,12 @@
-import { Header } from '../components/Header'
+import { useSetPageHeader } from '../context/HeaderContext'
 import { useApp } from '../context/AppContext'
 import { getTheme } from '../theme'
 
 export function BackupExportScreen() {
   const { accounts, categories, transactions, settings } = useApp()
   const theme = getTheme(settings.theme)
+
+  useSetPageHeader({ showBack: true, backTo: '/more' })
 
   const handleBackup = () => {
     const data = JSON.stringify({ accounts, categories, transactions, settings }, null, 2)
@@ -35,61 +37,42 @@ export function BackupExportScreen() {
   }
 
   return (
-    <div>
-      <Header title="Backup и экспорт" backTo="/more" />
-      <div style={{ padding: 16 }}>
-        <button
-          type="button"
-          onClick={handleBackup}
-          style={{
-            width: '100%',
-            padding: 16,
-            marginBottom: 12,
-            borderRadius: 12,
-            border: `1px solid ${theme.border}`,
-            background: theme.surface,
-            color: theme.text,
-            fontWeight: 600,
-            cursor: 'pointer',
-            textAlign: 'left',
-          }}
-        >
-          <span style={{ fontSize: 20, marginRight: 10 }}>📦</span>
-          Сохранить backup (JSON)
-          <p style={{ margin: '6px 0 0 32px', fontSize: 12, color: theme.textMuted, fontWeight: 400 }}>
-            Полная копия всех данных
-          </p>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleCsvExport}
-          style={{
-            width: '100%',
-            padding: 16,
-            marginBottom: 12,
-            borderRadius: 12,
-            border: `1px solid ${theme.border}`,
-            background: theme.surface,
-            color: theme.text,
-            fontWeight: 600,
-            cursor: 'pointer',
-            textAlign: 'left',
-          }}
-        >
-          <span style={{ fontSize: 20, marginRight: 10 }}>📊</span>
-          Экспорт CSV (30 дней)
-          <p style={{ margin: '6px 0 0 32px', fontSize: 12, color: theme.textMuted, fontWeight: 400 }}>
-            Бесплатно: последние 30 дней
-          </p>
-        </button>
-
-        <div style={{ padding: 16, borderRadius: 12, background: theme.premiumBg, marginTop: 8 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: theme.premium }}>
-            Premium: экспорт CSV без ограничений
-          </p>
-        </div>
-      </div>
+    <div style={{ padding: 16 }}>
+      <button
+        type="button"
+        onClick={handleBackup}
+        style={{
+          width: '100%',
+          padding: 16,
+          marginBottom: 12,
+          borderRadius: 12,
+          border: `1px solid ${theme.border}`,
+          background: theme.surface,
+          color: theme.text,
+          fontWeight: 600,
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        📦 Сохранить backup (JSON)
+      </button>
+      <button
+        type="button"
+        onClick={handleCsvExport}
+        style={{
+          width: '100%',
+          padding: 16,
+          borderRadius: 12,
+          border: `1px solid ${theme.border}`,
+          background: theme.surface,
+          color: theme.text,
+          fontWeight: 600,
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        📊 Экспорт CSV (30 дней)
+      </button>
     </div>
   )
 }

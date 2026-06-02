@@ -11,7 +11,7 @@ export interface Account {
 export interface Category {
   id: string
   name: string
-  icon: string
+  iconId: string
   type: TransactionType
   color: string
   budgetLimit?: number

@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
+import { CategoryIcon } from '../components/CategoryIcon'
 import { PremiumBadge } from '../components/PremiumGate'
 import { ProgressBar } from '../components/ProgressBar'
+import { useSetPageHeader } from '../context/HeaderContext'
 import { useApp } from '../context/AppContext'
 import {
   formatMoney,
@@ -14,6 +16,8 @@ export function HomeScreen() {
   const { transactions, categories, settings } = useApp()
   const theme = getTheme(settings.theme)
 
+  useSetPageHeader({ right: <PremiumBadge /> })
+
   const spent = getTotalExpenses(transactions)
   const income = getTotalIncome(transactions)
   const budgetTotal = getBudgetTotal(categories)
@@ -24,12 +28,8 @@ export function HomeScreen() {
 
   return (
     <div>
-      <div style={{ padding: '16px 16px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <p style={{ margin: 0, fontSize: 13, color: theme.textMuted }}>Famly</p>
-          <h1 style={{ margin: 0, fontSize: 22, color: theme.text }}>Привет! 👋</h1>
-        </div>
-        <PremiumBadge />
+      <div style={{ padding: '8px 16px 0' }}>
+        <h1 style={{ margin: 0, fontSize: 20, color: theme.text }}>Привет! 👋</h1>
       </div>
 
       <div
@@ -89,7 +89,7 @@ export function HomeScreen() {
                 color: theme.text,
               }}
             >
-              <span style={{ fontSize: 24 }}>{cat?.icon ?? '📝'}</span>
+              {cat ? <CategoryIcon iconId={cat.iconId} size={20} /> : <span>📝</span>}
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontSize: 15, fontWeight: 500 }}>{cat?.name ?? '—'}</p>
                 <p style={{ margin: 0, fontSize: 12, color: theme.textMuted }}>{tx.note ?? tx.date}</p>

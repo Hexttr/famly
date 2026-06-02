@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CategoryIcon } from './CategoryIcon'
 import { useApp } from '../context/AppContext'
 import { getTheme } from '../theme'
 
@@ -136,7 +137,10 @@ export function QuickAddSheet() {
               type="button"
               onClick={() => setCategoryId(c.id)}
               style={{
-                padding: '8px 12px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 10px',
                 borderRadius: 20,
                 border: categoryId === c.id ? `2px solid ${c.color}` : `1px solid ${theme.border}`,
                 background: categoryId === c.id ? `${c.color}18` : theme.surface,
@@ -144,7 +148,8 @@ export function QuickAddSheet() {
                 fontSize: 13,
               }}
             >
-              {c.icon} {c.name}
+              <CategoryIcon iconId={c.iconId} size={16} />
+              {c.name}
             </button>
           ))}
         </div>

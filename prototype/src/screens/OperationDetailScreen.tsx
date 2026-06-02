@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { Header } from '../components/Header'
+import { CategoryIcon } from '../components/CategoryIcon'
+import { useSetPageHeader } from '../context/HeaderContext'
 import { useApp } from '../context/AppContext'
 import { formatMoney } from '../data/mockData'
 import { getTheme } from '../theme'
@@ -10,14 +11,11 @@ export function OperationDetailScreen() {
   const { transactions, categories, accounts, deleteTransaction, settings } = useApp()
   const theme = getTheme(settings.theme)
 
+  useSetPageHeader({ showBack: true, backTo: '/operations' })
+
   const tx = transactions.find((t) => t.id === id)
   if (!tx) {
-    return (
-      <div>
-        <Header title="Операция" backTo="/operations" />
-        <p style={{ padding: 16, color: theme.textMuted }}>Операция не найдена</p>
-      </div>
-    )
+    return <p style={{ padding: 16, color: theme.textMuted }}>Операция не найдена</p>
   }
 
   const cat = categories.find((c) => c.id === tx.categoryId)
@@ -30,9 +28,8 @@ export function OperationDetailScreen() {
 
   return (
     <div>
-      <Header title="Операция" backTo="/operations" />
       <div style={{ padding: 24, textAlign: 'center' }}>
-        <span style={{ fontSize: 48 }}>{cat?.icon}</span>
+        {cat && <CategoryIcon iconId={cat.iconId} size={32} />}
         <p
           style={{
             margin: '16px 0 4px',

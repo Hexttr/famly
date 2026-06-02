@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Header } from '../components/Header'
+import { PageShell } from '../components/PageShell'
+import { useSetPageHeader } from '../context/HeaderContext'
 import { useApp } from '../context/AppContext'
 import { getTheme } from '../theme'
 
@@ -23,11 +24,13 @@ const premiumFeatures = [
   'Виджет быстрого ввода',
 ]
 
-export function PremiumPaywallScreen() {
+function PremiumContent() {
   const { activatePremium, daysLeftInTrial, settings } = useApp()
   const theme = getTheme(settings.theme)
   const navigate = useNavigate()
   const [plan, setPlan] = useState<'monthly' | 'yearly'>('yearly')
+
+  useSetPageHeader({ showBack: true, backTo: '/more' })
 
   const trialDays = daysLeftInTrial()
 
@@ -37,10 +40,8 @@ export function PremiumPaywallScreen() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: theme.background }}>
-      <Header title="Premium" backTo="/more" />
-
-      <div style={{ padding: 24, textAlign: 'center' }}>
+    <div style={{ padding: 16 }}>
+      <div style={{ padding: '8px 0 16px', textAlign: 'center' }}>
         <div style={{ fontSize: 48, marginBottom: 8 }}>⭐</div>
         <h2 style={{ margin: '0 0 8px', color: theme.text }}>Famly Premium</h2>
         {trialDays > 0 && (
@@ -50,7 +51,7 @@ export function PremiumPaywallScreen() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, padding: '0 16px', marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {([
           ['monthly', '199 ₽/мес'],
           ['yearly', '1500 ₽/год'],
@@ -78,7 +79,7 @@ export function PremiumPaywallScreen() {
         ))}
       </div>
 
-      <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div style={{ padding: 16, borderRadius: 12, background: theme.surface, border: `1px solid ${theme.border}` }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 14, color: theme.text }}>Free</h3>
           {freeFeatures.map((f) => (
@@ -93,28 +94,35 @@ export function PremiumPaywallScreen() {
         </div>
       </div>
 
-      <div style={{ padding: 16, marginTop: 8 }}>
-        <button
-          type="button"
-          onClick={handleSubscribe}
-          style={{
-            width: '100%',
-            padding: 16,
-            border: 'none',
-            borderRadius: 12,
-            background: theme.premium,
-            color: '#fff',
-            fontSize: 16,
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          {trialDays > 0 ? 'Продолжить Premium' : `Оформить — ${plan === 'monthly' ? '199 ₽/мес' : '1500 ₽/год'}`}
-        </button>
-        <p style={{ textAlign: 'center', fontSize: 11, color: theme.textMuted, marginTop: 12 }}>
-          Оплата через RuStore · Отмена в любой момент
-        </p>
-      </div>
+      <button
+        type="button"
+        onClick={handleSubscribe}
+        style={{
+          width: '100%',
+          marginTop: 16,
+          padding: 16,
+          border: 'none',
+          borderRadius: 12,
+          background: theme.premium,
+          color: '#fff',
+          fontSize: 16,
+          fontWeight: 700,
+          cursor: 'pointer',
+        }}
+      >
+        {trialDays > 0 ? 'Продолжить Premium' : `Оформить — ${plan === 'monthly' ? '199 ₽/мес' : '1500 ₽/год'}`}
+      </button>
+      <p style={{ textAlign: 'center', fontSize: 11, color: theme.textMuted, marginTop: 12 }}>
+        Оплата через RuStore · Отмена в любой момент
+      </p>
     </div>
+  )
+}
+
+export function PremiumPaywallScreen() {
+  return (
+    <PageShell>
+      <PremiumContent />
+    </PageShell>
   )
 }

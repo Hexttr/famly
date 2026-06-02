@@ -7,13 +7,13 @@ export const mockAccounts: Account[] = [
 ]
 
 export const mockCategories: Category[] = [
-  { id: 'c1', name: 'Продукты', icon: '🛒', type: 'expense', color: '#E63946', budgetLimit: 25000 },
-  { id: 'c2', name: 'Транспорт', icon: '🚌', type: 'expense', color: '#457B9D', budgetLimit: 8000 },
-  { id: 'c3', name: 'Кафе', icon: '☕', type: 'expense', color: '#F4A261', budgetLimit: 6000 },
-  { id: 'c4', name: 'ЖКХ', icon: '🏠', type: 'expense', color: '#6D597A', budgetLimit: 12000 },
-  { id: 'c5', name: 'Развлечения', icon: '🎬', type: 'expense', color: '#E76F51', budgetLimit: 5000 },
-  { id: 'c6', name: 'Зарплата', icon: '💰', type: 'income', color: '#2D6A4F' },
-  { id: 'c7', name: 'Фриланс', icon: '💻', type: 'income', color: '#40916C' },
+  { id: 'c1', name: 'Продукты', iconId: 'groceries', type: 'expense', color: '#E63946', budgetLimit: 25000 },
+  { id: 'c2', name: 'Транспорт', iconId: 'transport', type: 'expense', color: '#457B9D', budgetLimit: 8000 },
+  { id: 'c3', name: 'Кафе', iconId: 'cafe', type: 'expense', color: '#F4A261', budgetLimit: 6000 },
+  { id: 'c4', name: 'ЖКХ', iconId: 'home', type: 'expense', color: '#6D597A', budgetLimit: 12000 },
+  { id: 'c5', name: 'Развлечения', iconId: 'entertainment', type: 'expense', color: '#E76F51', budgetLimit: 5000 },
+  { id: 'c6', name: 'Зарплата', iconId: 'salary', type: 'income', color: '#2D6A4F' },
+  { id: 'c7', name: 'Фриланс', iconId: 'freelance', type: 'income', color: '#40916C' },
 ]
 
 export const mockTransactions: Transaction[] = [
