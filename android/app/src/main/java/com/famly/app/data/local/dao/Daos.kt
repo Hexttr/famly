@@ -1,0 +1,49 @@
+package com.famly.app.data.local.dao
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import com.famly.app.data.local.entity.AccountEntity
+import com.famly.app.data.local.entity.CategoryEntity
+import com.famly.app.data.local.entity.TransactionEntity
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface AccountDao {
+    @Query("SELECT * FROM accounts ORDER BY sortOrder, name")
+    fun observeAll(): Flow<List<AccountEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(account: AccountEntity)
+
+    @Query("DELETE FROM accounts WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
+@Dao
+interface CategoryDao {
+    @Query("SELECT * FROM categories ORDER BY sortOrder, name")
+    fun observeAll(): Flow<List<CategoryEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(category: CategoryEntity)
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
+@Dao
+interface TransactionDao {
+    @Query("SELECT * FROM transactions ORDER BY dateEpochDay DESC, createdAt DESC")
+    fun observeAll(): Flow<List<TransactionEntity>>
+
+    @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
+    fun observeById(id: String): Flow<TransactionEntity?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(transaction: TransactionEntity)
+
+    @Query("DELETE FROM transactions WHERE id = :id")
+    suspend fun delete(id: String)
+}

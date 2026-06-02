@@ -1,0 +1,23 @@
+# Node / prototype
+node_modules/
+prototype/dist/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.iml
+.idea/
+
+# Backend
+backend/.gradle/
+backend/build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+*.keystore
