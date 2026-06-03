@@ -13,7 +13,14 @@ data class AppSettings(
     val isPremium: Boolean,
     val trialEndsAt: Long?,
     val premiumExpiresAt: Long?,
+    val authToken: String? = null,
+    val userId: String? = null,
+    val householdId: String? = null,
+    val lastSyncToken: Long? = null,
 ) {
+    val isAuthenticated: Boolean get() = !authToken.isNullOrBlank() && !userId.isNullOrBlank()
+
+    val isSynced: Boolean get() = isAuthenticated && !householdId.isNullOrBlank()
     fun hasPremiumAccess(now: Long = System.currentTimeMillis()): Boolean =
         isPremium || (trialEndsAt != null && trialEndsAt > now)
 

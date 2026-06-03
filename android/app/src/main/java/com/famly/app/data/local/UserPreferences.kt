@@ -29,6 +29,10 @@ class UserPreferences(private val context: Context) {
             isPremium = prefs[KEY_PREMIUM] ?: false,
             trialEndsAt = prefs[KEY_TRIAL_END]?.takeIf { it > 0 },
             premiumExpiresAt = prefs[KEY_PREMIUM_EXPIRES]?.takeIf { it > 0 },
+            authToken = prefs[KEY_AUTH_TOKEN],
+            userId = prefs[KEY_USER_ID],
+            householdId = prefs[KEY_HOUSEHOLD_ID],
+            lastSyncToken = prefs[KEY_LAST_SYNC_TOKEN]?.takeIf { it > 0 },
         )
     }
 
@@ -37,6 +41,8 @@ class UserPreferences(private val context: Context) {
     suspend fun setTheme(theme: String) = context.dataStore.edit { it[KEY_THEME] = theme }
 
     suspend fun setBudgetStartDay(day: Int) = context.dataStore.edit { it[KEY_START_DAY] = day }
+
+    suspend fun setCurrency(currency: String) = context.dataStore.edit { it[KEY_CURRENCY] = currency }
 
     suspend fun activatePremium() = context.dataStore.edit {
         it[KEY_PREMIUM] = true
@@ -49,6 +55,26 @@ class UserPreferences(private val context: Context) {
         }
     }
 
+    suspend fun setAuthSession(token: String, userId: String) = context.dataStore.edit {
+        it[KEY_AUTH_TOKEN] = token
+        it[KEY_USER_ID] = userId
+    }
+
+    suspend fun clearAuthSession() = context.dataStore.edit {
+        it.remove(KEY_AUTH_TOKEN)
+        it.remove(KEY_USER_ID)
+        it.remove(KEY_HOUSEHOLD_ID)
+        it.remove(KEY_LAST_SYNC_TOKEN)
+    }
+
+    suspend fun setHouseholdId(householdId: String) = context.dataStore.edit {
+        it[KEY_HOUSEHOLD_ID] = householdId
+    }
+
+    suspend fun setLastSyncToken(token: Long) = context.dataStore.edit {
+        it[KEY_LAST_SYNC_TOKEN] = token
+    }
+
     companion object {
         private val KEY_THEME = stringPreferencesKey("theme")
         private val KEY_START_DAY = intPreferencesKey("start_day")
@@ -58,6 +84,10 @@ class UserPreferences(private val context: Context) {
         private val KEY_PREMIUM = booleanPreferencesKey("is_premium")
         private val KEY_TRIAL_END = longPreferencesKey("trial_ends_at")
         private val KEY_PREMIUM_EXPIRES = longPreferencesKey("premium_expires_at")
+        private val KEY_AUTH_TOKEN = stringPreferencesKey("auth_token")
+        private val KEY_USER_ID = stringPreferencesKey("user_id")
+        private val KEY_HOUSEHOLD_ID = stringPreferencesKey("household_id")
+        private val KEY_LAST_SYNC_TOKEN = longPreferencesKey("last_sync_token")
         private const val TRIAL_MS = 7L * 24 * 60 * 60 * 1000
     }
 }

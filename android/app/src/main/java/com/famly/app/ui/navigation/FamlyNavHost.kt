@@ -34,6 +34,7 @@ import com.famly.app.ui.screens.BalancesScreen
 import com.famly.app.ui.screens.BudgetScreen
 import com.famly.app.ui.screens.CategoriesScreen
 import com.famly.app.ui.screens.CategoryBudgetScreen
+import com.famly.app.ui.screens.FamilyMemberScreen
 import com.famly.app.ui.screens.FamilyScreen
 import com.famly.app.ui.screens.HomeScreen
 import com.famly.app.ui.screens.MoreScreen
@@ -44,6 +45,7 @@ import com.famly.app.ui.screens.PremiumPaywallScreen
 import com.famly.app.ui.screens.QuickAddSheet
 import com.famly.app.ui.screens.ReportsScreen
 import com.famly.app.ui.screens.SettingsScreen
+import com.famly.app.ui.screens.SplitExpenseScreen
 import com.famly.app.ui.theme.Primary
 
 private data class TabItem(val route: String, val label: String, val icon: ImageVector)
@@ -70,6 +72,10 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
     val currentRoute = navBackStack?.destination?.route
     val isMainTab = tabs.any { it.route == currentRoute }
 
+    fun navigateToPremium() {
+        navController.navigate(Routes.PREMIUM)
+    }
+
     Scaffold(
         bottomBar = {
             if (isMainTab) {
@@ -77,7 +83,13 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
                     tabs.forEach { tab ->
                         NavigationBarItem(
                             selected = currentRoute == tab.route,
-                            onClick = { navController.navigate(tab.route) { popUpTo(Routes.HOME); launchSingleTop = true } },
+                            onClick = {
+                                navController.navigate(tab.route) {
+                                    popUpTo(Routes.HOME) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
                             icon = { Icon(tab.icon, contentDescription = tab.label) },
                             label = { Text(tab.label) },
                         )
@@ -88,7 +100,7 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
         floatingActionButton = {
             if (isMainTab) {
                 FloatingActionButton(onClick = { quickAddVisible = true }, containerColor = Primary) {
-                    Text("+")
+                    Text("+", color = androidx.compose.ui.graphics.Color.White)
                 }
             }
         },
@@ -99,56 +111,165 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
             modifier = Modifier.padding(padding),
         ) {
             composable(Routes.HOME) {
-                HomeScreen(state, { navController.navigate(Routes.OPERATIONS) }, { navController.navigate(Routes.operationDetail(it)) })
+                HomeScreen(
+                    state = state,
+                    onOpenBudget = { navController.navigate(Routes.BUDGET) },
+                    onOpenOperations = { navController.navigate(Routes.OPERATIONS) },
+                    onOpenTransaction = { navController.navigate(Routes.operationDetail(it)) },
+                    onOpenPremium = { navigateToPremium() },
+                )
             }
             composable(Routes.OPERATIONS) {
                 OperationsScreen(state) { navController.navigate(Routes.operationDetail(it)) }
             }
             composable(Routes.BUDGET) {
-                BudgetScreen(state, { navController.navigate(Routes.budgetCategory(it)) }, { navController.navigate(Routes.CATEGORIES) })
+                BudgetScreen(
+                    state,
+                    { navController.navigate(Routes.budgetCategory(it)) },
+                    { navController.navigate(Routes.CATEGORIES) },
+                )
             }
             composable(Routes.MORE) {
-                MoreScreen(state) { route -> navController.navigate(route) }
+                MoreScreen(
+                    state = state,
+                    onNavigate = { route -> navController.navigate(route) },
+                    onOpenPremium = { navigateToPremium() },
+                )
             }
             composable(Routes.ACCOUNTS) {
-                AccountsScreen(state, { navController.popBackStack() }, { viewModel.addAccount(it) }, { viewModel.deleteAccount(it) })
+                AccountsScreen(
+                    state,
+                    { navController.popBackStack() },
+                    { viewModel.addAccount(it) },
+                    { viewModel.deleteAccount(it) },
+                    { viewModel.cycleAccountIcon(it) },
+                )
             }
             composable(Routes.REPORTS) {
                 ReportsScreen(state) { navController.popBackStack() }
             }
             composable(Routes.SETTINGS) {
-                SettingsScreen(state, { navController.popBackStack() }, { viewModel.setTheme(it) }, { viewModel.setBudgetStartDay(it) })
-            }
-            composable(Routes.BACKUP) {
-                BackupScreen { navController.popBackStack() }
-            }
-            composable(Routes.CATEGORIES) {
-                CategoriesScreen(state, { navController.popBackStack() }, { n, t -> viewModel.addCategory(n, t) }, { viewModel.deleteCategory(it) })
-            }
-            composable(Routes.PREMIUM) {
-                PremiumPaywallScreen(state, { navController.popBackStack() }, { viewModel.activatePremium(); navController.popBackStack() })
-            }
-            composable(Routes.FAMILY) {
-                FamilyScreen(state, { navController.popBackStack() }) { navController.navigate(Routes.PREMIUM) }
-            }
-            composable(Routes.BALANCES) {
-                BalancesScreen(state, { navController.popBackStack() }) { navController.navigate(Routes.PREMIUM) }
-            }
-            composable(Routes.ANALYTICS) {
-                AnalyticsScreen(state, { navController.popBackStack() }) { navController.navigate(Routes.PREMIUM) }
-            }
-            composable(Routes.OPERATION_DETAIL, arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
-                OperationDetailScreen(
+                SettingsScreen(
                     state,
-                    entry.arguments?.getString("id") ?: return@composable,
                     { navController.popBackStack() },
-                    { viewModel.deleteTransaction(entry.arguments?.getString("id") ?: return@OperationDetailScreen); navController.popBackStack() },
-                    { navController.navigate(Routes.PREMIUM) },
+                    { viewModel.setTheme(it) },
+                    { viewModel.setBudgetStartDay(it) },
+                    { viewModel.setCurrency(it) },
                 )
             }
-            composable(Routes.BUDGET_CATEGORY, arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
-                CategoryBudgetScreen(state, entry.arguments?.getString("id") ?: return@composable, { navController.popBackStack() }) {
-                    viewModel.updateCategoryBudget(entry.arguments?.getString("id") ?: return@CategoryBudgetScreen, it)
+            composable(Routes.BACKUP) {
+                BackupScreen(
+                    state = state,
+                    onBack = { navController.popBackStack() },
+                    onExportJson = { viewModel.exportBackupJson() },
+                    onExportCsv = { period -> viewModel.exportCsv(period) },
+                    onExportExcel = { period -> viewModel.exportExcel(period) },
+                )
+            }
+            composable(Routes.CATEGORIES) {
+                CategoriesScreen(
+                    state,
+                    { navController.popBackStack() },
+                    { n, t -> viewModel.addCategory(n, t) },
+                    { viewModel.deleteCategory(it) },
+                    { viewModel.cycleCategoryIcon(it) },
+                )
+            }
+            composable(Routes.PREMIUM) {
+                PremiumPaywallScreen(
+                    state,
+                    { navController.popBackStack() },
+                    {
+                        viewModel.purchasePremium()
+                        navController.popBackStack()
+                    },
+                )
+            }
+            composable(Routes.FAMILY) {
+                FamilyScreen(
+                    state,
+                    { navController.popBackStack() },
+                    { navigateToPremium() },
+                    { navController.navigate(Routes.familyMember(it)) },
+                )
+            }
+            composable(
+                Routes.FAMILY_MEMBER,
+                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+            ) { entry ->
+                val memberId = entry.arguments?.getString("id") ?: return@composable
+                FamilyMemberScreen(
+                    state,
+                    memberId,
+                    { navController.popBackStack() },
+                    { viewModel.updateFamilyMember(memberId, role = it) },
+                    { viewModel.updateFamilyMember(memberId, visibility = it) },
+                )
+            }
+            composable(Routes.BALANCES) {
+                BalancesScreen(
+                    state,
+                    { navController.popBackStack() },
+                    { navigateToPremium() },
+                    { from, to -> viewModel.settleIouBetween(from, to) },
+                )
+            }
+            composable(Routes.ANALYTICS) {
+                AnalyticsScreen(
+                    state,
+                    { navController.popBackStack() },
+                    { navigateToPremium() },
+                )
+            }
+            composable(
+                Routes.OPERATION_DETAIL,
+                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+            ) { entry ->
+                val txId = entry.arguments?.getString("id") ?: return@composable
+                OperationDetailScreen(
+                    state,
+                    txId,
+                    { navController.popBackStack() },
+                    {
+                        viewModel.deleteTransaction(txId)
+                        navController.popBackStack()
+                    },
+                    {
+                        if (state.settings.hasPremiumAccess()) {
+                            navController.navigate(Routes.split(txId))
+                        } else {
+                            navigateToPremium()
+                        }
+                    },
+                )
+            }
+            composable(
+                Routes.SPLIT,
+                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+            ) { entry ->
+                val txId = entry.arguments?.getString("id") ?: return@composable
+                SplitExpenseScreen(
+                    state,
+                    txId,
+                    { navController.popBackStack() },
+                    { navigateToPremium() },
+                    { members ->
+                        viewModel.saveSplit(txId, members)
+                        navController.popBackStack()
+                    },
+                )
+            }
+            composable(
+                Routes.BUDGET_CATEGORY,
+                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+            ) { entry ->
+                val catId = entry.arguments?.getString("id") ?: return@composable
+                CategoryBudgetScreen(
+                    state,
+                    catId,
+                    { navController.popBackStack() },
+                ) {
+                    viewModel.updateCategoryBudget(catId, it)
                 }
             }
         }

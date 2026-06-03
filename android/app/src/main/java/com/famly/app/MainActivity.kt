@@ -17,7 +17,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val app = application as FamlyApplication
         setContent {
-            val vm: FamlyViewModel = viewModel(factory = FamlyViewModel.Factory(app.repository))
+            val vm: FamlyViewModel = viewModel(
+                factory = FamlyViewModel.Factory(
+                    app.repository,
+                    app.syncRepository,
+                    app.billingManager,
+                ),
+            )
             val state by vm.uiState.collectAsState()
             FamlyTheme(darkTheme = state.settings.theme == "dark") {
                 FamlyNavHost(vm)

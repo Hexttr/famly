@@ -24,4 +24,9 @@ object BudgetCalculator {
 
     fun safeToSpend(budgetTotalKopecks: Long, spentKopecks: Long): Long =
         maxOf(0L, budgetTotalKopecks - spentKopecks)
+
+    fun dailySafeSpend(remainingKopecks: Long, daysLeft: Int): Long {
+        if (daysLeft <= 0 || remainingKopecks <= 0) return 0L
+        return remainingKopecks / daysLeft
+    }
 }

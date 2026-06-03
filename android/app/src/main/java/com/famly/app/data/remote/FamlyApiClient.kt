@@ -2,24 +2,131 @@ package com.famly.app.data.remote
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 
+data class AuthResult(val token: String, val userId: String)
+
+data class HouseholdResult(
+    val id: String,
+    val name: String,
+    val ownerId: String,
+)
+
+data class SyncEntityDto(
+    val type: String,
+    val id: String,
+    val payload: String,
+    val syncVersion: Int,
+    val updatedAt: Long,
+    val deleted: Boolean = false,
+)
+
+data class SyncPullResult(
+    val entities: List<SyncEntityDto>,
+    val syncToken: Long,
+)
+
 /**
- * Minimal HTTP client for Premium sync and subscription status.
- * Base URL configurable via BuildConfig in production.
+ * HTTP client for auth, household management, and sync.
+ * Base URL configurable; defaults to Android emulator host alias.
  */
 class FamlyApiClient(private val baseUrl: String = "http://10.0.2.2:8080") {
 
+    suspend fun register(email: String, password: String, displayName: String): AuthResult =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().apply {
+                put("email", email)
+                put("password", password)
+                put("displayName", displayName)
+            }
+            val response = postJson("/auth/register", body, authToken = null)
+            AuthResult(response.getString("token"), response.getString("userId"))
+        }
+
+    suspend fun login(email: String, password: String): AuthResult =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().apply {
+                put("email", email)
+                put("password", password)
+            }
+            val response = postJson("/auth/login", body, authToken = null)
+            AuthResult(response.getString("token"), response.getString("userId"))
+        }
+
+    suspend fun createHousehold(token: String, name: String): HouseholdResult =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().apply { put("name", name) }
+            val response = postJson("/households", body, authToken = token)
+            HouseholdResult(
+                id = response.getString("id"),
+                name = response.getString("name"),
+                ownerId = response.getString("ownerId"),
+            )
+        }
+
+    suspend fun joinHousehold(token: String, inviteCode: String): HouseholdResult =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().apply { put("inviteCode", inviteCode) }
+            val response = postJson("/households/join", body, authToken = token)
+            HouseholdResult(
+                id = response.getString("id"),
+                name = response.getString("name"),
+                ownerId = response.getString("ownerId"),
+            )
+        }
+
+    suspend fun push(token: String, entities: List<SyncEntityDto>): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                val arr = JSONArray()
+                entities.forEach { e ->
+                    arr.put(
+                        JSONObject().apply {
+                            put("type", e.type)
+                            put("id", e.id)
+                            put("payload", e.payload)
+                            put("syncVersion", e.syncVersion)
+                            put("updatedAt", e.updatedAt)
+                            put("deleted", e.deleted)
+                        },
+                    )
+                }
+                postJson("/sync/push", JSONObject().put("entities", arr), authToken = token)
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+    suspend fun pull(token: String, since: Long): SyncPullResult =
+        withContext(Dispatchers.IO) {
+            val response = getJson("/sync/pull?since=$since", authToken = token)
+            val entities = response.getJSONArray("entities").let { arr ->
+                List(arr.length()) { i ->
+                    val obj = arr.getJSONObject(i)
+                    SyncEntityDto(
+                        type = obj.getString("type"),
+                        id = obj.getString("id"),
+                        payload = obj.getString("payload"),
+                        syncVersion = obj.getInt("syncVersion"),
+                        updatedAt = obj.getLong("updatedAt"),
+                        deleted = obj.optBoolean("deleted", false),
+                    )
+                }
+            }
+            SyncPullResult(entities, response.getLong("syncToken"))
+        }
+
     suspend fun getSubscriptionStatus(token: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val conn = (URL("$baseUrl/subscription/status").openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                setRequestProperty("Authorization", "Bearer $token")
-            }
-            val body = conn.inputStream.bufferedReader().readText()
-            JSONObject(body).getBoolean("isPremium")
+            val response = getJson("/subscription/status", authToken = token)
+            response.getBoolean("isPremium")
         } catch (_: Exception) {
             false
         }
@@ -32,5 +139,33 @@ class FamlyApiClient(private val baseUrl: String = "http://10.0.2.2:8080") {
         } catch (_: Exception) {
             false
         }
+    }
+
+    private fun postJson(path: String, body: JSONObject, authToken: String?): JSONObject {
+        val conn = (URL("$baseUrl$path").openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            authToken?.let { setRequestProperty("Authorization", "Bearer $it") }
+        }
+        OutputStreamWriter(conn.outputStream).use { it.write(body.toString()) }
+        return readResponse(conn)
+    }
+
+    private fun getJson(path: String, authToken: String?): JSONObject {
+        val conn = (URL("$baseUrl$path").openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            authToken?.let { setRequestProperty("Authorization", "Bearer $it") }
+        }
+        return readResponse(conn)
+    }
+
+    private fun readResponse(conn: HttpURLConnection): JSONObject {
+        val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
+        val text = BufferedReader(InputStreamReader(stream)).use { it.readText() }
+        if (conn.responseCode !in 200..299) {
+            error("HTTP ${conn.responseCode}: $text")
+        }
+        return JSONObject(text)
     }
 }

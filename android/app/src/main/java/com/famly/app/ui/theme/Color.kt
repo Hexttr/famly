@@ -2,6 +2,7 @@ package com.famly.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+val PrimaryDark = Color(0xFF1B4332)
 val Primary = Color(0xFF2D6A4F)
 val PrimaryLight = Color(0xFF40916C)
 val Accent = Color(0xFF52B788)
@@ -23,3 +24,5 @@ val DarkSurface = Color(0xFF1E2421)
 val DarkSurfaceAlt = Color(0xFF2A322E)
 val DarkTextPrimary = Color(0xFFF0F4F2)
 val DarkTextSecondary = Color(0xFFA8B5AE)
+val DarkExpense = Color(0xFFFF6B6B)
+val DarkPremium = Color(0xFFFFD166)

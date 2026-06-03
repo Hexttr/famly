@@ -4,10 +4,24 @@ import com.famly.app.data.local.FamlyDatabase
 import com.famly.app.data.local.UserPreferences
 import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.CategoryEntity
+import com.famly.app.data.local.entity.FamilyMemberEntity
+import com.famly.app.data.local.entity.IouBalanceEntity
+import com.famly.app.data.local.entity.SplitAllocationEntity
 import com.famly.app.data.local.entity.TransactionEntity
-import com.famly.app.domain.model.AppSettings
+import com.famly.app.domain.nextAccountIcon
+import com.famly.app.domain.nextCategoryIcon
+import com.famly.app.data.export.BackupExporter
+import com.famly.app.data.export.CsvExporter
+import com.famly.app.data.export.ExcelExporter
+import com.famly.app.domain.analytics.ReportPeriod
+import com.famly.app.domain.analytics.filterTransactionsByPeriod
+import com.famly.app.domain.analytics.getReportPeriodDescription
+import com.famly.app.domain.iou.netIouBalances
+import com.famly.app.domain.iou.IouBalance
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import com.famly.app.domain.model.AppSettings
 import java.time.LocalDate
 import java.util.UUID
 
@@ -19,38 +33,28 @@ class FamlyRepository(
     val accounts: Flow<List<AccountEntity>> = db.accountDao().observeAll()
     val categories: Flow<List<CategoryEntity>> = db.categoryDao().observeAll()
     val transactions: Flow<List<TransactionEntity>> = db.transactionDao().observeAll()
+    val familyMembers: Flow<List<FamilyMemberEntity>> = db.familyMemberDao().observeAll()
+    val iouBalances: Flow<List<IouBalanceEntity>> = db.iouBalanceDao().observeOpen()
+
+    val nettedIouBalances: Flow<List<IouBalance>> = iouBalances.map { list ->
+        netIouBalances(list.map { IouBalance(it.fromMemberId, it.toMemberId, it.amountKopecks) })
+    }
 
     fun observeTransaction(id: String): Flow<TransactionEntity?> =
         db.transactionDao().observeById(id)
 
+    fun observeFamilyMember(id: String): Flow<FamilyMemberEntity?> =
+        db.familyMemberDao().observeById(id)
+
     suspend fun ensureSeeded() {
         if (db.accountDao().observeAll().first().isNotEmpty()) return
         val now = System.currentTimeMillis()
-        val today = LocalDate.now().toEpochDay()
 
-        listOf(
-            AccountEntity("a1", "Наличные", "💵", 1_250_000, "#52B788", 0, now, now),
-            AccountEntity("a2", "Сбербанк", "💳", 8_730_000, "#2D6A4F", 1, now, now),
-            AccountEntity("a3", "Накопления", "🏦", 15_000_000, "#40916C", 2, now, now),
-        ).forEach { db.accountDao().upsert(it) }
-
-        listOf(
-            CategoryEntity("c1", "Продукты", "🛒", "expense", "#E63946", 2_500_000, 0, now, now),
-            CategoryEntity("c2", "Транспорт", "🚌", "expense", "#457B9D", 800_000, 1, now, now),
-            CategoryEntity("c3", "Кафе", "☕", "expense", "#F4A261", 600_000, 2, now, now),
-            CategoryEntity("c4", "ЖКХ", "🏠", "expense", "#6D597A", 1_200_000, 3, now, now),
-            CategoryEntity("c5", "Развлечения", "🎬", "expense", "#E76F51", 500_000, 4, now, now),
-            CategoryEntity("c6", "Зарплата", "💰", "income", "#2D6A4F", null, 5, now, now),
-            CategoryEntity("c7", "Фриланс", "💻", "income", "#40916C", null, 6, now, now),
-        ).forEach { db.categoryDao().upsert(it) }
-
-        listOf(
-            TransactionEntity(UUID.randomUUID().toString(), 184_700, "expense", "c1", "a2", today, "Пятёрочка", false, now, now),
-            TransactionEntity(UUID.randomUUID().toString(), 8_900, "expense", "c2", "a2", today, "Метро", false, now, now),
-            TransactionEntity(UUID.randomUUID().toString(), 45_000, "expense", "c3", "a1", today - 1, "Кофейня", false, now, now),
-            TransactionEntity(UUID.randomUUID().toString(), 8_500_000, "income", "c6", "a2", today - 5, "Зарплата", false, now, now),
-            TransactionEntity(UUID.randomUUID().toString(), 320_000, "expense", "c4", "a2", today - 3, "Электричество", false, now, now),
-        ).forEach { db.transactionDao().upsert(it) }
+        FamlySeedData.accounts(now).forEach { db.accountDao().upsert(it) }
+        FamlySeedData.categories(now).forEach { db.categoryDao().upsert(it) }
+        FamlySeedData.transactions(now).forEach { db.transactionDao().upsert(it) }
+        FamlySeedData.familyMembers(now).forEach { db.familyMemberDao().upsert(it) }
+        FamlySeedData.iouBalances(now).forEach { db.iouBalanceDao().upsert(it) }
 
         preferences.initTrialIfNeeded()
     }
@@ -58,6 +62,7 @@ class FamlyRepository(
     suspend fun completeOnboarding() = preferences.setOnboardingComplete()
     suspend fun setTheme(theme: String) = preferences.setTheme(theme)
     suspend fun setBudgetStartDay(day: Int) = preferences.setBudgetStartDay(day)
+    suspend fun setCurrency(currency: String) = preferences.setCurrency(currency)
     suspend fun activatePremium() = preferences.activatePremium()
 
     suspend fun addTransaction(
@@ -84,9 +89,95 @@ class FamlyRepository(
                 updatedAt = now,
             ),
         )
+        applyBalanceDelta(accountId, type, amountKopecks)
     }
 
-    suspend fun deleteTransaction(id: String) = db.transactionDao().delete(id)
+    suspend fun deleteTransaction(id: String) {
+        val tx = db.transactionDao().observeById(id).first() ?: return
+        db.transactionDao().delete(id)
+        db.splitAllocationDao().deleteByTransaction(id)
+        applyBalanceDelta(tx.accountId, tx.type, -tx.amountKopecks)
+    }
+
+    private suspend fun applyBalanceDelta(accountId: String, type: String, amountKopecks: Long) {
+        val account = db.accountDao().getById(accountId) ?: return
+        val delta = when (type) {
+            "income" -> amountKopecks
+            else -> -amountKopecks
+        }
+        db.accountDao().upsert(
+            account.copy(
+                balanceKopecks = account.balanceKopecks + delta,
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    suspend fun saveSplit(transactionId: String, memberIds: List<String>) {
+        val tx = db.transactionDao().observeById(transactionId).first() ?: return
+        val now = System.currentTimeMillis()
+        db.splitAllocationDao().deleteByTransaction(transactionId)
+        if (memberIds.isEmpty()) {
+            db.transactionDao().upsert(tx.copy(splitMemberIds = null, updatedAt = now))
+            return
+        }
+        val share = tx.amountKopecks / memberIds.size
+        memberIds.forEach { memberId ->
+            db.splitAllocationDao().upsert(
+                SplitAllocationEntity(
+                    id = UUID.randomUUID().toString(),
+                    transactionId = transactionId,
+                    memberId = memberId,
+                    shareKopecks = share,
+                    createdAt = now,
+                ),
+            )
+        }
+        db.transactionDao().upsert(
+            tx.copy(
+                splitMemberIds = memberIds.joinToString(","),
+                updatedAt = now,
+            ),
+        )
+    }
+
+    suspend fun settleIou(iouId: String) {
+        db.iouBalanceDao().settle(iouId, System.currentTimeMillis())
+    }
+
+    suspend fun settleIouBetween(fromMemberId: String, toMemberId: String) {
+        val now = System.currentTimeMillis()
+        db.iouBalanceDao().observeOpen().first()
+            .filter {
+                (it.fromMemberId == fromMemberId && it.toMemberId == toMemberId) ||
+                    (it.fromMemberId == toMemberId && it.toMemberId == fromMemberId)
+            }
+            .forEach { db.iouBalanceDao().settle(it.id, now) }
+    }
+
+    suspend fun updateFamilyMember(member: FamilyMemberEntity) {
+        db.familyMemberDao().upsert(member.copy(updatedAt = System.currentTimeMillis()))
+    }
+
+    suspend fun cycleAccountIcon(accountId: String) {
+        val account = db.accountDao().getById(accountId) ?: return
+        db.accountDao().upsert(
+            account.copy(
+                icon = nextAccountIcon(account.icon),
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    suspend fun cycleCategoryIcon(categoryId: String) {
+        val cat = db.categoryDao().getById(categoryId) ?: return
+        db.categoryDao().upsert(
+            cat.copy(
+                icon = nextCategoryIcon(cat.icon, cat.type),
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
 
     suspend fun upsertCategory(category: CategoryEntity) = db.categoryDao().upsert(category)
     suspend fun deleteCategory(id: String) = db.categoryDao().delete(id)
@@ -94,18 +185,72 @@ class FamlyRepository(
     suspend fun upsertAccount(account: AccountEntity) = db.accountDao().upsert(account)
     suspend fun deleteAccount(id: String) = db.accountDao().delete(id)
 
+    suspend fun getSplitAllocations(transactionId: String): List<SplitAllocationEntity> =
+        db.splitAllocationDao().getByTransaction(transactionId)
+
     suspend fun exportBackupJson(): String {
-        val accounts = db.accountDao().observeAll().first()
-        val categories = db.categoryDao().observeAll().first()
-        val transactions = db.transactionDao().observeAll().first()
-        return buildString {
-            append("{\"accounts\":")
-            append(accounts.size)
-            append(",\"categories\":")
-            append(categories.size)
-            append(",\"transactions\":")
-            append(transactions.size)
-            append("}")
+        val settings = preferences.settings.first()
+        return BackupExporter.export(
+            accounts = db.accountDao().observeAll().first(),
+            categories = db.categoryDao().observeAll().first(),
+            transactions = db.transactionDao().observeAll().first(),
+            familyMembers = db.familyMemberDao().observeAll().first(),
+            iouBalances = db.iouBalanceDao().observeOpen().first(),
+            settings = settings,
+        )
+    }
+
+    suspend fun exportCsv(period: ReportPeriod = ReportPeriod.MONTH, daysLimit: Int? = null): String {
+        val settings = preferences.settings.first()
+        val transactions = filterTransactionsForExport(
+            db.transactionDao().observeAll().first(),
+            period,
+            settings,
+            daysLimit,
+        )
+        return CsvExporter.export(
+            transactions = transactions,
+            categories = db.categoryDao().observeAll().first(),
+            accounts = db.accountDao().observeAll().first(),
+        )
+    }
+
+    suspend fun exportExcel(period: ReportPeriod = ReportPeriod.MONTH, daysLimit: Int? = null): ByteArray {
+        val settings = preferences.settings.first()
+        val transactions = filterTransactionsForExport(
+            db.transactionDao().observeAll().first(),
+            period,
+            settings,
+            daysLimit,
+        )
+        return ExcelExporter.export(
+            transactions = transactions,
+            categories = db.categoryDao().observeAll().first(),
+            periodDescription = getReportPeriodDescription(period),
+        )
+    }
+
+    private fun filterTransactionsForExport(
+        transactions: List<TransactionEntity>,
+        period: ReportPeriod,
+        settings: AppSettings,
+        requestedDaysLimit: Int?,
+    ): List<TransactionEntity> {
+        if (settings.hasPremiumAccess()) {
+            return filterTransactionsByPeriod(transactions, period)
         }
+        val daysLimit = resolveExportDaysLimit(settings, requestedDaysLimit) ?: FREE_TIER_EXPORT_DAYS
+        val cutoff = LocalDate.now().minusDays(daysLimit.toLong()).toEpochDay()
+        return transactions.filter { it.dateEpochDay >= cutoff }
+    }
+
+    /** Free tier exports are limited to the last 30 days. */
+    private fun resolveExportDaysLimit(settings: AppSettings, requested: Int?): Int? {
+        if (settings.hasPremiumAccess()) return requested
+        return requested?.coerceAtMost(FREE_TIER_EXPORT_DAYS) ?: FREE_TIER_EXPORT_DAYS
+    }
+
+    companion object {
+        private const val FREE_TIER_EXPORT_DAYS = 30
     }
 }
