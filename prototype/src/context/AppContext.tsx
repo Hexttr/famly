@@ -55,6 +55,26 @@ const defaultSettings: AppSettings = {
   trialEndsAt: new Date(Date.now() + 7 * 86400000).toISOString(),
 }
 
+const SETTINGS_STORAGE_KEY = 'famly-app-settings'
+
+function loadStoredSettings(): Partial<AppSettings> {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
+    if (!raw) return {}
+    return JSON.parse(raw) as Partial<AppSettings>
+  } catch {
+    return {}
+  }
+}
+
+function persistSettings(settings: AppSettings) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+  } catch {
+    // приватный режим или переполнение — игнорируем
+  }
+}
+
 const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -63,7 +83,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState(mockTransactions)
   const [family] = useState(mockFamily)
   const [iouBalances] = useState(mockIOU)
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings)
+  const [settings, setSettings] = useState<AppSettings>(() => ({
+    ...defaultSettings,
+    ...loadStoredSettings(),
+  }))
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [quickAddPreset, setQuickAddPreset] = useState<QuickAddPreset | null>(null)
 
@@ -78,7 +101,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const updateSettings = (data: Partial<AppSettings>) =>
-    setSettings((s) => ({ ...s, ...data }))
+    setSettings((s) => {
+      const next = { ...s, ...data }
+      persistSettings(next)
+      return next
+    })
 
   const addTransaction = (tx: Omit<Transaction, 'id'>) =>
     setTransactions((prev) => [{ ...tx, id: `t${Date.now()}` }, ...prev])

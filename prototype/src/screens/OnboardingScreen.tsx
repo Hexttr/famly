@@ -1,26 +1,73 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppLogo } from '../components/AppLogo'
+import {
+  BudgetIllustration,
+  FamilyIllustration,
+  ONBOARDING_ART_MAX_WIDTH,
+} from '../components/OnboardingIllustrations'
 import { useApp } from '../context/AppContext'
-import { getTheme, headerLayout } from '../theme'
+import { getTheme, radius } from '../theme'
+
+const LOGO_SIZE = 168
 
 const slides = [
   {
-    icon: '⚡',
+    kind: 'logo' as const,
     title: 'Запись за 3 секунды',
     text: 'Добавляйте расходы одним тапом. Без сложных форм и лишних экранов.',
   },
   {
-    icon: '📊',
+    kind: 'budget' as const,
     title: 'Бюджет под вашу зарплату',
-    text: 'Период с 28-го, safe-to-spend и лимиты по категориям — бесплатно.',
+    text: 'Настраиваемые периоды, лимиты по категориям. Все для Вашего удобства!',
   },
   {
-    icon: '👨‍👩‍👧',
-    title: '7 дней Premium бесплатно',
-    text: 'Семейный бюджет, синхронизация и split расходов — попробуйте без оплаты.',
+    kind: 'family' as const,
+    title: '7 дней бесплатно',
+    text: 'Семейный бюджет, гибкая настройка — попробуйте без оплаты',
   },
 ]
+
+function IconArrowRight() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IconSkip() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconStart() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M5 12l5 5L20 7"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function SlideVisual({ kind }: { kind: (typeof slides)[number]['kind'] }) {
+  if (kind === 'logo') {
+    return <AppLogo size={LOGO_SIZE} />
+  }
+  if (kind === 'budget') {
+    return <BudgetIllustration maxWidth={ONBOARDING_ART_MAX_WIDTH} />
+  }
+  return <FamilyIllustration maxWidth={ONBOARDING_ART_MAX_WIDTH} />
+}
 
 export function OnboardingScreen() {
   const [step, setStep] = useState(0)
@@ -34,6 +81,7 @@ export function OnboardingScreen() {
   }
 
   const slide = slides[step]
+  const isLast = step === slides.length - 1
 
   return (
     <div
@@ -46,43 +94,77 @@ export function OnboardingScreen() {
         overflow: 'hidden',
       }}
     >
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: `${headerLayout.inset}px 16px`,
-          background: theme.background,
-        }}
-      >
-        <AppLogo variant="header" />
-      </header>
-
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 24 }}>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-          {step === 0 ? (
-            <div style={{ marginBottom: 24 }}>
-              <AppLogo variant="hero" />
-            </div>
-          ) : (
-            <div style={{ fontSize: 64, marginBottom: 24 }}>{slide.icon}</div>
-          )}
-          <h1 style={{ margin: '0 0 12px', fontSize: 24, color: theme.text }}>{slide.title}</h1>
-          <p style={{ margin: 0, color: theme.textSecondary, fontSize: 16, lineHeight: 1.5, maxWidth: 280 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '28px 20px 24px' }}>
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            textAlign: 'center',
+            width: '100%',
+          }}
+        >
+          <div
+            style={{
+              marginBottom: 28,
+              width: '100%',
+              maxWidth: ONBOARDING_ART_MAX_WIDTH,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              ...(slide.kind === 'logo'
+                ? { width: LOGO_SIZE, height: LOGO_SIZE, maxWidth: LOGO_SIZE }
+                : {}),
+            }}
+          >
+            <SlideVisual kind={slide.kind} />
+          </div>
+          <h1
+            style={{
+              margin: '0 0 12px',
+              fontSize: 24,
+              fontWeight: 700,
+              color: theme.text,
+              maxWidth: ONBOARDING_ART_MAX_WIDTH,
+              width: '100%',
+            }}
+          >
+            {slide.title}
+          </h1>
+          <p
+            style={{
+              margin: 0,
+              color: theme.textSecondary,
+              fontSize: 16,
+              lineHeight: 1.55,
+              maxWidth: ONBOARDING_ART_MAX_WIDTH,
+              width: '100%',
+            }}
+          >
             {slide.text}
           </p>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 24 }}>
+        <div
+          style={{
+            width: '100%',
+            maxWidth: ONBOARDING_ART_MAX_WIDTH,
+            margin: '0 auto',
+          }}
+        >
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 24 }}>
           {slides.map((_, i) => (
             <div
               key={i}
               style={{
-                width: i === step ? 24 : 8,
-                height: 8,
-                borderRadius: 4,
-                background: i === step ? theme.primary : theme.border,
-                transition: 'width 0.2s',
+                width: i === step ? 28 : 10,
+                height: 10,
+                borderRadius: 5,
+                background: i === step ? theme.primary : 'transparent',
+                border: `2px solid ${i === step ? theme.primary : `${theme.primary}50`}`,
+                transition: 'all 0.2s ease',
               }}
             />
           ))}
@@ -90,38 +172,64 @@ export function OnboardingScreen() {
 
         <button
           type="button"
-          onClick={() => (step < slides.length - 1 ? setStep(step + 1) : finish())}
+          onClick={() => (isLast ? finish() : setStep(step + 1))}
           style={{
             width: '100%',
             padding: 16,
             border: 'none',
-            borderRadius: 12,
+            borderRadius: radius.md,
             background: theme.primary,
             color: '#fff',
             fontSize: 16,
             fontWeight: 600,
             cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            boxShadow: '0 4px 14px rgba(45, 106, 79, 0.35)',
           }}
         >
-          {step < slides.length - 1 ? 'Далее' : 'Начать'}
+          {isLast ? (
+            <>
+              Начать
+              <IconStart />
+            </>
+          ) : (
+            <>
+              Далее
+              <IconArrowRight />
+            </>
+          )}
         </button>
 
-        {step < slides.length - 1 && (
+        {!isLast && (
           <button
             type="button"
             onClick={finish}
             style={{
               marginTop: 12,
-              border: 'none',
-              background: 'none',
-              color: theme.textMuted,
-              fontSize: 14,
+              width: '100%',
+              padding: '14px 16px',
+              border: `2px solid ${theme.primary}50`,
+              borderRadius: radius.md,
+              background: theme.surface,
+              color: theme.textSecondary,
+              fontSize: 15,
+              fontWeight: 600,
               cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              boxShadow: '0 2px 10px rgba(45, 106, 79, 0.18)',
             }}
           >
+            <IconSkip />
             Пропустить
           </button>
         )}
+        </div>
       </div>
     </div>
   )
