@@ -2,7 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { CategoryIcon } from '../components/CategoryIcon'
 import { useSetPageHeader } from '../context/HeaderContext'
 import { useApp } from '../context/AppContext'
-import { formatMoney } from '../data/mockData'
+import { formatMoney, formatShortDate } from '../data/mockData'
 import { getTheme } from '../theme'
 
 export function OperationDetailScreen() {
@@ -47,7 +47,7 @@ export function OperationDetailScreen() {
 
       <div style={{ padding: '0 16px' }}>
         {[
-          ['Дата', tx.date],
+          ['Дата', formatShortDate(tx.date)],
           ['Счёт', `${acc?.icon} ${acc?.name}`],
           ['Тип', tx.type === 'expense' ? 'Расход' : 'Доход'],
           ['Повтор', tx.isRecurring ? 'Каждый месяц' : 'Нет'],

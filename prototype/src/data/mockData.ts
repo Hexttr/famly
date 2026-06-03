@@ -150,13 +150,15 @@ export function formatPeriodLabel(date = new Date()): string {
 }
 
 export function formatShortDate(dateStr: string): string {
+  const parts = dateStr.split('-')
+  if (parts.length === 3) {
+    const [y, m, d] = parts
+    return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`
+  }
   const date = new Date(dateStr)
-  const today = new Date()
-  const yesterday = new Date()
-  yesterday.setDate(today.getDate() - 1)
-
-  if (dateStr === today.toISOString().slice(0, 10)) return 'Сегодня'
-  if (dateStr === yesterday.toISOString().slice(0, 10)) return 'Вчера'
-
-  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+  if (Number.isNaN(date.getTime())) return dateStr
+  const d = String(date.getDate()).padStart(2, '0')
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const y = date.getFullYear()
+  return `${d}-${m}-${y}`
 }

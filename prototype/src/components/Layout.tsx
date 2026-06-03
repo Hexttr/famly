@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { AppHeader } from './AppHeader'
 import { BottomNav } from './BottomNav'
-import { Fab } from './Fab'
 import { QuickAddSheet } from './QuickAddSheet'
 import { HeaderProvider } from '../context/HeaderContext'
 import { useApp } from '../context/AppContext'
@@ -50,7 +49,6 @@ export function Layout() {
         >
           <Outlet />
         </main>
-        {showNav && <Fab />}
         {showNav && <BottomNav />}
         <QuickAddSheet />
       </div>

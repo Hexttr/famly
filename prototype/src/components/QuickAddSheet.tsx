@@ -1,7 +1,45 @@
 import { useEffect, useState } from 'react'
 import { CategoryIcon } from './CategoryIcon'
 import { useApp } from '../context/AppContext'
-import { getTheme } from '../theme'
+import { getTheme, radius, shadows } from '../theme'
+
+function IconNewOperation() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconExpense() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IconIncome() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IconSave() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M5 12l5 5L20 7"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
 
 export function QuickAddSheet() {
   const {
@@ -56,7 +94,7 @@ export function QuickAddSheet() {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.4)',
+        background: 'rgba(0,0,0,0.45)',
         zIndex: 200,
         display: 'flex',
         alignItems: 'flex-end',
@@ -75,8 +113,35 @@ export function QuickAddSheet() {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 18, color: theme.text }}>Новая операция</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: 18,
+              fontWeight: 700,
+              color: theme.text,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                background: `${theme.primary}14`,
+                color: theme.primary,
+                border: `2px solid ${theme.primary}45`,
+              }}
+            >
+              <IconNewOperation />
+            </span>
+            Новая операция
+          </h2>
           <button
             type="button"
             onClick={() => setQuickAddOpen(false)}
@@ -87,29 +152,41 @@ export function QuickAddSheet() {
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {(['expense', 'income'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                setType(t)
-                const first = categories.find((c) => c.type === t)
-                if (first) setCategoryId(first.id)
-              }}
-              style={{
-                flex: 1,
-                padding: '10px 0',
-                border: 'none',
-                borderRadius: 10,
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: type === t ? (t === 'expense' ? theme.expense : theme.income) : theme.surfaceAlt,
-                color: type === t ? '#fff' : theme.textSecondary,
-              }}
-            >
-              {t === 'expense' ? 'Расход' : 'Доход'}
-            </button>
-          ))}
+          {(['expense', 'income'] as const).map((t) => {
+            const active = type === t
+            const accent = t === 'expense' ? theme.expense : theme.income
+            const Icon = t === 'expense' ? IconExpense : IconIncome
+
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => {
+                  setType(t)
+                  const first = categories.find((c) => c.type === t)
+                  if (first) setCategoryId(first.id)
+                }}
+                style={{
+                  flex: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  padding: '10px 0',
+                  border: `2px solid ${active ? accent : `${theme.primary}45`}`,
+                  borderRadius: radius.md,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: active ? accent : theme.surface,
+                  color: active ? '#fff' : theme.textSecondary,
+                  boxShadow: active ? 'none' : shadows.sm,
+                }}
+              >
+                <Icon />
+                {t === 'expense' ? 'Расход' : 'Доход'}
+              </button>
+            )
+          })}
         </div>
 
         <input
@@ -123,19 +200,18 @@ export function QuickAddSheet() {
             fontSize: 36,
             fontWeight: 700,
             textAlign: 'center',
-            border: 'none',
+            border: `2px solid ${theme.primary}45`,
             background: theme.surfaceAlt,
-            borderRadius: 12,
+            borderRadius: radius.md,
             padding: 16,
             marginBottom: 16,
             color: theme.text,
             boxSizing: 'border-box',
+            boxShadow: shadows.sm,
+            outline: 'none',
           }}
         />
 
-        <label style={{ display: 'block', marginBottom: 8, fontSize: 13, color: theme.textSecondary }}>
-          Категория
-        </label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           {filteredCategories.map((c) => (
             <button
@@ -146,12 +222,18 @@ export function QuickAddSheet() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                padding: '6px 10px',
-                borderRadius: 20,
-                border: categoryId === c.id ? `2px solid ${c.color}` : `1px solid ${theme.border}`,
+                padding: '8px 12px',
+                borderRadius: radius.full,
+                border:
+                  categoryId === c.id
+                    ? `2px solid ${c.color}`
+                    : `2px solid ${theme.primary}45`,
                 background: categoryId === c.id ? `${c.color}18` : theme.surface,
                 cursor: 'pointer',
                 fontSize: 13,
+                fontWeight: 600,
+                color: theme.text,
+                boxShadow: categoryId === c.id ? 'none' : shadows.sm,
               }}
             >
               <CategoryIcon iconId={c.iconId} size={16} />
@@ -160,20 +242,19 @@ export function QuickAddSheet() {
           ))}
         </div>
 
-        <label style={{ display: 'block', marginBottom: 8, fontSize: 13, color: theme.textSecondary }}>
-          Счёт
-        </label>
         <select
           value={accountId}
           onChange={(e) => setAccountId(e.target.value)}
           style={{
             width: '100%',
             padding: 12,
-            borderRadius: 10,
-            border: `1px solid ${theme.border}`,
+            borderRadius: radius.md,
+            border: `2px solid ${theme.primary}45`,
             marginBottom: 16,
             background: theme.surface,
             color: theme.text,
+            fontSize: 15,
+            boxShadow: shadows.sm,
           }}
         >
           {accounts.map((a) => (
@@ -191,12 +272,14 @@ export function QuickAddSheet() {
           style={{
             width: '100%',
             padding: 12,
-            borderRadius: 10,
-            border: `1px solid ${theme.border}`,
+            borderRadius: radius.md,
+            border: `2px solid ${theme.primary}45`,
             marginBottom: 12,
             boxSizing: 'border-box',
             background: theme.surface,
             color: theme.text,
+            fontSize: 15,
+            boxShadow: shadows.sm,
           }}
         />
 
@@ -212,15 +295,21 @@ export function QuickAddSheet() {
             width: '100%',
             padding: 16,
             border: 'none',
-            borderRadius: 12,
+            borderRadius: radius.md,
             background: theme.primary,
             color: '#fff',
             fontSize: 16,
             fontWeight: 600,
             cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            boxShadow: '0 4px 14px rgba(45, 106, 79, 0.35)',
           }}
         >
           Сохранить
+          <IconSave />
         </button>
       </div>
     </div>
