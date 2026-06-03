@@ -49,9 +49,11 @@ export function PremiumGate({ children, feature }: PremiumGateProps) {
   )
 }
 
-export function PremiumBadge() {
+export function PremiumBadge({ variant = 'default' }: { variant?: 'default' | 'onDark' }) {
   const { settings, daysLeftInTrial } = useApp()
   const theme = getTheme(settings.theme)
+
+  const onDark = variant === 'onDark'
 
   if (settings.isPremium) {
     return (
@@ -59,10 +61,12 @@ export function PremiumBadge() {
         style={{
           fontSize: 11,
           fontWeight: 600,
-          padding: '2px 8px',
-          borderRadius: 8,
-          background: theme.premiumBg,
-          color: theme.premium,
+          padding: onDark ? '5px 10px' : '2px 8px',
+          borderRadius: onDark ? 20 : 8,
+          background: onDark ? 'rgba(255,255,255,0.18)' : theme.premiumBg,
+          color: onDark ? '#FFF8E7' : theme.premium,
+          border: onDark ? '1px solid rgba(255,255,255,0.28)' : 'none',
+          backdropFilter: onDark ? 'blur(4px)' : undefined,
         }}
       >
         Premium
@@ -77,13 +81,15 @@ export function PremiumBadge() {
         style={{
           fontSize: 11,
           fontWeight: 600,
-          padding: '2px 8px',
-          borderRadius: 8,
-          background: theme.premiumBg,
-          color: theme.premium,
+          padding: onDark ? '5px 10px' : '2px 8px',
+          borderRadius: onDark ? 20 : 8,
+          background: onDark ? 'rgba(255,255,255,0.18)' : theme.premiumBg,
+          color: onDark ? '#FFF8E7' : theme.premium,
+          border: onDark ? '1px solid rgba(255,255,255,0.28)' : 'none',
+          backdropFilter: onDark ? 'blur(4px)' : undefined,
         }}
       >
-        Trial: {days} дн.
+        Trial · {days} дн.
       </span>
     )
   }

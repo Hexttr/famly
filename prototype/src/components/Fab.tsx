@@ -1,14 +1,18 @@
+import { useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { getTheme } from '../theme'
 
 export function Fab() {
-  const { setQuickAddOpen, settings } = useApp()
+  const location = useLocation()
+  const { openQuickAdd, settings } = useApp()
   const theme = getTheme(settings.theme)
+
+  if (location.pathname === '/') return null
 
   return (
     <button
       type="button"
-      onClick={() => setQuickAddOpen(true)}
+      onClick={() => openQuickAdd()}
       aria-label="Добавить операцию"
       style={{
         position: 'fixed',

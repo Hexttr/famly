@@ -9,7 +9,7 @@ export function AccountsScreen() {
   const theme = getTheme(settings.theme)
   const [newName, setNewName] = useState('')
 
-  useSetPageHeader({ showBack: true, backTo: '/more' })
+  useSetPageHeader({ showBack: true, backTo: '/more', rightSlot: 'add' })
 
   const total = accounts.reduce((s, a) => s + a.balance, 0)
 
@@ -20,7 +20,7 @@ export function AccountsScreen() {
   }
 
   return (
-    <div style={{ padding: 16 }}>
+    <div style={{ padding: '0 16px 16px' }}>
       <div
         style={{
           padding: 20,
@@ -66,6 +66,7 @@ export function AccountsScreen() {
 
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         <input
+          id="account-add-input"
           type="text"
           placeholder="Новый счёт..."
           value={newName}

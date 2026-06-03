@@ -46,12 +46,26 @@ export const spacing = {
   xxl: 48,
 } as const
 
+/** Шапка приложения — единые отступы и размер логотипа */
+export const headerLayout = {
+  inset: spacing.md,
+  logoSize: 108,
+  sideWidth: 48,
+} as const
+
 export const radius = {
   sm: 8,
   md: 12,
   lg: 16,
-  xl: 24,
+  xl: 20,
   full: 9999,
+} as const
+
+export const shadows = {
+  sm: '0 1px 3px rgba(0, 0, 0, 0.06)',
+  md: '0 4px 14px rgba(0, 0, 0, 0.07)',
+  card: '0 2px 8px rgba(27, 67, 50, 0.06)',
+  hero: '0 8px 28px rgba(27, 67, 50, 0.28)',
 } as const
 
 export const typography = {

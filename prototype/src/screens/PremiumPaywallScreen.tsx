@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AppLogo } from '../components/AppLogo'
 import { PageShell } from '../components/PageShell'
 import { useSetPageHeader } from '../context/HeaderContext'
 import { useApp } from '../context/AppContext'
@@ -42,8 +43,10 @@ function PremiumContent() {
   return (
     <div style={{ padding: 16 }}>
       <div style={{ padding: '8px 0 16px', textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 8 }}>⭐</div>
-        <h2 style={{ margin: '0 0 8px', color: theme.text }}>Famly Premium</h2>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+          <AppLogo variant="icon" />
+        </div>
+        <h2 style={{ margin: '0 0 8px', color: theme.text }}>Premium — (Наш) бюджет</h2>
         {trialDays > 0 && (
           <p style={{ margin: 0, color: theme.premium, fontWeight: 600 }}>
             Trial: осталось {trialDays} дн.

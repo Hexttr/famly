@@ -15,6 +15,11 @@ import type {
   Transaction,
 } from '../types'
 
+interface QuickAddPreset {
+  categoryId?: string
+  type?: 'expense' | 'income'
+}
+
 interface AppContextValue {
   accounts: Account[]
   categories: Category[]
@@ -23,7 +28,9 @@ interface AppContextValue {
   iouBalances: IOUBalance[]
   settings: AppSettings
   quickAddOpen: boolean
+  quickAddPreset: QuickAddPreset | null
   setQuickAddOpen: (open: boolean) => void
+  openQuickAdd: (preset?: QuickAddPreset) => void
   addTransaction: (tx: Omit<Transaction, 'id'>) => void
   updateTransaction: (id: string, tx: Partial<Transaction>) => void
   deleteTransaction: (id: string) => void
@@ -58,6 +65,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [iouBalances] = useState(mockIOU)
   const [settings, setSettings] = useState<AppSettings>(defaultSettings)
   const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [quickAddPreset, setQuickAddPreset] = useState<QuickAddPreset | null>(null)
+
+  const openQuickAdd = (preset?: QuickAddPreset) => {
+    setQuickAddPreset(preset ?? null)
+    setQuickAddOpen(true)
+  }
+
+  const handleSetQuickAddOpen = (open: boolean) => {
+    setQuickAddOpen(open)
+    if (!open) setQuickAddPreset(null)
+  }
 
   const updateSettings = (data: Partial<AppSettings>) =>
     setSettings((s) => ({ ...s, ...data }))
@@ -110,7 +128,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         iouBalances,
         settings,
         quickAddOpen,
-        setQuickAddOpen,
+        quickAddPreset,
+        setQuickAddOpen: handleSetQuickAddOpen,
+        openQuickAdd,
         addTransaction,
         updateTransaction,
         deleteTransaction,

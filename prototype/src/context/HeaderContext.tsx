@@ -1,11 +1,21 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+
+export type HeaderLeftSlot = 'operations'
+
+export type HeaderRightSlot = 'categories' | 'settings' | 'search' | 'add' | 'export' | 'quickAdd'
 
 export interface PageHeaderConfig {
-  right?: ReactNode
+  leftSlot?: HeaderLeftSlot
+  rightSlot?: HeaderRightSlot
   showBack?: boolean
   backTo?: string
-  onBack?: () => void
 }
 
 interface HeaderContextValue {
@@ -18,8 +28,13 @@ const HeaderContext = createContext<HeaderContextValue | null>(null)
 export function HeaderProvider({ children }: { children: ReactNode }) {
   const [config, setPageHeader] = useState<PageHeaderConfig>({})
 
+  const value = useMemo(
+    () => ({ config, setPageHeader }),
+    [config],
+  )
+
   return (
-    <HeaderContext.Provider value={{ config, setPageHeader }}>
+    <HeaderContext.Provider value={value}>
       {children}
     </HeaderContext.Provider>
   )
@@ -33,20 +48,10 @@ export function useHeader() {
 
 export function useSetPageHeader(config: PageHeaderConfig) {
   const { setPageHeader } = useHeader()
-  const navigate = useNavigate()
+  const { showBack, backTo, leftSlot, rightSlot } = config
 
   useEffect(() => {
-    setPageHeader({
-      ...config,
-      onBack: config.showBack
-        ? () => {
-            if (config.onBack) config.onBack()
-            else if (config.backTo) navigate(config.backTo)
-            else navigate(-1)
-          }
-        : undefined,
-    })
+    setPageHeader({ showBack, backTo, leftSlot, rightSlot })
     return () => setPageHeader({})
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.showBack, config.backTo, config.right, setPageHeader, navigate])
+  }, [showBack, backTo, leftSlot, rightSlot, setPageHeader])
 }

@@ -5,11 +5,20 @@ interface CategoryIconProps {
   size?: number
   color?: string
   background?: string
+  variant?: 'default' | 'circle'
 }
 
-export function CategoryIcon({ iconId, size = 24, color, background }: CategoryIconProps) {
+export function CategoryIcon({
+  iconId,
+  size = 24,
+  color,
+  background,
+  variant = 'default',
+}: CategoryIconProps) {
   const def = getCategoryIcon(iconId)
   const stroke = color ?? def.color
+  const isCircle = variant === 'circle'
+  const circleSize = size + 16
 
   return (
     <span
@@ -17,11 +26,11 @@ export function CategoryIcon({ iconId, size = 24, color, background }: CategoryI
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: size + 8,
-        height: size + 8,
-        borderRadius: 10,
-        background: background ?? '#FFFFFF',
-        border: `1.5px solid ${def.color}55`,
+        width: isCircle ? circleSize : size + 8,
+        height: isCircle ? circleSize : size + 8,
+        borderRadius: isCircle ? circleSize / 2 : 10,
+        background: background ?? (isCircle ? `${def.color}18` : '#FFFFFF'),
+        border: isCircle ? 'none' : `1.5px solid ${def.color}55`,
         flexShrink: 0,
       }}
     >

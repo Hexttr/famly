@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { CategoryIcon, IconPicker } from '../components/CategoryIcon'
 import { useSetPageHeader } from '../context/HeaderContext'
 import { useApp } from '../context/AppContext'
@@ -14,9 +15,20 @@ export function CategoriesScreen() {
     tab === 'expense' ? DEFAULT_EXPENSE_ICON : DEFAULT_INCOME_ICON,
   )
   const [selectedColor, setSelectedColor] = useState('#457B9D')
+  const [searchParams] = useSearchParams()
   const [showForm, setShowForm] = useState(false)
 
-  useSetPageHeader({ showBack: true, backTo: '/budget' })
+  useSetPageHeader({ showBack: true, backTo: '/budget', rightSlot: 'add' })
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') setShowForm(true)
+  }, [searchParams])
+
+  useEffect(() => {
+    const open = () => setShowForm(true)
+    window.addEventListener('header-add', open)
+    return () => window.removeEventListener('header-add', open)
+  }, [])
 
   const filtered = categories.filter((c) => c.type === tab)
 
@@ -39,7 +51,7 @@ export function CategoriesScreen() {
   }
 
   return (
-    <div style={{ padding: 16 }}>
+    <div style={{ padding: '0 16px 16px' }}>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {(['expense', 'income'] as const).map((t) => (
           <button

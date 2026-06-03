@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { PremiumBadge } from '../components/PremiumGate'
 import { useSetPageHeader } from '../context/HeaderContext'
 import { useApp } from '../context/AppContext'
 import { getTheme } from '../theme'
@@ -19,10 +18,10 @@ export function MoreScreen() {
   const { settings } = useApp()
   const theme = getTheme(settings.theme)
 
-  useSetPageHeader({ right: <PremiumBadge /> })
+  useSetPageHeader({ rightSlot: 'settings' })
 
   return (
-    <div style={{ padding: 16 }}>
+    <div style={{ padding: '0 16px 16px' }}>
       {menuItems.map((item) => (
         <Link
           key={item.to}
@@ -50,7 +49,7 @@ export function MoreScreen() {
       ))}
 
       <p style={{ textAlign: 'center', fontSize: 12, color: theme.textMuted, padding: 16 }}>
-        Famly v0.1.0 · Сделано в России
+        Мой (Наш) Бюджет v0.1.0 · Сделано в России
       </p>
     </div>
   )

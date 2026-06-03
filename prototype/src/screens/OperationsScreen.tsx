@@ -12,7 +12,7 @@ export function OperationsScreen() {
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'expense' | 'income'>('all')
 
-  useSetPageHeader({})
+  useSetPageHeader({ rightSlot: 'search' })
 
   const filtered = transactions.filter((tx) => {
     if (filterType !== 'all' && tx.type !== filterType) return false
@@ -27,8 +27,9 @@ export function OperationsScreen() {
   })
 
   return (
-    <div style={{ padding: 16 }}>
+    <div style={{ padding: '0 16px 16px' }}>
       <input
+        id="ops-search"
         type="search"
         placeholder="Поиск..."
         value={search}

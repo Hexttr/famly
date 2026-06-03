@@ -8,7 +8,7 @@ export function ReportsScreen() {
   const { categories, transactions, settings } = useApp()
   const theme = getTheme(settings.theme)
 
-  useSetPageHeader({ showBack: true, backTo: '/more' })
+  useSetPageHeader({ showBack: true, backTo: '/more', rightSlot: 'export' })
 
   const expenseCategories = categories
     .filter((c) => c.type === 'expense')

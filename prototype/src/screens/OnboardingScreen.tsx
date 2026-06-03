@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AppLogo } from '../components/AppLogo'
 import { useApp } from '../context/AppContext'
-import { getTheme } from '../theme'
+import { getTheme, headerLayout } from '../theme'
 
 const slides = [
   {
@@ -47,17 +48,25 @@ export function OnboardingScreen() {
     >
       <header
         style={{
-          padding: '12px 16px',
-          borderBottom: `1px solid ${theme.border}`,
-          background: theme.surface,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: `${headerLayout.inset}px 16px`,
+          background: theme.background,
         }}
       >
-        <img src="/famly-logo.png" alt="Famly" style={{ height: 36, objectFit: 'contain' }} />
+        <AppLogo variant="header" />
       </header>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 24 }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-          <div style={{ fontSize: 64, marginBottom: 24 }}>{slide.icon}</div>
+          {step === 0 ? (
+            <div style={{ marginBottom: 24 }}>
+              <AppLogo variant="hero" />
+            </div>
+          ) : (
+            <div style={{ fontSize: 64, marginBottom: 24 }}>{slide.icon}</div>
+          )}
           <h1 style={{ margin: '0 0 12px', fontSize: 24, color: theme.text }}>{slide.title}</h1>
           <p style={{ margin: 0, color: theme.textSecondary, fontSize: 16, lineHeight: 1.5, maxWidth: 280 }}>
             {slide.text}

@@ -59,3 +59,74 @@ export function getTotalIncome(transactions: Transaction[]): number {
 export function getBudgetTotal(categories: Category[]): number {
   return categories.filter((c) => c.type === 'expense' && c.budgetLimit).reduce((s, c) => s + (c.budgetLimit ?? 0), 0)
 }
+
+export function getDailySafeSpend(remaining: number, daysLeft: number): number {
+  if (daysLeft <= 0 || remaining <= 0) return 0
+  return Math.floor(remaining / daysLeft)
+}
+
+export function getBudgetUsedPercent(spent: number, limit: number): number {
+  if (limit <= 0) return 0
+  return Math.min(100, Math.round((spent / limit) * 100))
+}
+
+export function getTopExpenseCategoryIds(transactions: Transaction[], limit = 4): string[] {
+  const counts = new Map<string, number>()
+  for (const tx of transactions) {
+    if (tx.type !== 'expense') continue
+    counts.set(tx.categoryId, (counts.get(tx.categoryId) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id)
+}
+
+export interface BudgetWarning {
+  categoryId: string
+  spent: number
+  limit: number
+  percent: number
+}
+
+export function getBudgetWarnings(
+  categories: Category[],
+  transactions: Transaction[],
+  threshold = 0.8,
+): BudgetWarning[] {
+  return categories
+    .filter((c) => c.type === 'expense' && c.budgetLimit)
+    .map((c) => {
+      const spent = getCategorySpent(c.id, transactions)
+      const limit = c.budgetLimit ?? 0
+      return {
+        categoryId: c.id,
+        spent,
+        limit,
+        percent: limit > 0 ? spent / limit : 0,
+      }
+    })
+    .filter((w) => w.percent >= threshold)
+    .sort((a, b) => b.percent - a.percent)
+}
+
+const MONTHS_RU = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+]
+
+export function formatPeriodLabel(date = new Date()): string {
+  return `${MONTHS_RU[date.getMonth()]} ${date.getFullYear()}`
+}
+
+export function formatShortDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  const today = new Date()
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+
+  if (dateStr === today.toISOString().slice(0, 10)) return 'Сегодня'
+  if (dateStr === yesterday.toISOString().slice(0, 10)) return 'Вчера'
+
+  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+}

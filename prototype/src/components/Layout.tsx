@@ -47,7 +47,7 @@ export function Layout() {
             WebkitOverflowScrolling: 'touch',
           }}
         >
-          <Outlet key={location.pathname} />
+          <Outlet />
         </main>
         {showNav && <Fab />}
         {showNav && <BottomNav />}

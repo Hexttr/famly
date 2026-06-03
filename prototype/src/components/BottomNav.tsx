@@ -1,12 +1,13 @@
 import { NavLink } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { getTheme } from '../theme'
+import { NavIconBudget, NavIconHome, NavIconMore, NavIconOperations } from './NavIcons'
 
 const tabs = [
-  { to: '/', label: 'Главная', icon: '🏠' },
-  { to: '/operations', label: 'Операции', icon: '📋' },
-  { to: '/budget', label: 'Бюджет', icon: '📊' },
-  { to: '/more', label: 'Ещё', icon: '☰' },
+  { to: '/', label: 'Главная', Icon: NavIconHome },
+  { to: '/operations', label: 'Операции', Icon: NavIconOperations },
+  { to: '/budget', label: 'Бюджет', Icon: NavIconBudget },
+  { to: '/more', label: 'Ещё', Icon: NavIconMore },
 ]
 
 export function BottomNav() {
@@ -25,6 +26,7 @@ export function BottomNav() {
         borderTop: `1px solid ${theme.border}`,
         background: theme.surface,
         paddingBottom: 'env(safe-area-inset-bottom, 0)',
+        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.04)',
       }}
     >
       {tabs.map((tab) => (
@@ -47,8 +49,26 @@ export function BottomNav() {
             WebkitTapHighlightColor: 'transparent',
           })}
         >
-          <span style={{ fontSize: 20, marginBottom: 2, lineHeight: 1 }}>{tab.icon}</span>
-          {tab.label}
+          {({ isActive }) => (
+            <>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 48,
+                  height: 28,
+                  borderRadius: 14,
+                  marginBottom: 2,
+                  background: isActive ? `${theme.primary}14` : 'transparent',
+                  transition: 'background 0.2s ease',
+                }}
+              >
+                <tab.Icon size={22} color={isActive ? theme.primary : theme.textMuted} />
+              </span>
+              {tab.label}
+            </>
+          )}
         </NavLink>
       ))}
     </nav>

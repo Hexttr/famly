@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CategoryIcon } from './CategoryIcon'
 import { useApp } from '../context/AppContext'
 import { getTheme } from '../theme'
@@ -7,6 +7,7 @@ export function QuickAddSheet() {
   const {
     quickAddOpen,
     setQuickAddOpen,
+    quickAddPreset,
     categories,
     accounts,
     addTransaction,
@@ -21,6 +22,12 @@ export function QuickAddSheet() {
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
   const [note, setNote] = useState('')
   const [recurring, setRecurring] = useState(false)
+
+  useEffect(() => {
+    if (!quickAddOpen || !quickAddPreset) return
+    if (quickAddPreset.type) setType(quickAddPreset.type)
+    if (quickAddPreset.categoryId) setCategoryId(quickAddPreset.categoryId)
+  }, [quickAddOpen, quickAddPreset])
 
   if (!quickAddOpen) return null
 
