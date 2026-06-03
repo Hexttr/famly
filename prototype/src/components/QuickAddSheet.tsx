@@ -60,7 +60,6 @@ export function QuickAddSheet() {
       <div
         style={{
           width: '100%',
-          maxWidth: 375,
           background: theme.surface,
           borderRadius: '16px 16px 0 0',
           padding: 20,

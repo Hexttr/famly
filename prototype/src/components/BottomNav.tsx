@@ -16,6 +16,11 @@ export function BottomNav() {
   return (
     <nav
       style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 90,
         display: 'flex',
         borderTop: `1px solid ${theme.border}`,
         background: theme.surface,
@@ -32,14 +37,17 @@ export function BottomNav() {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            padding: '8px 4px',
+            justifyContent: 'center',
+            minHeight: 56,
+            padding: '6px 4px',
             textDecoration: 'none',
             color: isActive ? theme.primary : theme.textMuted,
             fontSize: 11,
             fontWeight: isActive ? 600 : 500,
+            WebkitTapHighlightColor: 'transparent',
           })}
         >
-          <span style={{ fontSize: 20, marginBottom: 2 }}>{tab.icon}</span>
+          <span style={{ fontSize: 20, marginBottom: 2, lineHeight: 1 }}>{tab.icon}</span>
           {tab.label}
         </NavLink>
       ))}

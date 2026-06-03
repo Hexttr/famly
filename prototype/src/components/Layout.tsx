@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext'
 import { getTheme } from '../theme'
 
 const hideNavRoutes = ['/onboarding', '/premium']
+const BOTTOM_NAV_HEIGHT = 56
 
 export function Layout() {
   const { settings } = useApp()
@@ -19,18 +20,26 @@ export function Layout() {
     <HeaderProvider>
       <div
         style={{
-          maxWidth: 375,
-          margin: '0 auto',
-          minHeight: '100vh',
+          height: '100dvh',
+          width: '100%',
           background: theme.background,
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
           position: 'relative',
-          boxShadow: '0 0 40px rgba(0,0,0,0.08)',
         }}
       >
         {showNav && <AppHeader />}
-        <main style={{ flex: 1, overflow: 'auto', paddingBottom: showNav ? 64 : 0 }}>
+        <main
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            paddingBottom: showNav ? BOTTOM_NAV_HEIGHT : 0,
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
           <Outlet />
         </main>
         {showNav && <Fab />}

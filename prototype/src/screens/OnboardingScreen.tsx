@@ -37,13 +37,12 @@ export function OnboardingScreen() {
   return (
     <div
       style={{
-        maxWidth: 375,
-        margin: '0 auto',
-        minHeight: '100vh',
+        width: '100%',
+        height: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         background: theme.background,
-        boxShadow: '0 0 40px rgba(0,0,0,0.08)',
+        overflow: 'hidden',
       }}
     >
       <header

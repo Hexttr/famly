@@ -13,8 +13,7 @@ export function Fab() {
       style={{
         position: 'fixed',
         bottom: 72,
-        right: '50%',
-        transform: 'translateX(calc(187px - 50%))',
+        right: 20,
         width: 56,
         height: 56,
         borderRadius: 28,

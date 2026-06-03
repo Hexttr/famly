@@ -14,10 +14,11 @@ export function AppHeader() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '4px 16px',
+        padding: '0 16px',
         background: theme.surface,
         borderBottom: `1px solid ${theme.border}`,
-        minHeight: 56,
+        height: 56,
+        flexShrink: 0,
         position: 'sticky',
         top: 0,
         zIndex: 50,
@@ -61,9 +62,11 @@ export function AppHeader() {
             src="/famly-logo.png"
             alt="Famly"
             style={{
-              height: 48,
+              height: 56,
               width: 'auto',
+              maxWidth: 'min(220px, 55vw)',
               objectFit: 'contain',
+              objectPosition: 'left center',
               flexShrink: 0,
               display: 'block',
             }}
