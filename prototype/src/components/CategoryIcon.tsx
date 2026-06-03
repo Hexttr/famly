@@ -20,7 +20,8 @@ export function CategoryIcon({ iconId, size = 24, color, background }: CategoryI
         width: size + 8,
         height: size + 8,
         borderRadius: 10,
-        background: background ?? `${def.color}18`,
+        background: background ?? '#FFFFFF',
+        border: `1.5px solid ${def.color}55`,
         flexShrink: 0,
       }}
     >

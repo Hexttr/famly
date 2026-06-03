@@ -20,16 +20,23 @@ export function Fab() {
         border: 'none',
         background: theme.primary,
         color: '#fff',
-        fontSize: 28,
         cursor: 'pointer',
         boxShadow: '0 4px 12px rgba(45,106,79,0.35)',
         zIndex: 100,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        padding: 0,
       }}
     >
-      +
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path
+          d="M12 5v14M5 12h14"
+          stroke="#fff"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+      </svg>
     </button>
   )
 }

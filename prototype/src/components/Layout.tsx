@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { AppHeader } from './AppHeader'
 import { BottomNav } from './BottomNav'
@@ -14,7 +15,12 @@ export function Layout() {
   const { settings } = useApp()
   const theme = getTheme(settings.theme)
   const location = useLocation()
+  const mainRef = useRef<HTMLElement>(null)
   const showNav = !hideNavRoutes.some((r) => location.pathname.startsWith(r))
+
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0)
+  }, [location.pathname])
 
   return (
     <HeaderProvider>
@@ -31,6 +37,7 @@ export function Layout() {
       >
         {showNav && <AppHeader />}
         <main
+          ref={mainRef}
           style={{
             flex: 1,
             minHeight: 0,
@@ -40,7 +47,7 @@ export function Layout() {
             WebkitOverflowScrolling: 'touch',
           }}
         >
-          <Outlet />
+          <Outlet key={location.pathname} />
         </main>
         {showNav && <Fab />}
         {showNav && <BottomNav />}
