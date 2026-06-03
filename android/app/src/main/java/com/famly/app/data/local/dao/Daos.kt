@@ -53,6 +53,12 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(transaction: TransactionEntity)
 
+    @Query("SELECT * FROM transactions WHERE isRecurring = 1 ORDER BY recurringDay, createdAt DESC")
+    suspend fun getRecurringTemplates(): List<TransactionEntity>
+
+    @Query("SELECT * FROM transactions WHERE isRecurring = 1 ORDER BY recurringDay, createdAt DESC")
+    fun observeRecurringTemplates(): Flow<List<TransactionEntity>>
+
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun delete(id: String)
 }

@@ -66,6 +66,7 @@ object BackupExporter {
         put("note", note)
         put("isRecurring", isRecurring)
         put("recurringDay", recurringDay)
+        put("lastRecurrenceEpochDay", lastRecurrenceEpochDay)
         put("isPrivate", isPrivate)
         put("splitMemberIds", splitMemberIds)
         put("createdAt", createdAt)

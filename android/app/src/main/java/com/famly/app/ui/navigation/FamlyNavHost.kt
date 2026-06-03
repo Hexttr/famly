@@ -46,6 +46,8 @@ import com.famly.app.ui.screens.OperationsScreen
 import com.famly.app.ui.screens.PremiumPaywallScreen
 import com.famly.app.ui.screens.NotificationsSheet
 import com.famly.app.ui.screens.QuickAddSheet
+import com.famly.app.ui.screens.InviteSheet
+import com.famly.app.ui.screens.RecurringScreen
 import com.famly.app.ui.screens.ReportsScreen
 import com.famly.app.ui.screens.SettingsScreen
 import com.famly.app.ui.screens.SplitExpenseScreen
@@ -65,7 +67,20 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
     val state by viewModel.uiState.collectAsState()
     var quickAddVisible by rememberSaveable { mutableStateOf(false) }
     var quickAddCategoryId by rememberSaveable { mutableStateOf<String?>(null) }
+    val syncStatus by viewModel.syncStatus.collectAsState()
+    val inviteCode by viewModel.inviteCode.collectAsState()
+    val inviteLoading by viewModel.inviteLoading.collectAsState()
+    var inviteVisible by rememberSaveable { mutableStateOf(false) }
     var notificationsVisible by rememberSaveable { mutableStateOf(false) }
+
+    val syncMessage = syncStatus?.let {
+        when {
+            it.success && it.pulledCount + it.pushedCount > 0 ->
+                "Синхронизировано: отправлено ${it.pushedCount}, получено ${it.pulledCount}"
+            it.success -> "Синхронизация выполнена"
+            else -> it.error ?: "Ошибка синхронизации"
+        }
+    }
 
     if (!state.settings.onboardingComplete) {
         OnboardingScreen(onComplete = { viewModel.completeOnboarding() })
@@ -181,6 +196,19 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
                     { viewModel.setTheme(it) },
                     { viewModel.setBudgetStartDay(it) },
                     { viewModel.setCurrency(it) },
+                    syncMessage,
+                    { email, password -> viewModel.login(email, password) },
+                    { email, password, name -> viewModel.register(email, password, name) },
+                    { viewModel.createHousehold(it) },
+                    { viewModel.joinHousehold(it) },
+                    { viewModel.syncNow() },
+                )
+            }
+            composable(Routes.RECURRING) {
+                RecurringScreen(
+                    state,
+                    { navController.popBackStack() },
+                    { viewModel.disableRecurring(it) },
                 )
             }
             composable(Routes.BACKUP) {
@@ -217,6 +245,7 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
                     { navController.popBackStack() },
                     { navigateToPremium() },
                     { navController.navigate(Routes.familyMember(it)) },
+                    { inviteVisible = true },
                 )
             }
             composable(
@@ -267,6 +296,7 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
                             navigateToPremium()
                         }
                     },
+                    { recurring, day -> viewModel.updateTransactionRecurring(txId, recurring, day) },
                 )
             }
             composable(
@@ -300,6 +330,18 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
             }
         }
     }
+
+    InviteSheet(
+        visible = inviteVisible,
+        inviteCode = inviteCode,
+        inviteUrl = viewModel.inviteUrl(),
+        loading = inviteLoading,
+        onDismiss = {
+            inviteVisible = false
+            viewModel.clearInvite()
+        },
+        onGenerate = { viewModel.generateInvite() },
+    )
 
     NotificationsSheet(
         state = state,

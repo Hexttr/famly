@@ -351,8 +351,8 @@ fun HeroCard(
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .offset(x = 30.dp, y = (-40).dp)
-                .size(140.dp)
+                .offset(x = 30.dp, y = (-36).dp)
+                .size(130.dp)
                 .clip(CircleShape)
                 .background(Color.White.copy(alpha = 0.06f)),
         )

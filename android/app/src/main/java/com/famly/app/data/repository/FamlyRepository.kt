@@ -10,7 +10,9 @@ import com.famly.app.data.local.entity.SplitAllocationEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.domain.nextAccountIcon
 import com.famly.app.domain.nextCategoryIcon
+import com.famly.app.data.sync.SyncRepository
 import com.famly.app.data.export.BackupExporter
+import com.famly.app.domain.recurring.RecurringProcessor
 import com.famly.app.data.export.CsvExporter
 import com.famly.app.data.export.ExcelExporter
 import com.famly.app.domain.analytics.ReportPeriod
@@ -28,6 +30,7 @@ import java.util.UUID
 class FamlyRepository(
     private val db: FamlyDatabase,
     private val preferences: UserPreferences,
+    private val syncRepository: SyncRepository? = null,
 ) {
     val settings: Flow<AppSettings> = preferences.settings
     val accounts: Flow<List<AccountEntity>> = db.accountDao().observeAll()
@@ -35,6 +38,8 @@ class FamlyRepository(
     val transactions: Flow<List<TransactionEntity>> = db.transactionDao().observeAll()
     val familyMembers: Flow<List<FamilyMemberEntity>> = db.familyMemberDao().observeAll()
     val iouBalances: Flow<List<IouBalanceEntity>> = db.iouBalanceDao().observeOpen()
+
+    val recurringTransactions: Flow<List<TransactionEntity>> = db.transactionDao().observeRecurringTemplates()
 
     val nettedIouBalances: Flow<List<IouBalance>> = iouBalances.map { list ->
         netIouBalances(list.map { IouBalance(it.fromMemberId, it.toMemberId, it.amountKopecks) })
@@ -75,21 +80,85 @@ class FamlyRepository(
         isRecurring: Boolean,
     ) {
         val now = System.currentTimeMillis()
-        db.transactionDao().upsert(
-            TransactionEntity(
-                id = UUID.randomUUID().toString(),
-                amountKopecks = amountKopecks,
-                type = type,
-                categoryId = categoryId,
-                accountId = accountId,
-                dateEpochDay = dateEpochDay,
-                note = note,
-                isRecurring = isRecurring,
-                createdAt = now,
-                updatedAt = now,
-            ),
+        val recurringDay = if (isRecurring) RecurringProcessor.effectiveRecurringDay(null, dateEpochDay) else null
+        val entity = TransactionEntity(
+            id = UUID.randomUUID().toString(),
+            amountKopecks = amountKopecks,
+            type = type,
+            categoryId = categoryId,
+            accountId = accountId,
+            dateEpochDay = dateEpochDay,
+            note = note,
+            isRecurring = isRecurring,
+            recurringDay = recurringDay,
+            lastRecurrenceEpochDay = if (isRecurring) dateEpochDay else null,
+            createdAt = now,
+            updatedAt = now,
         )
+        db.transactionDao().upsert(entity)
         applyBalanceDelta(accountId, type, amountKopecks)
+        syncRepository?.enqueueTransaction(entity)
+    }
+
+    suspend fun updateTransaction(transaction: TransactionEntity) {
+        val previous = db.transactionDao().observeById(transaction.id).first()
+        db.transactionDao().upsert(transaction.copy(updatedAt = System.currentTimeMillis()))
+        if (previous != null &&
+            (previous.amountKopecks != transaction.amountKopecks ||
+                previous.accountId != transaction.accountId ||
+                previous.type != transaction.type)
+        ) {
+            applyBalanceDelta(previous.accountId, previous.type, -previous.amountKopecks)
+            applyBalanceDelta(transaction.accountId, transaction.type, transaction.amountKopecks)
+        }
+        syncRepository?.enqueueTransaction(transaction)
+    }
+
+    suspend fun updateTransactionRecurring(
+        transactionId: String,
+        isRecurring: Boolean,
+        recurringDay: Int?,
+    ) {
+        val tx = db.transactionDao().observeById(transactionId).first() ?: return
+        val day = if (isRecurring) {
+            (recurringDay ?: RecurringProcessor.effectiveRecurringDay(tx.recurringDay, tx.dateEpochDay))
+                .coerceIn(1, 28)
+        } else {
+            null
+        }
+        val updated = tx.copy(
+            isRecurring = isRecurring,
+            recurringDay = day,
+            lastRecurrenceEpochDay = when {
+                !isRecurring -> null
+                tx.lastRecurrenceEpochDay != null -> tx.lastRecurrenceEpochDay
+                else -> tx.dateEpochDay
+            },
+            updatedAt = System.currentTimeMillis(),
+        )
+        db.transactionDao().upsert(updated)
+        syncRepository?.enqueueTransaction(updated)
+    }
+
+    suspend fun disableRecurring(transactionId: String) {
+        updateTransactionRecurring(transactionId, isRecurring = false, recurringDay = null)
+    }
+
+    suspend fun processDueRecurring(today: LocalDate = LocalDate.now()): Int {
+        val templates = db.transactionDao().getRecurringTemplates()
+        var created = 0
+        templates.forEach { template ->
+            if (!RecurringProcessor.isDue(template, today)) return@forEach
+            val copy = RecurringProcessor.createCopy(template, today)
+            db.transactionDao().upsert(copy)
+            applyBalanceDelta(copy.accountId, copy.type, copy.amountKopecks)
+            val updatedTemplate = RecurringProcessor.withRecurrenceRecorded(template, today)
+            db.transactionDao().upsert(updatedTemplate)
+            syncRepository?.enqueueTransaction(copy)
+            syncRepository?.enqueueTransaction(updatedTemplate)
+            created++
+        }
+        return created
     }
 
     suspend fun deleteTransaction(id: String) {
@@ -97,6 +166,7 @@ class FamlyRepository(
         db.transactionDao().delete(id)
         db.splitAllocationDao().deleteByTransaction(id)
         applyBalanceDelta(tx.accountId, tx.type, -tx.amountKopecks)
+        syncRepository?.enqueueDeleted("transaction", id)
     }
 
     private suspend fun applyBalanceDelta(accountId: String, type: String, amountKopecks: Long) {
@@ -139,6 +209,7 @@ class FamlyRepository(
                 updatedAt = now,
             ),
         )
+        syncRepository?.enqueueTransaction(tx.copy(splitMemberIds = memberIds.joinToString(","), updatedAt = now))
     }
 
     suspend fun settleIou(iouId: String) {
@@ -156,7 +227,9 @@ class FamlyRepository(
     }
 
     suspend fun updateFamilyMember(member: FamilyMemberEntity) {
-        db.familyMemberDao().upsert(member.copy(updatedAt = System.currentTimeMillis()))
+        val updated = member.copy(updatedAt = System.currentTimeMillis())
+        db.familyMemberDao().upsert(updated)
+        syncRepository?.enqueueFamilyMember(updated)
     }
 
     suspend fun cycleAccountIcon(accountId: String) {
@@ -179,11 +252,23 @@ class FamlyRepository(
         )
     }
 
-    suspend fun upsertCategory(category: CategoryEntity) = db.categoryDao().upsert(category)
-    suspend fun deleteCategory(id: String) = db.categoryDao().delete(id)
+    suspend fun upsertCategory(category: CategoryEntity) {
+        db.categoryDao().upsert(category)
+        syncRepository?.enqueueCategory(category)
+    }
+    suspend fun deleteCategory(id: String) {
+        db.categoryDao().delete(id)
+        syncRepository?.enqueueDeleted("category", id)
+    }
 
-    suspend fun upsertAccount(account: AccountEntity) = db.accountDao().upsert(account)
-    suspend fun deleteAccount(id: String) = db.accountDao().delete(id)
+    suspend fun upsertAccount(account: AccountEntity) {
+        db.accountDao().upsert(account)
+        syncRepository?.enqueueAccount(account)
+    }
+    suspend fun deleteAccount(id: String) {
+        db.accountDao().delete(id)
+        syncRepository?.enqueueDeleted("account", id)
+    }
 
     suspend fun getSplitAllocations(transactionId: String): List<SplitAllocationEntity> =
         db.splitAllocationDao().getByTransaction(transactionId)

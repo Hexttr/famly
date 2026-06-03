@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.famly.app.domain.MoneyFormatter
@@ -50,9 +51,13 @@ import com.famly.app.domain.analytics.getTotalIncome
 import com.famly.app.ui.FamlyUiState
 import com.famly.app.ui.components.CategoryEmojiIcon
 import com.famly.app.ui.components.FamlyCard
-import com.famly.app.ui.components.FamlyFilterChip
+import com.famly.app.ui.components.AnalyticsFlowCard
+import com.famly.app.ui.components.AnalyticsTrendBadge
+import com.famly.app.ui.components.ChartBarIcon
+import com.famly.app.ui.components.ReportHeroCard
+import com.famly.app.ui.components.ReportPeriodRow
+import com.famly.app.ui.components.TrendDownIcon
 import com.famly.app.ui.components.GroupedListCard
-import com.famly.app.ui.components.HeroCard
 import com.famly.app.ui.components.PremiumGateContent
 import com.famly.app.ui.components.SectionHeading
 import com.famly.app.ui.theme.Expense
@@ -89,42 +94,14 @@ fun ReportsScreen(state: FamlyUiState, onBack: () -> Unit) {
 
     ScreenScaffold(onBack = onBack) {
         Column {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ReportPeriod.entries.forEach { p ->
-                    FamlyFilterChip(
-                        label = REPORT_PERIOD_LABELS[p] ?: "",
-                        selected = period == p,
-                        onClick = { period = p },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
+            ReportPeriodRow(selected = period, onSelect = { period = it })
             Spacer(modifier = Modifier.height(Spacing.md))
-            HeroCard(modifier = Modifier.fillMaxWidth()) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.14f))
-                            .border(2.dp, Color.White.copy(alpha = 0.35f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("📊", fontSize = 20.sp)
-                    }
-                    Column(modifier = Modifier.padding(start = 12.dp)) {
-                        Text("Расходы за период", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                        Text(periodDescription, color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
-                        Text(
-                            MoneyFormatter.formatKopecks(totalSpent),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 30.sp,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                }
-            }
+            ReportHeroCard(
+                periodDescription = periodDescription,
+                amount = MoneyFormatter.formatKopecks(totalSpent),
+                modifier = Modifier.fillMaxWidth(),
+                icon = { ChartBarIcon(Modifier.size(22.dp)) },
+            )
             Spacer(modifier = Modifier.height(Spacing.md))
             if (totalSpent > 0 && top5.isNotEmpty()) {
                 FamlyCard(modifier = Modifier.fillMaxWidth()) {
@@ -268,7 +245,7 @@ private fun DonutChartWithCenter(
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(centerTitle, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextMuted, maxLines = 1)
+                Text(centerTitle, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("$centerPercent%", fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
         }
@@ -328,96 +305,83 @@ fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Un
 
     ScreenScaffold(onBack = onBack) {
         Column {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ReportPeriod.entries.forEach { p ->
-                    FamlyFilterChip(
-                        label = REPORT_PERIOD_LABELS[p] ?: "",
-                        selected = period == p,
-                        onClick = { period = p },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
+            ReportPeriodRow(selected = period, onSelect = { period = it })
             Spacer(modifier = Modifier.height(Spacing.md))
-            HeroCard(modifier = Modifier.fillMaxWidth()) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Text("📉", fontSize = 38.sp, modifier = Modifier.padding(end = 14.dp))
-                    Column {
-                        Text("Расходы за период", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp)
-                        Text(periodDescription, color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
-                        Text(
-                            MoneyFormatter.formatKopecks(comparison.currentExpensesKopecks),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 28.sp,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
-                        )
-                        TrendBadge(comparison.changePercent)
-                    }
-                }
-            }
+            ReportHeroCard(
+                periodDescription = periodDescription,
+                amount = MoneyFormatter.formatKopecks(comparison.currentExpensesKopecks),
+                modifier = Modifier.fillMaxWidth(),
+                icon = { TrendDownIcon(Modifier.size(28.dp)) },
+                trendBadge = { AnalyticsTrendBadge(comparison.changePercent) },
+            )
             Spacer(modifier = Modifier.height(Spacing.md))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FlowStatCard("Доходы", MoneyFormatter.formatKopecks(income), "💰", Income, Modifier.weight(1f))
-                FlowStatCard("Расходы", MoneyFormatter.formatKopecks(expenses), "💸", Expense, Modifier.weight(1f))
+                AnalyticsFlowCard("Доходы", MoneyFormatter.formatKopecks(income), "💰", Income, Modifier.weight(1f))
+                AnalyticsFlowCard("Расходы", MoneyFormatter.formatKopecks(expenses), "💸", Expense, Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(Spacing.md))
             SectionHeading("📊", "Динамика по месяцам")
-            FamlyCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom,
-                ) {
-                    monthly.forEach { m ->
-                        val heightPct = if (m.expensesKopecks > 0) {
-                            (m.expensesKopecks.toFloat() / maxMonthlyExpense * 100f).coerceAtLeast(8f)
-                        } else {
-                            4f
-                        }
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(
-                                if (m.expensesKopecks > 0) {
-                                    MoneyFormatter.formatKopecks(m.expensesKopecks).replace(" ₽", "")
-                                } else {
-                                    "—"
-                                },
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextMuted,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.height(24.dp),
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.72f)
-                                    .height(100.dp),
-                                contentAlignment = Alignment.BottomCenter,
+            FamlyCard(modifier = Modifier.fillMaxWidth(), padding = 18.dp) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        monthly.forEach { m ->
+                            val heightPct = if (m.expensesKopecks > 0) {
+                                (m.expensesKopecks.toFloat() / maxMonthlyExpense * 100f).coerceAtLeast(8f)
+                            } else {
+                                4f
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
+                                Text(
+                                    if (m.expensesKopecks > 0) {
+                                        MoneyFormatter.formatKopecks(m.expensesKopecks).replace(" ₽", "")
+                                    } else {
+                                        "—"
+                                    },
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextMuted,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.height(24.dp),
+                                )
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .fillMaxHeight(heightPct / 100f)
-                                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
-                                        .then(
-                                            if (m.expensesKopecks == 0L) {
-                                                Modifier
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                                    .border(2.dp, Primary.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
-                                            } else {
-                                                Modifier.background(Brush.verticalGradient(listOf(PrimaryLight, Primary)))
-                                            },
-                                        ),
-                                )
+                                        .fillMaxWidth(0.72f)
+                                        .height(100.dp),
+                                    contentAlignment = Alignment.BottomCenter,
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .fillMaxHeight(heightPct / 100f)
+                                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
+                                            .then(
+                                                if (m.expensesKopecks == 0L) {
+                                                    Modifier
+                                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                        .border(2.dp, Primary.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
+                                                } else {
+                                                    Modifier.background(Brush.verticalGradient(listOf(PrimaryLight, Primary)))
+                                                },
+                                            ),
+                                    )
+                                }
+                                Text(m.label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextSecondary, modifier = Modifier.padding(top = 6.dp))
                             }
-                            Text(m.label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextSecondary, modifier = Modifier.padding(top = 6.dp))
                         }
                     }
+                    HorizontalDivider(
+                        modifier = Modifier.padding(top = 8.dp),
+                        color = Primary.copy(alpha = 0.12f),
+                    )
                 }
             }
             if (insights.isNotEmpty()) {
@@ -517,46 +481,9 @@ fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Un
     }
 }
 
-@Composable
-private fun TrendBadge(changePercent: Int?) {
-    val bg = when {
-        changePercent == null -> Color.White.copy(alpha = 0.16f)
-        changePercent > 0 -> Expense.copy(alpha = 0.2f)
-        changePercent < 0 -> Color.White.copy(alpha = 0.2f)
-        else -> Color.White.copy(alpha = 0.16f)
-    }
-    val label = when {
-        changePercent == null -> "нет данных для сравнения"
-        changePercent > 0 -> "↑ +$changePercent% к прошлому периоду"
-        changePercent < 0 -> "↓ $changePercent% к прошлому периоду"
-        else -> "→ 0% к прошлому периоду"
-    }
-    Box(
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(bg)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-    ) {
-        Text(label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
 private fun formatChangePercent(value: Int?): String = when {
     value == null -> "—"
     value > 0 -> "+$value%"
     value < 0 -> "$value%"
     else -> "0%"
-}
-
-@Composable
-private fun FlowStatCard(label: String, amount: String, icon: String, accent: Color, modifier: Modifier = Modifier) {
-    FamlyCard(modifier = modifier, borderColor = accent.copy(alpha = 0.35f)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(icon, fontSize = 28.sp, modifier = Modifier.padding(end = 10.dp))
-            Column {
-                Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextMuted)
-                Text(amount, fontWeight = FontWeight.Bold, color = accent, fontSize = 22.sp, modifier = Modifier.padding(top = 2.dp))
-            }
-        }
-    }
 }

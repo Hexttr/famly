@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
@@ -58,6 +61,8 @@ import com.famly.app.domain.analytics.ReportPeriod
 import com.famly.app.domain.analytics.filterTransactionsByPeriod
 import com.famly.app.domain.analytics.getReportPeriodDescription
 import com.famly.app.domain.iconsForType
+import com.famly.app.domain.recurring.RecurringProcessor
+import com.famly.app.ui.components.CategoryListIcon
 import com.famly.app.ui.FamlyUiState
 import com.famly.app.ui.components.CategoryEmojiIcon
 import com.famly.app.ui.components.FamlyCard
@@ -86,10 +91,15 @@ fun OperationDetailScreen(
     onBack: () -> Unit,
     onDelete: () -> Unit,
     onSplit: () -> Unit,
+    onUpdateRecurring: (Boolean, Int?) -> Unit,
 ) {
     val tx = state.transactions.find { it.id == transactionId } ?: return
     val cat = state.categories.find { it.id == tx.categoryId }
     val acc = state.accounts.find { it.id == tx.accountId }
+    var recurring by remember(tx.id, tx.isRecurring) { mutableStateOf(tx.isRecurring) }
+    var recurringDay by remember(tx.id, tx.recurringDay) {
+        mutableStateOf(RecurringProcessor.effectiveRecurringDay(tx.recurringDay, tx.dateEpochDay))
+    }
 
     ScreenScaffold(onBack = onBack) {
         Column(
@@ -110,7 +120,34 @@ fun OperationDetailScreen(
         }
         DetailRow("Дата", MoneyFormatter.formatShortDate(tx.dateEpochDay))
         DetailRow("Счёт", "${acc?.icon ?: ""} ${acc?.name ?: "—"}")
-        DetailRow("Повтор", if (tx.isRecurring) "Каждый месяц" else "Нет")
+        FamlyCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = recurring,
+                    onCheckedChange = {
+                        recurring = it
+                        onUpdateRecurring(it, if (it) recurringDay else null)
+                    },
+                )
+                Text("Повторять каждый месяц", fontWeight = FontWeight.SemiBold)
+            }
+            if (recurring) {
+                Text("День месяца", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(1, 5, 10, 15, 20, 25, 28).forEach { day ->
+                        FamlyFilterChip(
+                            label = "$day",
+                            selected = recurringDay == day,
+                            onClick = {
+                                recurringDay = day
+                                onUpdateRecurring(true, day)
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
         if (!tx.splitMemberIds.isNullOrBlank()) {
             DetailRow("Split", "Разделено с семьёй")
             TextButton(onClick = onSplit, modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -177,8 +214,52 @@ fun SettingsScreen(
     onThemeChange: (String) -> Unit,
     onStartDayChange: (Int) -> Unit,
     onCurrencyChange: (String) -> Unit,
+    syncStatus: String?,
+    onLogin: (String, String) -> Unit,
+    onRegister: (String, String, String) -> Unit,
+    onCreateHousehold: (String) -> Unit,
+    onJoinHousehold: (String) -> Unit,
+    onSyncNow: () -> Unit,
 ) {
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var displayName by remember { mutableStateOf("") }
+    var householdName by remember { mutableStateOf("Наша семья") }
+    var inviteCode by remember { mutableStateOf("") }
+
     ScreenScaffold(onBack = onBack) {
+        SectionHeading("☁️", "Семья и синхронизация")
+        FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), padding = 14.dp) {
+            Text(
+                when {
+                    state.settings.isSynced -> "Синхронизация включена · household ${state.settings.householdId}"
+                    state.settings.isAuthenticated -> "Аккаунт подключён · создайте или присоединитесь к семье"
+                    else -> "Войдите, чтобы синхронизировать бюджет между устройствами"
+                },
+                fontSize = 13.sp,
+                color = TextMuted,
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+            if (!state.settings.isAuthenticated) {
+                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Пароль") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                OutlinedTextField(value = displayName, onValueChange = { displayName = it }, label = { Text("Имя") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { onLogin(email, password) }, modifier = Modifier.weight(1f)) { Text("Войти") }
+                    Button(onClick = { onRegister(email, password, displayName) }, modifier = Modifier.weight(1f)) { Text("Регистрация") }
+                }
+            } else if (!state.settings.isSynced) {
+                OutlinedTextField(value = householdName, onValueChange = { householdName = it }, label = { Text("Название семьи") }, modifier = Modifier.fillMaxWidth())
+                Button(onClick = { onCreateHousehold(householdName) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Создать семью") }
+                OutlinedTextField(value = inviteCode, onValueChange = { inviteCode = it }, label = { Text("Код приглашения") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                Button(onClick = { onJoinHousehold(inviteCode) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Присоединиться") }
+            } else {
+                Button(onClick = onSyncNow, modifier = Modifier.fillMaxWidth()) { Text("Синхронизировать сейчас") }
+            }
+            syncStatus?.let {
+                Text(it, fontSize = 12.sp, color = Primary, modifier = Modifier.padding(top = 10.dp))
+            }
+        }
         SectionHeading("📊", "Бюджет")
         FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), padding = 0.dp) {
             SettingRow(
@@ -896,7 +977,19 @@ fun CategoriesScreen(
             }
         } else {
             FamlyCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text("Новая категория", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(bottom = 12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Primary.copy(alpha = 0.08f))
+                            .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(16.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CategoryListIcon(Modifier.size(18.dp))
+                    }
+                    Text("Новая категория", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -905,6 +998,7 @@ fun CategoriesScreen(
                         .padding(horizontal = 14.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = TextMuted, modifier = Modifier.padding(end = 10.dp))
                     BasicTextField(
                         value = newName,
                         onValueChange = { newName = it },
@@ -970,7 +1064,10 @@ fun CategoriesScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("Отмена", fontWeight = FontWeight.SemiBold, color = TextMuted)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Close, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                            Text("Отмена", fontWeight = FontWeight.SemiBold, color = TextMuted, modifier = Modifier.padding(start = 6.dp))
+                        }
                     }
                     Box(
                         modifier = Modifier
@@ -988,7 +1085,10 @@ fun CategoriesScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("Сохранить", color = Color.White, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Сохранить", color = Color.White, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.padding(start = 6.dp).size(16.dp))
+                        }
                     }
                 }
             }

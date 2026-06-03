@@ -64,6 +64,12 @@ class FamlyViewModel(
     private val _syncStatus = MutableStateFlow<SyncStatus?>(null)
     val syncStatus: StateFlow<SyncStatus?> = _syncStatus.asStateFlow()
 
+    private val _inviteCode = MutableStateFlow<String?>(null)
+    val inviteCode: StateFlow<String?> = _inviteCode.asStateFlow()
+
+    private val _inviteLoading = MutableStateFlow(false)
+    val inviteLoading: StateFlow<Boolean> = _inviteLoading.asStateFlow()
+
     val uiState: StateFlow<FamlyUiState> = combine(
         combine(
             repository.settings,
@@ -172,6 +178,26 @@ class FamlyViewModel(
     }
 
     fun deleteTransaction(id: String) = viewModelScope.launch { repository.deleteTransaction(id) }
+
+    fun updateTransactionRecurring(transactionId: String, isRecurring: Boolean, recurringDay: Int?) =
+        viewModelScope.launch {
+            repository.updateTransactionRecurring(transactionId, isRecurring, recurringDay)
+        }
+
+    fun disableRecurring(transactionId: String) =
+        viewModelScope.launch { repository.disableRecurring(transactionId) }
+
+    fun generateInvite() = viewModelScope.launch {
+        _inviteLoading.value = true
+        _inviteCode.value = syncRepository.generateInviteCode()
+        _inviteLoading.value = false
+    }
+
+    fun clearInvite() {
+        _inviteCode.value = null
+    }
+
+    fun inviteUrl(): String? = _inviteCode.value?.let { "https://famly.app/join/$it" }
 
     fun saveSplit(transactionId: String, memberIds: List<String>) =
         viewModelScope.launch { repository.saveSplit(transactionId, memberIds) }

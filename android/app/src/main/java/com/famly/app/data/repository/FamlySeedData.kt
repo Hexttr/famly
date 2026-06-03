@@ -25,6 +25,7 @@ internal object FamlySeedData {
         CategoryEntity("c5", "Развлечения", "🎬", "expense", "#E76F51", 500_000, 0, 4, now, now),
         CategoryEntity("c6", "Зарплата", "💰", "income", "#2D6A4F", null, 0, 5, now, now),
         CategoryEntity("c7", "Фриланс", "💻", "income", "#40916C", null, 0, 6, now, now),
+        CategoryEntity("c8", "Подписки", "📺", "expense", "#7209B7", 150_000, 0, 7, now, now),
     )
 
     fun familyMembers(now: Long): List<FamilyMemberEntity> = listOf(
@@ -51,6 +52,8 @@ internal object FamlySeedData {
             date: String,
             note: String,
             recurring: Boolean = false,
+            recurringDay: Int? = null,
+            lastRecurrence: Long? = null,
         ) = TransactionEntity(
             id = id,
             amountKopecks = rubles * 100,
@@ -60,6 +63,8 @@ internal object FamlySeedData {
             dateEpochDay = d(date),
             note = note,
             isRecurring = recurring,
+            recurringDay = recurringDay,
+            lastRecurrenceEpochDay = lastRecurrence,
             createdAt = now,
             updatedAt = now,
         )
@@ -102,6 +107,42 @@ internal object FamlySeedData {
             tx("t36", 760, "expense", "c1", "a2", "2026-05-04", "Пятёрочка"),
             tx("t37", 990, "expense", "c3", "a1", "2026-05-03", "Пицца"),
             tx("t38", 220, "expense", "c2", "a2", "2026-05-02", "Метро"),
+            tx(
+                "t39",
+                8900,
+                "expense",
+                "c4",
+                "a2",
+                "2026-05-14",
+                "Аренда",
+                recurring = true,
+                recurringDay = 14,
+                lastRecurrence = d("2026-05-14"),
+            ),
+            tx(
+                "t40",
+                599,
+                "expense",
+                "c8",
+                "a2",
+                "2026-05-15",
+                "Netflix",
+                recurring = true,
+                recurringDay = 15,
+                lastRecurrence = d("2026-05-15"),
+            ),
+            tx(
+                "t41",
+                3200,
+                "expense",
+                "c4",
+                "a2",
+                "2026-05-05",
+                "ЖКХ",
+                recurring = true,
+                recurringDay = 5,
+                lastRecurrence = d("2026-05-05"),
+            ),
         )
     }
 }

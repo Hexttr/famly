@@ -10,6 +10,7 @@ import com.famly.app.data.remote.FamlyApiClient
 import com.famly.app.data.remote.SyncEntityDto
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
+import java.util.UUID
 
 data class SyncStatus(
     val success: Boolean,
@@ -61,6 +62,39 @@ class SyncRepository(
     fun enqueue(entity: SyncEntityDto) {
         pendingQueue.removeAll { it.type == entity.type && it.id == entity.id }
         pendingQueue.add(entity)
+    }
+
+    fun enqueueTransaction(tx: TransactionEntity) =
+        enqueue(tx.toSyncEntity(System.currentTimeMillis()))
+
+    fun enqueueAccount(account: AccountEntity) =
+        enqueue(account.toSyncEntity(System.currentTimeMillis()))
+
+    fun enqueueCategory(category: CategoryEntity) =
+        enqueue(category.toSyncEntity(System.currentTimeMillis()))
+
+    fun enqueueFamilyMember(member: FamilyMemberEntity) =
+        enqueue(member.toSyncEntity(System.currentTimeMillis()))
+
+    fun enqueueDeleted(type: String, id: String) =
+        enqueue(
+            SyncEntityDto(
+                type = type,
+                id = id,
+                payload = "{}",
+                syncVersion = 1,
+                updatedAt = System.currentTimeMillis(),
+                deleted = true,
+            ),
+        )
+
+    suspend fun generateInviteCode(): String {
+        val token = preferences.settings.first().authToken
+        val householdId = preferences.settings.first().householdId
+        if (!token.isNullOrBlank() && !householdId.isNullOrBlank()) {
+            runCatching { api.generateInvite(token, householdId) }.getOrNull()?.let { return it }
+        }
+        return "FAMLY-${UUID.randomUUID().toString().take(6).uppercase()}"
     }
 
     suspend fun sync(): SyncStatus {
@@ -171,6 +205,7 @@ class SyncRepository(
             put("note", note)
             put("isRecurring", isRecurring)
             put("recurringDay", recurringDay)
+            put("lastRecurrenceEpochDay", lastRecurrenceEpochDay)
             put("isPrivate", isPrivate)
             put("splitMemberIds", splitMemberIds)
             put("createdAt", createdAt)
@@ -234,6 +269,9 @@ class SyncRepository(
         note = if (has("note") && !isNull("note")) getString("note") else null,
         isRecurring = optBoolean("isRecurring", false),
         recurringDay = if (has("recurringDay") && !isNull("recurringDay")) getInt("recurringDay") else null,
+        lastRecurrenceEpochDay = if (has("lastRecurrenceEpochDay") && !isNull("lastRecurrenceEpochDay")) {
+            getLong("lastRecurrenceEpochDay")
+        } else null,
         isPrivate = optBoolean("isPrivate", false),
         splitMemberIds = if (has("splitMemberIds") && !isNull("splitMemberIds")) {
             getString("splitMemberIds")

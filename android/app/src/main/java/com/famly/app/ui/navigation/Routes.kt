@@ -18,6 +18,7 @@ object Routes {
     const val FAMILY_MEMBER = "family/{id}"
     const val BALANCES = "balances"
     const val ANALYTICS = "analytics"
+    const val RECURRING = "recurring"
     const val SPLIT = "split/{id}"
 
     fun operationDetail(id: String) = "operations/$id"

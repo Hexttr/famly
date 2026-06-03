@@ -40,6 +40,7 @@ data class TransactionEntity(
     val note: String?,
     val isRecurring: Boolean = false,
     val recurringDay: Int? = null,
+    val lastRecurrenceEpochDay: Long? = null,
     val isPrivate: Boolean = false,
     val splitMemberIds: String? = null,
     val createdAt: Long,

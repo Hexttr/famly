@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -49,6 +50,7 @@ fun FamilyScreen(
     onBack: () -> Unit,
     onUpgrade: () -> Unit,
     onOpenMember: (String) -> Unit,
+    onInvite: () -> Unit,
 ) {
     if (!state.settings.hasPremiumAccess()) {
         ScreenScaffold(onBack = onBack) {
@@ -77,7 +79,8 @@ fun FamilyScreen(
                     state.familyMembers.forEachIndexed { index, member ->
                         Box(
                             modifier = Modifier
-                                .padding(start = if (index > 0) (-6).dp else 0.dp)
+                                .offset(x = if (index > 0) (-6 * index).dp else 0.dp)
+                                .zIndex((state.familyMembers.size - index).toFloat())
                                 .size(44.dp)
                                 .clip(CircleShape)
                                 .background(Color.White.copy(alpha = 0.16f))
@@ -122,10 +125,11 @@ fun FamilyScreen(
                 .clip(RoundedCornerShape(Radius.md))
                 .background(Primary.copy(alpha = 0.06f))
                 .border(2.dp, Primary, RoundedCornerShape(Radius.md))
+                .clickable { onInvite() }
                 .padding(vertical = 14.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("+ Пригласить", color = Primary, fontWeight = FontWeight.Bold)
+            Text("+ Пригласить по ссылке / QR", color = Primary, fontWeight = FontWeight.Bold)
         }
     }
 }

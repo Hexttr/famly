@@ -81,6 +81,12 @@ class FamlyApiClient(private val baseUrl: String = "http://10.0.2.2:8080") {
             )
         }
 
+    suspend fun generateInvite(token: String, householdId: String): String =
+        withContext(Dispatchers.IO) {
+            val response = postJson("/households/$householdId/invite", JSONObject(), authToken = token)
+            response.getString("inviteCode")
+        }
+
     suspend fun push(token: String, entities: List<SyncEntityDto>): Boolean =
         withContext(Dispatchers.IO) {
             try {

@@ -493,6 +493,7 @@ fun MoreScreen(
     onOpenPremium: () -> Unit,
 ) {
     val items = listOf(
+        Triple("🔄", "Периодические", "recurring"),
         Triple("💳", "Счета", "accounts"),
         Triple("📈", "Отчёты", "reports"),
         Triple("⚙️", "Настройки", "settings"),

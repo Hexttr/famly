@@ -28,7 +28,7 @@ import com.famly.app.data.local.entity.TransactionEntity
         IouBalanceEntity::class,
         SplitAllocationEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class FamlyDatabase : RoomDatabase() {
@@ -91,6 +91,12 @@ abstract class FamlyDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN lastRecurrenceEpochDay INTEGER")
+            }
+        }
+
         fun get(context: Context): FamlyDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -98,7 +104,7 @@ abstract class FamlyDatabase : RoomDatabase() {
                     FamlyDatabase::class.java,
                     "famly.db",
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }
