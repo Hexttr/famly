@@ -162,6 +162,10 @@ export function HeaderRight({ slot }: { slot?: HeaderRightSlot }) {
             window.dispatchEvent(new CustomEvent('header-add'))
             return
           }
+          if (path === '/budget' || path.startsWith('/budget/')) {
+            navigate('/categories?new=1')
+            return
+          }
           document.getElementById('account-add-input')?.focus()
         }}
       >

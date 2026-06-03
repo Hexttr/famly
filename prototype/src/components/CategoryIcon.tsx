@@ -67,11 +67,13 @@ export function IconPicker({ type, selectedId, onSelect }: IconPickerProps) {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(5, 1fr)',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(68px, 1fr))',
         gap: 8,
-        maxHeight: 220,
+        maxHeight: 240,
         overflowY: 'auto',
+        overflowX: 'hidden',
         padding: 2,
+        justifyItems: 'stretch',
       }}
     >
       {icons.map((icon) => {
@@ -86,15 +88,17 @@ export function IconPicker({ type, selectedId, onSelect }: IconPickerProps) {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: 4,
               padding: '8px 4px',
-              border: selected ? `2px solid ${icon.color}` : '1px solid #E2E8E5',
+              border: selected ? `2px solid ${icon.color}` : '2px solid #C5D0CB',
               borderRadius: 12,
               background: selected ? `${icon.color}12` : '#fff',
               cursor: 'pointer',
+              minWidth: 0,
             }}
           >
-            <CategoryIcon iconId={icon.id} size={20} />
+            <CategoryIcon iconId={icon.id} size={20} emphasis={selected} />
             <span style={{ fontSize: 9, color: '#5C6560', lineHeight: 1.1, textAlign: 'center' }}>
               {icon.label}
             </span>

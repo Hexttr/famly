@@ -24,30 +24,41 @@ export function AppHeader() {
 
   const backSize = headerLayout.buttonSize
 
+  const backButtonStyle = {
+    ...sideStyle,
+    left: '11%',
+    transform: 'translateX(-50%)',
+    border: `2px solid ${theme.primary}50`,
+    background: theme.surface,
+    boxShadow: '0 2px 10px rgba(45, 106, 79, 0.18)',
+    borderRadius: backSize / 2,
+    width: backSize,
+    height: backSize,
+    cursor: 'pointer',
+    color: theme.primaryDark,
+    padding: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  } as const
+
   const leftContent = config.showBack ? (
     <button
       type="button"
       onClick={handleBack}
       aria-label="Назад"
-      style={{
-        ...sideStyle,
-        left: '11%',
-        transform: 'translateX(-50%)',
-        border: `2px solid ${theme.primary}50`,
-        background: theme.surface,
-        boxShadow: '0 2px 10px rgba(45, 106, 79, 0.18)',
-        borderRadius: backSize / 2,
-        width: backSize,
-        height: backSize,
-        cursor: 'pointer',
-        color: theme.primary,
-        fontSize: 20,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      style={backButtonStyle}
     >
-      ←
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path
+          d="M15 18l-6-6 6-6"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </button>
   ) : (
     <div style={{ ...sideStyle, left: '11%', transform: 'translateX(-50%)' }}>
