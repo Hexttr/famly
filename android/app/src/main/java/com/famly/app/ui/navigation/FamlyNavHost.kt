@@ -196,7 +196,7 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
                 CategoriesScreen(
                     state,
                     { navController.popBackStack() },
-                    { n, t -> viewModel.addCategory(n, t) },
+                    { n, t, icon, color -> viewModel.addCategory(n, t, icon, color) },
                     { viewModel.deleteCategory(it) },
                     { viewModel.cycleCategoryIcon(it) },
                 )

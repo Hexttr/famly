@@ -15,6 +15,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -44,6 +48,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.famly.app.domain.DEFAULT_EXPENSE_ICON
+import com.famly.app.domain.DEFAULT_INCOME_ICON
 import com.famly.app.domain.DEFAULT_ACCOUNT_ICON
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.domain.nextAccountIcon
@@ -53,6 +59,7 @@ import com.famly.app.domain.analytics.filterTransactionsByPeriod
 import com.famly.app.domain.analytics.getReportPeriodDescription
 import com.famly.app.domain.iconsForType
 import com.famly.app.ui.FamlyUiState
+import com.famly.app.ui.components.CategoryEmojiIcon
 import com.famly.app.ui.components.FamlyCard
 import com.famly.app.ui.components.FamlyCategoryChip
 import com.famly.app.ui.components.FamlyFilterChip
@@ -67,7 +74,9 @@ import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
+import com.famly.app.ui.theme.TextSecondary
 import com.famly.app.ui.theme.famlySmShadow
+import com.famly.app.ui.theme.parseHexColor
 import kotlinx.coroutines.launch
 
 @Composable
@@ -333,8 +342,35 @@ fun PremiumPaywallScreen(state: FamlyUiState, onBack: () -> Unit, onSubscribe: (
             )
         }
         Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TierCard("📋", "Бесплатно", listOf("Операции без лимита", "Бюджет по категориям", "Backup JSON/CSV 30 дн."), premium = false, modifier = Modifier.weight(1f))
-            TierCard("⭐", "Премиум", listOf("Семья до 6", "Sync + Split", "Аналитика"), premium = true, modifier = Modifier.weight(1f))
+            TierCard(
+                "📋",
+                "Бесплатно",
+                listOf(
+                    "Неограниченный ввод операций",
+                    "Бюджет по категориям",
+                    "Дневной лимит трат",
+                    "Свой бюджетный период",
+                    "Резервная копия JSON и CSV за 30 дней",
+                ),
+                premium = false,
+                modifier = Modifier.weight(1f),
+            )
+            TierCard(
+                "⭐",
+                "Премиум",
+                listOf(
+                    "Семья до 6 человек",
+                    "Облачная синхронизация",
+                    "Роли и приватность",
+                    "Делить расходы и учёт долгов",
+                    "Перенос остатка бюджета",
+                    "Расширенная аналитика",
+                    "Выгрузка CSV без ограничений",
+                    "Виджет быстрого ввода",
+                ),
+                premium = true,
+                modifier = Modifier.weight(1f),
+            )
         }
         Box(
             modifier = Modifier
@@ -768,52 +804,193 @@ private fun buildExportSubtitle(
 fun CategoriesScreen(
     state: FamlyUiState,
     onBack: () -> Unit,
-    onAdd: (String, String) -> Unit,
+    onAdd: (String, String, String, String) -> Unit,
     onDelete: (String) -> Unit,
     onCycleIcon: (String) -> Unit,
 ) {
     var tab by remember { mutableStateOf("expense") }
     var newName by remember { mutableStateOf("") }
+    var showForm by remember { mutableStateOf(false) }
+    var selectedIcon by remember(tab) { mutableStateOf(if (tab == "expense") DEFAULT_EXPENSE_ICON else DEFAULT_INCOME_ICON) }
+    var selectedColor by remember(tab) { mutableStateOf(if (tab == "expense") "#457B9D" else "#2D6A4F") }
+
     ScreenScaffold(onBack = onBack) {
         Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FamlyFilterChip(
                 label = "Расходы",
                 selected = tab == "expense",
-                onClick = { tab = "expense" },
+                onClick = {
+                    tab = "expense"
+                    selectedIcon = DEFAULT_EXPENSE_ICON
+                    selectedColor = "#457B9D"
+                },
                 accent = Expense,
+                modifier = Modifier.weight(1f),
+                leading = {
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (tab == "expense") Color.White else TextSecondary,
+                    )
+                },
             )
             FamlyFilterChip(
                 label = "Доходы",
                 selected = tab == "income",
-                onClick = { tab = "income" },
+                onClick = {
+                    tab = "income"
+                    selectedIcon = DEFAULT_INCOME_ICON
+                    selectedColor = "#2D6A4F"
+                },
                 accent = Income,
+                modifier = Modifier.weight(1f),
+                leading = {
+                    Icon(
+                        Icons.Default.KeyboardArrowUp,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (tab == "income") Color.White else TextSecondary,
+                    )
+                },
             )
         }
         state.categories.filter { it.type == tab }.forEach { cat ->
             FamlyCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        cat.icon,
-                        fontSize = 24.sp,
+                    CategoryEmojiIcon(
+                        emoji = cat.icon,
+                        size = 40.dp,
+                        accent = parseHexColor(cat.color),
                         modifier = Modifier
                             .clickable { onCycleIcon(cat.id) }
-                            .padding(end = 8.dp),
+                            .padding(end = 12.dp),
                     )
-                    Text(cat.name, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-                    TextButton(onClick = { onDelete(cat.id) }) { Text("✕") }
+                    Text(cat.name, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(Radius.sm))
+                            .background(Expense.copy(alpha = 0.08f))
+                            .border(2.dp, Expense.copy(alpha = 0.25f), RoundedCornerShape(Radius.sm))
+                            .clickable { onDelete(cat.id) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("✕", color = Expense, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
-        Text(
-            "Нажмите на иконку для смены · ${iconsForType(tab).size} вариантов",
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-        )
-        Row(modifier = Modifier.padding(16.dp)) {
-            OutlinedTextField(value = newName, onValueChange = { newName = it }, modifier = Modifier.weight(1f))
-            Button(onClick = { if (newName.isNotBlank()) { onAdd(newName, tab); newName = "" } }) {
-                Text("+")
+        if (!showForm) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .clip(RoundedCornerShape(Radius.md))
+                    .border(2.dp, Primary, RoundedCornerShape(Radius.md))
+                    .clickable { showForm = true }
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("+ Добавить категорию", color = Primary, fontWeight = FontWeight.SemiBold)
+            }
+        } else {
+            FamlyCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("Новая категория", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(bottom = 12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Radius.md))
+                        .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.md))
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BasicTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        modifier = Modifier.weight(1f).padding(vertical = 12.dp),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        cursorBrush = SolidColor(Primary),
+                        singleLine = true,
+                        decorationBox = { inner ->
+                            if (newName.isEmpty()) Text("Название...", color = TextMuted)
+                            inner()
+                        },
+                    )
+                }
+                Text(
+                    "Выберите иконку",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 14.dp, bottom = 8.dp),
+                    color = TextMuted,
+                )
+                iconsForType(tab).chunked(5).forEach { rowIcons ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        rowIcons.forEach { iconDef ->
+                            val selected = selectedIcon == iconDef.emoji
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(Radius.sm))
+                                    .background(if (selected) Primary.copy(alpha = 0.12f) else Color.Transparent)
+                                    .border(
+                                        2.dp,
+                                        if (selected) Primary else Primary.copy(alpha = 0.2f),
+                                        RoundedCornerShape(Radius.sm),
+                                    )
+                                    .clickable {
+                                        selectedIcon = iconDef.emoji
+                                        selectedColor = iconDef.color
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(iconDef.emoji, fontSize = 22.sp)
+                            }
+                        }
+                        repeat(5 - rowIcons.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(Radius.md))
+                            .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.md))
+                            .clickable {
+                                showForm = false
+                                newName = ""
+                            }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("Отмена", fontWeight = FontWeight.SemiBold, color = TextMuted)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(Radius.md))
+                            .background(Primary)
+                            .clickable {
+                                if (newName.isNotBlank()) {
+                                    onAdd(newName.trim(), tab, selectedIcon, selectedColor)
+                                    newName = ""
+                                    showForm = false
+                                    selectedIcon = if (tab == "expense") DEFAULT_EXPENSE_ICON else DEFAULT_INCOME_ICON
+                                }
+                            }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("Сохранить", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }

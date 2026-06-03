@@ -15,6 +15,8 @@ import com.famly.app.data.sync.SyncRepository
 import com.famly.app.data.sync.SyncStatus
 import com.famly.app.domain.BudgetCalculator
 import com.famly.app.domain.DEFAULT_ACCOUNT_ICON
+import com.famly.app.domain.DEFAULT_EXPENSE_ICON
+import com.famly.app.domain.DEFAULT_INCOME_ICON
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.domain.analytics.ReportPeriod
 import com.famly.app.domain.analytics.getDailySafeSpend
@@ -204,15 +206,20 @@ class FamlyViewModel(
         repository.upsertCategory(cat.copy(budgetLimitKopecks = limitRubles * 100))
     }
 
-    fun addCategory(name: String, type: String) = viewModelScope.launch {
+    fun addCategory(
+        name: String,
+        type: String,
+        icon: String? = null,
+        color: String? = null,
+    ) = viewModelScope.launch {
         val now = System.currentTimeMillis()
         repository.upsertCategory(
             CategoryEntity(
                 id = UUID.randomUUID().toString(),
                 name = name,
-                icon = if (type == "expense") "📦" else "💰",
+                icon = icon ?: if (type == "expense") DEFAULT_EXPENSE_ICON else DEFAULT_INCOME_ICON,
                 type = type,
-                color = if (type == "expense") "#457B9D" else "#2D6A4F",
+                color = color ?: if (type == "expense") "#457B9D" else "#2D6A4F",
                 budgetLimitKopecks = if (type == "expense") 0L else null,
                 createdAt = now,
                 updatedAt = now,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -57,16 +58,35 @@ fun FamilyScreen(
     }
     ScreenScaffold(onBack = onBack) {
         HeroCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("👨‍👩‍👧", fontSize = 40.sp, modifier = Modifier.padding(end = 14.dp))
-                Column {
-                    Text("Участников семьи", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp)
-                    Text(
-                        "${state.familyMembers.size} / 6",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 34.sp,
-                    )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("Участников семьи", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp)
+                Text(
+                    "${state.familyMembers.size} / 6",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 34.sp,
+                    modifier = Modifier.padding(top = 6.dp, bottom = 14.dp),
+                )
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    state.familyMembers.forEachIndexed { index, member ->
+                        Box(
+                            modifier = Modifier
+                                .padding(start = if (index > 0) (-6).dp else 0.dp)
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.16f))
+                                .border(2.dp, Color.White.copy(alpha = 0.45f), CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(member.avatar, fontSize = 24.sp)
+                        }
+                    }
                 }
             }
         }
@@ -258,7 +278,10 @@ fun BalancesScreen(
                             .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("Закрыть долг", color = Color.White, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("✓", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Text("Закрыть долг", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
