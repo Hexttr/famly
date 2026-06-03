@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { getTheme } from '../theme'
 
-/** Компактный trial-баннер — только на главной, под hero-карточкой */
-export function TrialStrip() {
+/** Баннер trial — показывается в «Ещё», не на главной */
+export function TrialBanner() {
   const { settings, daysLeftInTrial } = useApp()
   const theme = getTheme(settings.theme)
 
@@ -18,21 +18,26 @@ export function TrialStrip() {
       style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 5,
-        margin: '0 16px 12px',
-        padding: '6px 12px',
-        borderRadius: 10,
+        gap: 12,
+        marginBottom: 12,
+        padding: '14px 16px',
+        borderRadius: 12,
         background: theme.premiumBg,
-        color: theme.premium,
-        fontSize: 11,
-        fontWeight: 600,
+        border: `1px solid ${theme.premium}35`,
         textDecoration: 'none',
+        color: theme.text,
       }}
     >
-      <span>⭐</span>
-      <span>Premium · {days} дн. бесплатно</span>
-      <span style={{ opacity: 0.6, fontSize: 10 }}>→</span>
+      <span style={{ fontSize: 28, lineHeight: 1 }}>⭐</span>
+      <div style={{ flex: 1 }}>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: theme.premium }}>
+          Premium · {days} дн. бесплатно
+        </p>
+        <p style={{ margin: '4px 0 0', fontSize: 13, color: theme.textSecondary }}>
+          Семья, аналитика и синхронизация
+        </p>
+      </div>
+      <span style={{ color: theme.premium, fontSize: 18 }}>›</span>
     </Link>
   )
 }

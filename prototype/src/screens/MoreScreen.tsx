@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { TrialBanner } from '../components/TrialStrip'
 import { useSetPageHeader } from '../context/HeaderContext'
 import { useApp } from '../context/AppContext'
 import { getTheme } from '../theme'
@@ -22,6 +23,7 @@ export function MoreScreen() {
 
   return (
     <div style={{ padding: '0 16px 16px' }}>
+      <TrialBanner />
       {menuItems.map((item) => (
         <Link
           key={item.to}

@@ -48,10 +48,19 @@ export const spacing = {
 
 /** Шапка приложения — единые отступы и размер логотипа */
 export const headerLayout = {
-  inset: spacing.md,
-  logoSize: 108,
-  sideWidth: 48,
+  inset: 8,
+  logoSize: 88,
+  sideWidth: 52,
+  buttonSize: 48,
+  sideBottom: 16,
+  /** inset + logo + нижняя зона кнопок */
+  height: 8 + 88 + 16,
 } as const
+
+/** Вертикальное выравнивание боковых кнопок по центру логотипа */
+export function getHeaderButtonTop() {
+  return headerLayout.inset + headerLayout.logoSize / 2 - headerLayout.buttonSize / 2
+}
 
 export const radius = {
   sm: 8,

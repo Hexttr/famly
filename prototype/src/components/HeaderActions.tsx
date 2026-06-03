@@ -1,8 +1,9 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { getTheme } from '../theme'
+import { getTheme, headerLayout } from '../theme'
 import type { HeaderLeftSlot, HeaderRightSlot } from '../context/HeaderContext'
+import { HeaderNotifications } from './HeaderNotifications'
 
 function HeaderIconButton({
   label,
@@ -20,7 +21,7 @@ function HeaderIconButton({
   const { settings } = useApp()
   const theme = getTheme(settings.theme)
   const isPrimary = tone === 'primary'
-  const size = isPrimary ? 44 : 40
+  const size = isPrimary ? headerLayout.buttonSize : headerLayout.buttonSize
 
   const style: CSSProperties = {
     display: 'inline-flex',
@@ -29,11 +30,11 @@ function HeaderIconButton({
     width: size,
     height: size,
     borderRadius: size / 2,
-    border: isPrimary ? 'none' : `1px solid ${theme.primary}28`,
-    background: isPrimary ? theme.primary : `${theme.primary}12`,
-    color: isPrimary ? '#fff' : theme.primary,
+    border: isPrimary ? 'none' : `2px solid ${theme.primary}50`,
+    background: isPrimary ? theme.primary : theme.surface,
+    color: isPrimary ? '#fff' : theme.primaryDark,
     cursor: 'pointer',
-    boxShadow: isPrimary ? '0 2px 8px rgba(45, 106, 79, 0.35)' : 'none',
+    boxShadow: isPrimary ? '0 2px 8px rgba(45, 106, 79, 0.35)' : '0 2px 10px rgba(45, 106, 79, 0.18)',
     textDecoration: 'none',
     flexShrink: 0,
   }
@@ -81,7 +82,7 @@ function IconSettings() {
 
 function IconPlus() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
   )
@@ -96,27 +97,9 @@ function IconExport() {
   )
 }
 
-function IconList() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 export function HeaderLeft({ slot }: { slot?: HeaderLeftSlot }) {
-  if (slot === 'operations') {
-    return (
-      <HeaderIconButton label="Все операции" to="/operations">
-        <IconList />
-      </HeaderIconButton>
-    )
+  if (slot === 'notifications') {
+    return <HeaderNotifications />
   }
 
   return null

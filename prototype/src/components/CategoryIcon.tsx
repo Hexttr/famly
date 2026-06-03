@@ -6,6 +6,7 @@ interface CategoryIconProps {
   color?: string
   background?: string
   variant?: 'default' | 'circle'
+  emphasis?: boolean
 }
 
 export function CategoryIcon({
@@ -14,6 +15,7 @@ export function CategoryIcon({
   color,
   background,
   variant = 'default',
+  emphasis = false,
 }: CategoryIconProps) {
   const def = getCategoryIcon(iconId)
   const stroke = color ?? def.color
@@ -29,8 +31,10 @@ export function CategoryIcon({
         width: isCircle ? circleSize : size + 8,
         height: isCircle ? circleSize : size + 8,
         borderRadius: isCircle ? circleSize / 2 : 10,
-        background: background ?? (isCircle ? `${def.color}18` : '#FFFFFF'),
-        border: isCircle ? 'none' : `1.5px solid ${def.color}55`,
+        background: background ?? (isCircle ? `${def.color}${emphasis ? '28' : '18'}` : '#FFFFFF'),
+        border: isCircle
+          ? `2px solid ${def.color}${emphasis ? 'AA' : '55'}`
+          : `1.5px solid ${def.color}${emphasis ? 'AA' : '55'}`,
         flexShrink: 0,
       }}
     >
@@ -40,7 +44,7 @@ export function CategoryIcon({
             key={i}
             d={d}
             stroke={stroke}
-            strokeWidth={1.75}
+            strokeWidth={emphasis ? 2.1 : 1.75}
             strokeLinecap="round"
             strokeLinejoin="round"
           />

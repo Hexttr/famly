@@ -28,3 +28,27 @@ select {
 a {
   color: inherit;
 }
+
+/* Зелёный скроллбар */
+.app-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #40916c transparent;
+}
+
+.app-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.app-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.app-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #52b788 0%, #2d6a4f 100%);
+  border-radius: 4px;
+}
+
+.app-scroll::-webkit-scrollbar-thumb:hover {
+  background: #2d6a4f;
+}

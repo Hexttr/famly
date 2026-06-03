@@ -9,7 +9,7 @@ import { useApp } from '../context/AppContext'
 import { getTheme } from '../theme'
 
 const hideNavRoutes = ['/onboarding', '/premium']
-const BOTTOM_NAV_HEIGHT = 56
+const BOTTOM_NAV_HEIGHT = 52
 
 export function Layout() {
   const { settings } = useApp()
@@ -38,6 +38,7 @@ export function Layout() {
         {showNav && <AppHeader />}
         <main
           ref={mainRef}
+          className="app-scroll"
           style={{
             flex: 1,
             minHeight: 0,

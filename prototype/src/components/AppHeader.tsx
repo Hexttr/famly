@@ -3,18 +3,26 @@ import { AppLogo } from './AppLogo'
 import { HeaderLeft, HeaderRight } from './HeaderActions'
 import { useHeader } from '../context/HeaderContext'
 import { useApp } from '../context/AppContext'
-import { getTheme, headerLayout } from '../theme'
+import { getTheme, getHeaderButtonTop, headerLayout } from '../theme'
 
 export function AppHeader() {
   const { config } = useHeader()
   const { settings } = useApp()
   const theme = getTheme(settings.theme)
   const navigate = useNavigate()
+  const buttonTop = getHeaderButtonTop()
 
   const handleBack = () => {
     if (config.backTo) navigate(config.backTo)
     else navigate(-1)
   }
+
+  const sideStyle = {
+    position: 'absolute' as const,
+    top: buttonTop,
+  }
+
+  const backSize = headerLayout.buttonSize
 
   const leftContent = config.showBack ? (
     <button
@@ -22,24 +30,29 @@ export function AppHeader() {
       onClick={handleBack}
       aria-label="Назад"
       style={{
-        border: 'none',
+        ...sideStyle,
+        left: '11%',
+        transform: 'translateX(-50%)',
+        border: `2px solid ${theme.primary}50`,
         background: theme.surface,
-        borderRadius: 22,
-        width: 44,
-        height: 44,
+        boxShadow: '0 2px 10px rgba(45, 106, 79, 0.18)',
+        borderRadius: backSize / 2,
+        width: backSize,
+        height: backSize,
         cursor: 'pointer',
         color: theme.primary,
-        fontSize: 18,
+        fontSize: 20,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
       }}
     >
       ←
     </button>
   ) : (
-    <HeaderLeft slot={config.leftSlot} />
+    <div style={{ ...sideStyle, left: '11%', transform: 'translateX(-50%)' }}>
+      <HeaderLeft slot={config.leftSlot} />
+    </div>
   )
 
   return (
@@ -48,32 +61,29 @@ export function AppHeader() {
         position: 'sticky',
         top: 0,
         zIndex: 50,
-        display: 'grid',
-        gridTemplateColumns: `${headerLayout.sideWidth}px 1fr ${headerLayout.sideWidth}px`,
-        alignItems: 'center',
-        columnGap: 8,
-        padding: `${headerLayout.inset}px 12px`,
+        height: headerLayout.height,
+        padding: 0,
         background: theme.background,
         flexShrink: 0,
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
-        {leftContent}
-      </div>
-
       <Link
         to="/"
         style={{
+          position: 'absolute',
+          left: '50%',
+          top: headerLayout.inset,
+          transform: 'translateX(-50%)',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
           textDecoration: 'none',
         }}
       >
         <AppLogo variant="header" />
       </Link>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      {leftContent}
+
+      <div style={{ ...sideStyle, right: '11%', transform: 'translateX(50%)' }}>
         <HeaderRight slot={config.rightSlot} />
       </div>
     </header>

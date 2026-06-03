@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 
-export type HeaderLeftSlot = 'operations'
+export type HeaderLeftSlot = 'notifications'
 
 export type HeaderRightSlot = 'categories' | 'settings' | 'search' | 'add' | 'export' | 'quickAdd'
 

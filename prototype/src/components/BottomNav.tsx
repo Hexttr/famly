@@ -14,8 +14,12 @@ export function BottomNav() {
   const { settings } = useApp()
   const theme = getTheme(settings.theme)
 
+  const inactiveColor = 'rgba(255, 255, 255, 0.55)'
+  const activeColor = '#FFFFFF'
+
   return (
     <nav
+      aria-label="Основная навигация"
       style={{
         position: 'fixed',
         left: 0,
@@ -23,10 +27,9 @@ export function BottomNav() {
         bottom: 0,
         zIndex: 90,
         display: 'flex',
-        borderTop: `1px solid ${theme.border}`,
-        background: theme.surface,
+        background: theme.primaryDark,
         paddingBottom: 'env(safe-area-inset-bottom, 0)',
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.04)',
+        boxShadow: '0 -4px 24px rgba(27, 67, 50, 0.35)',
       }}
     >
       {tabs.map((tab) => (
@@ -34,40 +37,34 @@ export function BottomNav() {
           key={tab.to}
           to={tab.to}
           end={tab.to === '/'}
-          style={({ isActive }) => ({
+          aria-label={tab.label}
+          title={tab.label}
+          style={{
             flex: 1,
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: 56,
-            padding: '6px 4px',
+            minHeight: 52,
+            padding: '8px 4px',
             textDecoration: 'none',
-            color: isActive ? theme.primary : theme.textMuted,
-            fontSize: 11,
-            fontWeight: isActive ? 600 : 500,
             WebkitTapHighlightColor: 'transparent',
-          })}
+          }}
         >
           {({ isActive }) => (
-            <>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 48,
-                  height: 28,
-                  borderRadius: 14,
-                  marginBottom: 2,
-                  background: isActive ? `${theme.primary}14` : 'transparent',
-                  transition: 'background 0.2s ease',
-                }}
-              >
-                <tab.Icon size={22} color={isActive ? theme.primary : theme.textMuted} />
-              </span>
-              {tab.label}
-            </>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                background: isActive ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+                transition: 'background 0.2s ease',
+              }}
+            >
+              <tab.Icon size={24} color={isActive ? activeColor : inactiveColor} />
+            </span>
           )}
         </NavLink>
       ))}
