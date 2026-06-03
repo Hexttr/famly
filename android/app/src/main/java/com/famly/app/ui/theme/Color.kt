@@ -26,3 +26,11 @@ val DarkTextPrimary = Color(0xFFF0F4F2)
 val DarkTextSecondary = Color(0xFFA8B5AE)
 val DarkExpense = Color(0xFFFF6B6B)
 val DarkPremium = Color(0xFFFFD166)
+val HeroHint = Color(0xFFB7E4C7)
+
+fun parseHexColor(hex: String, fallback: Color = Primary): Color {
+    val cleaned = hex.removePrefix("#")
+    return runCatching {
+        Color(0xFF000000L or cleaned.toLong(16))
+    }.getOrDefault(fallback)
+}

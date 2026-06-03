@@ -1,7 +1,6 @@
 package com.famly.app.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,9 +13,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,25 +33,42 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.domain.analytics.getCategorySpent
+import com.famly.app.domain.analytics.getTopExpenseCategoryIds
 import com.famly.app.ui.FamlyUiState
+import com.famly.app.ui.components.AccentCard
+import com.famly.app.ui.components.AccentCardColumn
 import com.famly.app.ui.components.BudgetProgressBar
+import com.famly.app.ui.components.CategoryEmojiIcon
 import com.famly.app.ui.components.FamlyCard
+import com.famly.app.ui.components.FamlyFilterChip
+import com.famly.app.ui.components.FamlySearchBar
+import com.famly.app.ui.components.GroupedListCard
 import com.famly.app.ui.components.HeroCard
+import com.famly.app.ui.components.QuickCategoryTile
 import com.famly.app.ui.components.TrialBanner
+import com.famly.app.ui.components.categoryAccentColor
+import com.famly.app.ui.theme.Border
 import com.famly.app.ui.theme.Expense
+import com.famly.app.ui.theme.HeroHint
 import com.famly.app.ui.theme.Income
 import com.famly.app.ui.theme.Premium
 import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
+import com.famly.app.ui.theme.TextMuted
+import com.famly.app.ui.theme.TextSecondary
+
+private const val INITIAL_RECENT = 5
+private const val LOAD_MORE_STEP = 10
 
 @Composable
 fun HomeScreen(
@@ -53,129 +76,199 @@ fun HomeScreen(
     onOpenBudget: () -> Unit,
     onOpenOperations: () -> Unit,
     onOpenTransaction: (String) -> Unit,
-    onOpenPremium: () -> Unit,
+    onQuickAddCategory: (String) -> Unit,
 ) {
-    var visibleRecent by remember { mutableIntStateOf(5) }
+    var visibleRecent by remember { mutableIntStateOf(INITIAL_RECENT) }
     val recent = state.transactions.take(visibleRecent)
+    val hasMore = visibleRecent < state.transactions.size
+    val remaining = maxOf(0, state.safeToSpendKopecks)
+    val net = state.incomeKopecks - state.spentKopecks
 
-    Column(modifier = Modifier.padding(Spacing.md)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                Text(
-                    "Мой (Наш) Бюджет",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                )
-                Text("Привет! 👋", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            }
-            val trialDays = state.settings.trialDaysLeft()
-            when {
-                state.settings.isPremium -> PremiumBadge("Премиум")
-                trialDays > 0 -> PremiumBadge("Trial: $trialDays дн.")
-            }
-        }
+    val topIds = getTopExpenseCategoryIds(state.transactions)
+    val quickFromTop = topIds.mapNotNull { id -> state.categories.find { it.id == id } }.take(4)
+    val fallbackQuick = state.categories.filter { it.type == "expense" }.take(4)
+    val quickCategories = if (quickFromTop.size >= 4) quickFromTop else fallbackQuick
 
-        Spacer(modifier = Modifier.height(Spacing.md))
-
+    Column(
+        modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = Spacing.lg),
+    ) {
         HeroCard(
             modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onOpenBudget),
+                .padding(horizontal = Spacing.md)
+                .padding(bottom = 10.dp),
+            onClick = onOpenBudget,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        state.periodLabel,
+                        modifier = Modifier
+                            .background(Color.White.copy(alpha = 0.14f), androidx.compose.foundation.shape.RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        color = Color.White.copy(alpha = 0.95f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Бюджет", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Можно тратить", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Text(
-                    state.periodLabel,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.14f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
-                    color = Color.White.copy(alpha = 0.95f),
-                    fontSize = 12.sp,
+                    MoneyFormatter.formatKopecks(remaining),
+                    color = Color.White,
+                    fontSize = 38.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.5).sp,
+                    lineHeight = 42.sp,
+                )
+                Text(
+                    "около ${MoneyFormatter.formatKopecks(state.dailySafeSpendKopecks)} / день · ${state.daysLeft} дн.",
+                    color = HeroHint,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 14.dp, top = 4.dp),
                 )
-                Text("Бюджет →", color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Spacer(modifier = Modifier.height(Spacing.sm))
-            Text("В день можно тратить", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelMedium)
-            Text(
-                MoneyFormatter.formatKopecks(state.dailySafeSpendKopecks),
-                color = Color.White,
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(Spacing.sm))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    "Остаток: ${MoneyFormatter.formatKopecks(state.safeToSpendKopecks)}",
-                    color = Color.White.copy(alpha = 0.9f),
-                    style = MaterialTheme.typography.bodySmall,
+                BudgetProgressBar(
+                    spent = state.spentKopecks,
+                    limit = state.budgetTotalKopecks,
+                    color = Color.White,
+                    trackColor = Color.White.copy(alpha = 0.22f),
+                    height = 6.dp,
+                    showLabel = true,
+                    label = "Потрачено ${MoneyFormatter.formatKopecks(state.spentKopecks)} из ${MoneyFormatter.formatKopecks(state.budgetTotalKopecks)}",
+                    labelColor = Color.White.copy(alpha = 0.85f),
                 )
-                Text("До конца: ${state.daysLeft} дн.", color = Color.White.copy(alpha = 0.9f), style = MaterialTheme.typography.bodySmall)
             }
-            Spacer(modifier = Modifier.height(Spacing.sm))
-            BudgetProgressBar(spent = state.spentKopecks, limit = state.budgetTotalKopecks, color = Color.White)
         }
 
-        Spacer(modifier = Modifier.height(Spacing.sm))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatCard("Доходы", MoneyFormatter.formatKopecks(state.incomeKopecks), Income, Modifier.weight(1f))
-            StatCard("Расходы", MoneyFormatter.formatKopecks(state.spentKopecks), Expense, Modifier.weight(1f))
-        }
-
-        Spacer(modifier = Modifier.height(Spacing.md))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Последние операции", fontWeight = FontWeight.SemiBold)
-            Text("Все →", color = Primary, modifier = Modifier.clickable(onClick = onOpenOperations))
-        }
-        Spacer(modifier = Modifier.height(Spacing.sm))
-        recent.forEach { tx ->
-            TransactionRow(state, tx, onOpenTransaction)
-        }
-        if (visibleRecent < state.transactions.size) {
-            Text(
-                "Показать ещё",
-                color = Primary,
-                fontWeight = FontWeight.SemiBold,
+        if (quickCategories.isNotEmpty()) {
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { visibleRecent += 10 }
-                    .padding(vertical = 12.dp),
-            )
+                    .padding(horizontal = Spacing.md)
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                quickCategories.forEach { cat ->
+                    QuickCategoryTile(
+                        emoji = cat.icon,
+                        name = cat.name,
+                        accent = categoryAccentColor(cat.color),
+                        onClick = { onQuickAddCategory(cat.id) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+
+        AccentCard(
+            modifier = Modifier
+                .padding(horizontal = Spacing.md)
+                .padding(bottom = 12.dp),
+        ) {
+            Text("Текущая экономия", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Primary)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    "${if (net >= 0) "+" else "−"}${MoneyFormatter.formatKopecks(kotlin.math.abs(net))}",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (net >= 0) Income else Expense,
+                )
+                Text(
+                    "${MoneyFormatter.formatKopecks(state.incomeKopecks)} − ${MoneyFormatter.formatKopecks(state.spentKopecks)}",
+                    fontSize = 11.sp,
+                    color = TextMuted,
+                )
+            }
+        }
+
+        GroupedListCard(modifier = Modifier.padding(horizontal = Spacing.md)) {
+            recent.forEachIndexed { index, tx ->
+                val isLast = index == recent.lastIndex && !hasMore
+                HomeTransactionRow(state, tx, onOpenTransaction)
+                if (!isLast) {
+                    HorizontalDivider(color = Border, thickness = 1.dp)
+                }
+            }
+        }
+
+        if (hasMore) {
+            AccentCardColumn(
+                modifier = Modifier
+                    .padding(horizontal = Spacing.md)
+                    .padding(top = 12.dp),
+                onClick = { visibleRecent = minOf(visibleRecent + LOAD_MORE_STEP, state.transactions.size) },
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.List, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+                    Text(
+                        "Показать ещё",
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Primary,
+                    )
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Primary, modifier = Modifier.size(16.dp))
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun PremiumBadge(text: String) {
-    Text(
-        text,
+private fun HomeTransactionRow(
+    state: FamlyUiState,
+    tx: TransactionEntity,
+    onOpen: (String) -> Unit,
+) {
+    val cat = state.categories.find { it.id == tx.categoryId }
+    val subtitle = if (!tx.note.isNullOrBlank()) {
+        "${tx.note} · ${MoneyFormatter.formatShortDate(tx.dateEpochDay)}"
+    } else {
+        MoneyFormatter.formatShortDate(tx.dateEpochDay)
+    }
+    Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(com.famly.app.ui.theme.PremiumBg)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        color = Premium,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-    )
-}
-
-@Composable
-private fun StatCard(label: String, value: String, valueColor: Color, modifier: Modifier = Modifier) {
-    FamlyCard(modifier = modifier) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-        Text(value, fontWeight = FontWeight.SemiBold, color = valueColor)
+            .fillMaxWidth()
+            .clickable { onOpen(tx.id) }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (cat != null) {
+            CategoryEmojiIcon(emoji = cat.icon, size = 36.dp, accent = categoryAccentColor(cat.color))
+        } else {
+            Text("📝", fontSize = 20.sp)
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 12.dp),
+        ) {
+            Text(cat?.name ?: "—", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, fontSize = 12.sp, color = TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(
+            "${if (tx.type == "expense") "−" else "+"}${MoneyFormatter.formatKopecks(tx.amountKopecks)}",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (tx.type == "expense") Expense else Income,
+        )
     }
 }
 
@@ -194,89 +287,106 @@ fun OperationsScreen(state: FamlyUiState, onOpenTransaction: (String) -> Unit) {
             tx.amountKopecks.toString().contains(q)
     }
 
-    LazyColumn(modifier = Modifier.padding(horizontal = Spacing.md)) {
+    LazyColumn(
+        modifier = Modifier.padding(horizontal = Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         item {
+            FamlySearchBar(
+                value = search,
+                onValueChange = { search = it },
+                placeholder = "Поиск...",
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = Spacing.sm)
-                    .clip(RoundedCornerShape(Radius.md))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.md))
-                    .padding(horizontal = 14.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(top = 12.dp, bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("🔍", modifier = Modifier.padding(end = 8.dp))
-                BasicTextField(
-                    value = search,
-                    onValueChange = { search = it },
-                    modifier = Modifier.weight(1f).padding(vertical = 12.dp),
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                    cursorBrush = SolidColor(Primary),
-                    decorationBox = { inner ->
-                        if (search.isEmpty()) {
-                            Text("Поиск...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f))
-                        }
-                        inner()
-                    },
+                FamlyFilterChip(
+                    label = "Все",
+                    selected = filterType == "all",
+                    onClick = { filterType = "all" },
+                    modifier = Modifier.weight(1f),
+                    accent = Primary,
+                    leading = { Icon(Icons.AutoMirrored.Filled.List, null, modifier = Modifier.size(16.dp), tint = if (filterType == "all") Color.White else TextSecondary) },
                 )
-            }
-            Row(modifier = Modifier.padding(bottom = Spacing.sm), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("all" to "Все", "expense" to "Расходы", "income" to "Доходы").forEach { (id, label) ->
-                    FilterChip(
-                        selected = filterType == id,
-                        onClick = { filterType = id },
-                        label = { Text(label) },
-                    )
-                }
+                FamlyFilterChip(
+                    label = "Расходы",
+                    selected = filterType == "expense",
+                    onClick = { filterType = "expense" },
+                    modifier = Modifier.weight(1f),
+                    accent = Expense,
+                    leading = { Icon(Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(16.dp), tint = if (filterType == "expense") Color.White else TextSecondary) },
+                )
+                FamlyFilterChip(
+                    label = "Доходы",
+                    selected = filterType == "income",
+                    onClick = { filterType = "income" },
+                    modifier = Modifier.weight(1f),
+                    accent = Income,
+                    leading = { Icon(Icons.Default.KeyboardArrowUp, null, modifier = Modifier.size(16.dp), tint = if (filterType == "income") Color.White else TextSecondary) },
+                )
             }
         }
         items(filtered, key = { it.id }) { tx ->
-            FamlyCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = Spacing.sm)
-                    .clickable { onOpenTransaction(tx.id) },
-            ) {
-                TransactionRow(state, tx, onOpenTransaction, compact = false)
-            }
+            OperationTransactionCard(state, tx, onOpenTransaction)
         }
+        item { Spacer(modifier = Modifier.height(Spacing.sm)) }
     }
 }
 
 @Composable
-private fun TransactionRow(
+private fun OperationTransactionCard(
     state: FamlyUiState,
-    tx: com.famly.app.data.local.entity.TransactionEntity,
+    tx: TransactionEntity,
     onOpen: (String) -> Unit,
-    compact: Boolean = true,
 ) {
     val cat = state.categories.find { it.id == tx.categoryId }
-    Row(
+    FamlyCard(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (compact) Modifier.clickable { onOpen(tx.id) }.padding(vertical = 10.dp) else Modifier),
-        verticalAlignment = Alignment.CenterVertically,
+            .clickable { onOpen(tx.id) },
+        cornerRadius = Radius.md,
+        padding = 0.dp,
     ) {
-        Text(cat?.icon ?: "📝", fontSize = if (compact) 20.sp else 24.sp, modifier = Modifier.padding(end = 12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(cat?.name ?: "—", fontWeight = FontWeight.Medium)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (cat != null) {
+                CategoryEmojiIcon(emoji = cat.icon, size = 38.dp, accent = categoryAccentColor(cat.color))
+            } else {
+                Text("📝", fontSize = 22.sp)
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
+            ) {
+                Text(cat?.name ?: "—", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    buildString {
+                        append(MoneyFormatter.formatShortDate(tx.dateEpochDay))
+                        if (!tx.note.isNullOrBlank()) append(" · ${tx.note}")
+                        if (tx.isRecurring) append(" · 🔄")
+                    },
+                    fontSize = 12.sp,
+                    color = TextMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
-                buildString {
-                    append(MoneyFormatter.formatShortDate(tx.dateEpochDay))
-                    if (tx.isRecurring) append(" · 🔄")
-                    if (!tx.splitMemberIds.isNullOrBlank()) append(" · 👪")
-                    if (!compact && !tx.note.isNullOrBlank()) append(" · ${tx.note}")
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                "${if (tx.type == "expense") "−" else "+"}${MoneyFormatter.formatKopecks(tx.amountKopecks)}",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (tx.type == "expense") Expense else Income,
             )
         }
-        Text(
-            "${if (tx.type == "expense") "−" else "+"}${MoneyFormatter.formatKopecks(tx.amountKopecks)}",
-            fontWeight = FontWeight.SemiBold,
-            color = if (tx.type == "expense") Expense else Income,
-        )
     }
 }
 
@@ -286,50 +396,90 @@ fun BudgetScreen(
     onOpenCategory: (String) -> Unit,
     onOpenCategories: () -> Unit,
 ) {
-    Column(modifier = Modifier.padding(Spacing.md)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Бюджет", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("Категории", color = Primary, modifier = Modifier.clickable(onClick = onOpenCategories))
-        }
-        Spacer(modifier = Modifier.height(Spacing.sm))
+    val pct = if (state.budgetTotalKopecks > 0) {
+        (state.spentKopecks * 100 / state.budgetTotalKopecks).toInt()
+    } else {
+        0
+    }
+    Column(
+        modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+    ) {
         HeroCard(modifier = Modifier.fillMaxWidth()) {
-            Text(state.periodLabel, color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
-            Text(
-                MoneyFormatter.formatKopecks(state.safeToSpendKopecks),
-                color = Color.White,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Text("можно потратить", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelMedium)
-            Spacer(modifier = Modifier.height(Spacing.sm))
-            BudgetProgressBar(spent = state.spentKopecks, limit = state.budgetTotalKopecks, color = Color.White)
-            Text(
-                "${MoneyFormatter.formatKopecks(state.spentKopecks)} / ${MoneyFormatter.formatKopecks(state.budgetTotalKopecks)}",
-                color = Color.White.copy(alpha = 0.9f),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 6.dp),
-            )
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        state.periodLabel,
+                        modifier = Modifier
+                            .background(Color.White.copy(alpha = 0.14f), androidx.compose.foundation.shape.RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        color = Color.White.copy(alpha = 0.95f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable(onClick = onOpenCategories),
+                    ) {
+                        Text("Категории", color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(14.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Общий бюджет периода", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    MoneyFormatter.formatKopecks(state.budgetTotalKopecks),
+                    color = Color.White,
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.5).sp,
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                BudgetProgressBar(
+                    spent = state.spentKopecks,
+                    limit = state.budgetTotalKopecks,
+                    color = Color.White,
+                    trackColor = Color.White.copy(alpha = 0.22f),
+                    height = 6.dp,
+                    showLabel = true,
+                    label = "Потрачено ${MoneyFormatter.formatKopecks(state.spentKopecks)} из ${MoneyFormatter.formatKopecks(state.budgetTotalKopecks)} · $pct%",
+                    labelColor = Color.White.copy(alpha = 0.85f),
+                )
+            }
         }
         Spacer(modifier = Modifier.height(Spacing.md))
         state.categories.filter { it.type == "expense" && it.budgetLimitKopecks != null }.forEach { cat ->
             val spent = getCategorySpent(cat.id, state.transactions)
             val limit = cat.budgetLimitKopecks ?: 0L
+            val catPct = if (limit > 0) (spent * 100 / limit).toInt() else 0
             FamlyCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = Spacing.sm)
+                    .padding(bottom = 10.dp)
                     .clickable { onOpenCategory(cat.id) },
+                cornerRadius = Radius.md,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(cat.icon, modifier = Modifier.padding(end = 8.dp))
-                    Text(cat.name, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                    CategoryEmojiIcon(emoji = cat.icon, size = 36.dp, accent = categoryAccentColor(cat.color))
+                    Text(cat.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f).padding(start = 10.dp))
+                    Text(
+                        "$catPct%",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = if (catPct >= 100) Expense else TextSecondary,
+                    )
                 }
-                Spacer(modifier = Modifier.height(Spacing.sm))
-                BudgetProgressBar(spent = spent, limit = limit)
+                BudgetProgressBar(spent = spent, limit = limit, color = categoryAccentColor(cat.color), height = 6.dp)
                 Text(
                     "${MoneyFormatter.formatKopecks(spent)} / ${MoneyFormatter.formatKopecks(limit)}",
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 4.dp),
+                    color = TextMuted,
+                    modifier = Modifier.padding(top = 8.dp),
                 )
             }
         }
@@ -347,12 +497,12 @@ fun MoreScreen(
         Triple("📈", "Отчёты", "reports"),
         Triple("⚙️", "Настройки", "settings"),
         Triple("💾", "Backup и экспорт", "backup"),
-        Triple("👨‍👩‍👧", "Семья", "family"),
-        Triple("⚖️", "Балансы IOU", "balances"),
+        Triple("👪", "Семья", "family"),
+        Triple("🤝", "Балансы (IOU)", "balances"),
         Triple("📉", "Аналитика", "analytics"),
-        Triple("⭐", "Премиум", "premium"),
+        Triple("⭐", "Premium", "premium"),
     )
-    Column(modifier = Modifier.padding(Spacing.md)) {
+    Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
         TrialBanner(
             trialDaysLeft = state.settings.trialDaysLeft(),
             isPremium = state.settings.isPremium,
@@ -363,27 +513,37 @@ fun MoreScreen(
             FamlyCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = Spacing.sm)
+                    .padding(bottom = 10.dp)
                     .clickable { onNavigate(route) },
+                cornerRadius = Radius.md,
+                padding = 0.dp,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                        Text(icon, fontSize = 24.sp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier.size(40.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(icon, fontSize = 24.sp, textAlign = TextAlign.Center)
                     }
-                    Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                    Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                     if (premiumOnly) {
-                        Text("Премиум", color = Premium, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("Premium", color = Premium, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
-                    Text("›", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), fontSize = 18.sp)
+                    Text("›", color = TextMuted, fontSize = 18.sp)
                 }
             }
         }
         Text(
             "Мой (Наш) Бюджет v0.1.0 · Сделано в России",
-            modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.md, bottom = Spacing.md),
+            textAlign = TextAlign.Center,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+            color = TextMuted,
         )
     }
 }

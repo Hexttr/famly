@@ -1,15 +1,19 @@
 package com.famly.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,30 +23,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.ui.FamlyUiState
 import com.famly.app.ui.components.FamlyCard
+import com.famly.app.ui.components.FamlyFilterChip
 import com.famly.app.ui.components.HeroCard
 import com.famly.app.ui.components.PremiumGateContent
 import com.famly.app.ui.theme.Expense
 import com.famly.app.ui.theme.Primary
+import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
-
-private fun roleLabel(role: String): String = when (role) {
-    "admin" -> "Админ"
-    "member" -> "Участник"
-    else -> "Наблюдатель"
-}
-
-private fun visibilityLabel(v: String): String = when (v) {
-    "full" -> "Полный доступ"
-    "partial" -> "Частичный"
-    else -> "Приватный"
-}
+import com.famly.app.ui.theme.TextMuted
+import com.famly.app.ui.theme.famlySmShadow
 
 @Composable
 fun FamilyScreen(
@@ -52,48 +50,78 @@ fun FamilyScreen(
     onOpenMember: (String) -> Unit,
 ) {
     if (!state.settings.hasPremiumAccess()) {
-        ScreenScaffold(title = "Семья", onBack = onBack) {
+        ScreenScaffold(onBack = onBack) {
             PremiumGateScreen("Семейный бюджет", onUpgrade)
         }
         return
     }
-    ScreenScaffold(title = "Семья", onBack = onBack) {
-        Column(modifier = Modifier.padding(Spacing.md)) {
-            HeroCard(modifier = Modifier.fillMaxWidth()) {
-                Text("Участников семьи", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp)
-                Text(
-                    "${state.familyMembers.size} / 6",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 34.sp,
-                )
-            }
-            Spacer(modifier = Modifier.height(Spacing.md))
-            state.familyMembers.forEach { member ->
-                FamlyCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = Spacing.sm)
-                        .clickable { onOpenMember(member.id) },
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(member.avatar, fontSize = 32.sp, modifier = Modifier.padding(end = 12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(member.name, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "${roleLabel(member.role)} · ${visibilityLabel(member.visibility)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
-                            )
-                        }
-                        Text("›", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
-                    }
+    ScreenScaffold(onBack = onBack) {
+        HeroCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("👨‍👩‍👧", fontSize = 40.sp, modifier = Modifier.padding(end = 14.dp))
+                Column {
+                    Text("Участников семьи", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp)
+                    Text(
+                        "${state.familyMembers.size} / 6",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 34.sp,
+                    )
                 }
             }
-            Button(onClick = { }, modifier = Modifier.fillMaxWidth()) {
-                Text("+ Пригласить")
+        }
+        state.familyMembers.forEach { member ->
+            FamlyCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp)
+                    .clickable { onOpenMember(member.id) },
+                cornerRadius = Radius.md,
+                padding = 0.dp,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MemberAvatar(member.avatar)
+                    Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(member.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        Text(
+                            "${roleLabel(member.role)} · ${visibilityLabel(member.visibility)}",
+                            fontSize = 12.sp,
+                            color = TextMuted,
+                        )
+                    }
+                    Text("›", color = TextMuted, fontSize = 18.sp)
+                }
             }
         }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radius.md))
+                .background(Primary.copy(alpha = 0.06f))
+                .border(2.dp, Primary, RoundedCornerShape(Radius.md))
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("+ Пригласить", color = Primary, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun MemberAvatar(emoji: String, size: Int = 44) {
+    Box(
+        modifier = Modifier
+            .size(size.dp)
+            .clip(CircleShape)
+            .background(Color.White)
+            .border(2.dp, Primary.copy(alpha = 0.28f), CircleShape)
+            .famlySmShadow(CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(emoji, fontSize = (size * 0.52).sp)
     }
 }
 
@@ -106,18 +134,18 @@ fun FamilyMemberScreen(
     onUpdateVisibility: (String) -> Unit,
 ) {
     val member = state.familyMembers.find { it.id == memberId } ?: return
-    ScreenScaffold(title = member.name, onBack = onBack) {
-        Column(modifier = Modifier.padding(Spacing.md), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(member.avatar, fontSize = 56.sp)
-            Text(member.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+    ScreenScaffold(onBack = onBack) {
+        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            MemberAvatar(member.avatar, size = 56)
+            Text(member.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
             Spacer(modifier = Modifier.height(Spacing.md))
             Text("Роль", style = MaterialTheme.typography.labelMedium)
             Row(modifier = Modifier.padding(vertical = 8.dp)) {
                 listOf("admin", "member", "viewer").forEach { role ->
-                    FilterChip(
+                    FamlyFilterChip(
+                        label = roleLabel(role),
                         selected = member.role == role,
                         onClick = { onUpdateRole(role) },
-                        label = { Text(roleLabel(role)) },
                         modifier = Modifier.padding(end = 4.dp),
                     )
                 }
@@ -125,10 +153,10 @@ fun FamilyMemberScreen(
             Text("Видимость", style = MaterialTheme.typography.labelMedium)
             Row(modifier = Modifier.padding(vertical = 8.dp)) {
                 listOf("full", "partial", "private").forEach { vis ->
-                    FilterChip(
+                    FamlyFilterChip(
+                        label = visibilityLabel(vis),
                         selected = member.visibility == vis,
                         onClick = { onUpdateVisibility(vis) },
-                        label = { Text(visibilityLabel(vis)) },
                         modifier = Modifier.padding(end = 4.dp),
                     )
                 }
@@ -145,35 +173,92 @@ fun BalancesScreen(
     onSettle: (fromId: String, toId: String) -> Unit,
 ) {
     if (!state.settings.hasPremiumAccess()) {
-        ScreenScaffold(title = "Кто кому должен", onBack = onBack) {
+        ScreenScaffold(onBack = onBack) {
             PremiumGateScreen("Балансы IOU", onUpgrade)
         }
         return
     }
-    ScreenScaffold(title = "Кто кому должен", onBack = onBack) {
-        Column(modifier = Modifier.padding(Spacing.md)) {
-            if (state.iouBalances.isEmpty()) {
-                FamlyCard(modifier = Modifier.fillMaxWidth()) {
-                    Text("Все долги закрыты 🎉", fontWeight = FontWeight.SemiBold)
+    val totalDebt = state.iouBalances.sumOf { it.amountKopecks }
+    ScreenScaffold(onBack = onBack) {
+        HeroCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("🤝", fontSize = 40.sp, modifier = Modifier.padding(end = 14.dp))
+                Column {
+                    Text("Открытые долги", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp)
+                    Text(
+                        if (state.iouBalances.isEmpty()) "0 ₽" else MoneyFormatter.formatKopecks(totalDebt),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 28.sp,
+                    )
+                    Text(
+                        if (state.iouBalances.isEmpty()) "Все расчёты закрыты"
+                        else "${state.iouBalances.size} долг(а) · с учётом взаимных",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
                 }
             }
+        }
+        if (state.iouBalances.isEmpty()) {
+            FamlyCard(modifier = Modifier.fillMaxWidth()) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                    Text("✓", fontSize = 40.sp)
+                    Text("Все расчёты закрыты", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(top = 12.dp))
+                    Text(
+                        "Когда появятся долги между участниками семьи, они отобразятся здесь",
+                        textAlign = TextAlign.Center,
+                        color = TextMuted,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+        } else {
             state.iouBalances.forEach { bal ->
                 val from = state.familyMembers.find { it.id == bal.fromId }
                 val to = state.familyMembers.find { it.id == bal.toId }
-                FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
-                    Text("${from?.name ?: "?"} должен(а) ${to?.name ?: "?"}")
-                    Text(
-                        MoneyFormatter.formatKopecks(bal.amountKopecks),
-                        fontWeight = FontWeight.Bold,
-                        color = Expense,
-                        fontSize = 20.sp,
-                    )
-                    Button(
-                        onClick = { onSettle(bal.fromId, bal.toId) },
-                        modifier = Modifier.padding(top = 8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp), cornerRadius = Radius.lg) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Закрыть долг")
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            MemberAvatar(from?.avatar ?: "👤")
+                            Text(from?.name ?: "?", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+                        }
+                        Text("→", color = Primary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            MemberAvatar(to?.avatar ?: "👤")
+                            Text(to?.name ?: "?", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(Radius.md))
+                            .background(Expense.copy(alpha = 0.06f))
+                            .border(2.dp, Expense.copy(alpha = 0.21f), RoundedCornerShape(Radius.md))
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Сумма долга", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextMuted)
+                        Text(MoneyFormatter.formatKopecks(bal.amountKopecks), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Expense)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                            .clip(RoundedCornerShape(Radius.md))
+                            .background(Primary)
+                            .clickable { onSettle(bal.fromId, bal.toId) }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("Закрыть долг", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -190,7 +275,7 @@ fun SplitExpenseScreen(
     onSave: (List<String>) -> Unit,
 ) {
     if (!state.settings.hasPremiumAccess()) {
-        ScreenScaffold(title = "Split расхода", onBack = onBack) {
+        ScreenScaffold(onBack = onBack) {
             PremiumGateScreen("Split расходов", onUpgrade)
         }
         return
@@ -205,51 +290,51 @@ fun SplitExpenseScreen(
         )
     }
 
-    ScreenScaffold(title = "Split расхода", onBack = onBack) {
+    ScreenScaffold(onBack = onBack) {
         Column(modifier = Modifier.padding(Spacing.md)) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(cat?.icon ?: "📝", fontSize = 32.sp)
-                Text(
-                    MoneyFormatter.formatKopecks(tx.amountKopecks),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 24.sp,
-                    color = Expense,
-                )
-                Text(cat?.name ?: "—", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-            }
+            Text("${cat?.icon} ${cat?.name}", fontWeight = FontWeight.Bold)
+            Text(MoneyFormatter.formatKopecks(tx.amountKopecks), color = Expense, fontWeight = FontWeight.Bold, fontSize = 24.sp)
             Spacer(modifier = Modifier.height(Spacing.md))
-            val shareCount = selected.size.coerceAtLeast(1)
-            val share = tx.amountKopecks / shareCount
             state.familyMembers.forEach { member ->
-                val checked = member.id in selected
                 FamlyCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = Spacing.sm)
+                        .padding(bottom = 8.dp)
                         .clickable {
-                            selected = if (checked) selected - member.id else selected + member.id
+                            selected = if (member.id in selected) selected - member.id else selected + member.id
                         },
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (checked) "☑" else "☐", modifier = Modifier.padding(end = 8.dp))
-                        Text(member.avatar, fontSize = 24.sp, modifier = Modifier.padding(end = 8.dp))
-                        Text(member.name, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-                        if (checked) {
-                            Text(MoneyFormatter.formatKopecks(share), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                        }
+                        Text(member.avatar, fontSize = 28.sp)
+                        Text(member.name, modifier = Modifier.weight(1f).padding(horizontal = 12.dp))
+                        Text(if (member.id in selected) "✓" else "○", color = Primary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
-            Button(
-                onClick = { onSave(selected.toList()) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Primary),
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(Radius.md))
+                    .background(Primary)
+                    .clickable { onSave(selected.toList()) }
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Text("Сохранить split")
+                Text("Сохранить split", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
     }
+}
+
+
+private fun roleLabel(role: String): String = when (role) {
+    "admin" -> "Админ"
+    "member" -> "Участник"
+    else -> "Наблюдатель"
+}
+
+private fun visibilityLabel(v: String): String = when (v) {
+    "full" -> "Полный доступ"
+    "partial" -> "Частичный"
+    else -> "Приватный"
 }

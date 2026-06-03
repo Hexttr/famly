@@ -1,17 +1,15 @@
 package com.famly.app.ui.navigation
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -27,6 +25,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.famly.app.ui.FamlyViewModel
+import com.famly.app.ui.components.AppHeader
+import com.famly.app.ui.components.FamlyBottomNav
+import com.famly.app.ui.components.HeaderLeftSlot
+import com.famly.app.ui.components.HeaderRightSlot
 import com.famly.app.ui.screens.AccountsScreen
 import com.famly.app.ui.screens.AnalyticsScreen
 import com.famly.app.ui.screens.BackupScreen
@@ -42,11 +44,11 @@ import com.famly.app.ui.screens.OnboardingScreen
 import com.famly.app.ui.screens.OperationDetailScreen
 import com.famly.app.ui.screens.OperationsScreen
 import com.famly.app.ui.screens.PremiumPaywallScreen
+import com.famly.app.ui.screens.NotificationsSheet
 import com.famly.app.ui.screens.QuickAddSheet
 import com.famly.app.ui.screens.ReportsScreen
 import com.famly.app.ui.screens.SettingsScreen
 import com.famly.app.ui.screens.SplitExpenseScreen
-import com.famly.app.ui.theme.Primary
 
 private data class TabItem(val route: String, val label: String, val icon: ImageVector)
 
@@ -62,6 +64,8 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
     val navController = rememberNavController()
     val state by viewModel.uiState.collectAsState()
     var quickAddVisible by rememberSaveable { mutableStateOf(false) }
+    var quickAddCategoryId by rememberSaveable { mutableStateOf<String?>(null) }
+    var notificationsVisible by rememberSaveable { mutableStateOf(false) }
 
     if (!state.settings.onboardingComplete) {
         OnboardingScreen(onComplete = { viewModel.completeOnboarding() })
@@ -76,32 +80,54 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
         navController.navigate(Routes.PREMIUM)
     }
 
+    fun openQuickAdd(categoryId: String? = null) {
+        quickAddCategoryId = categoryId
+        quickAddVisible = true
+    }
+
+    val headerLeft = when (currentRoute) {
+        Routes.HOME, Routes.OPERATIONS, Routes.BUDGET, Routes.MORE -> HeaderLeftSlot.Notifications
+        else -> HeaderLeftSlot.None
+    }
+    val headerRight = when (currentRoute) {
+        Routes.HOME, Routes.OPERATIONS -> HeaderRightSlot.QuickAdd
+        Routes.BUDGET -> HeaderRightSlot.Add
+        Routes.MORE -> HeaderRightSlot.Settings
+        else -> HeaderRightSlot.None
+    }
+
     Scaffold(
-        bottomBar = {
+        topBar = {
             if (isMainTab) {
-                NavigationBar {
-                    tabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = currentRoute == tab.route,
-                            onClick = {
-                                navController.navigate(tab.route) {
-                                    popUpTo(Routes.HOME) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(tab.icon, contentDescription = tab.label) },
-                            label = { Text(tab.label) },
-                        )
-                    }
-                }
+                AppHeader(
+                    leftSlot = headerLeft,
+                    rightSlot = headerRight,
+                    onQuickAdd = { openQuickAdd() },
+                    onSettings = { navController.navigate(Routes.SETTINGS) },
+                    onAdd = { navController.navigate(Routes.CATEGORIES) },
+                    onNotifications = { notificationsVisible = true },
+                    onHome = {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.HOME) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
             }
         },
-        floatingActionButton = {
+        bottomBar = {
             if (isMainTab) {
-                FloatingActionButton(onClick = { quickAddVisible = true }, containerColor = Primary) {
-                    Text("+", color = androidx.compose.ui.graphics.Color.White)
-                }
+                FamlyBottomNav(
+                    selectedRoute = currentRoute ?: Routes.HOME,
+                    onTabSelected = { route ->
+                        navController.navigate(route) {
+                            popUpTo(Routes.HOME) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    tabs = tabs.map { Triple(it.route, it.icon, it.label) },
+                )
             }
         },
     ) { padding ->
@@ -116,7 +142,7 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
                     onOpenBudget = { navController.navigate(Routes.BUDGET) },
                     onOpenOperations = { navController.navigate(Routes.OPERATIONS) },
                     onOpenTransaction = { navController.navigate(Routes.operationDetail(it)) },
-                    onOpenPremium = { navigateToPremium() },
+                    onQuickAddCategory = { openQuickAdd(it) },
                 )
             }
             composable(Routes.OPERATIONS) {
@@ -140,7 +166,7 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
                 AccountsScreen(
                     state,
                     { navController.popBackStack() },
-                    { viewModel.addAccount(it) },
+                    { name, icon -> viewModel.addAccount(name, icon) },
                     { viewModel.deleteAccount(it) },
                     { viewModel.cycleAccountIcon(it) },
                 )
@@ -275,10 +301,20 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
         }
     }
 
+    NotificationsSheet(
+        state = state,
+        visible = notificationsVisible,
+        onDismiss = { notificationsVisible = false },
+    )
+
     QuickAddSheet(
         state = state,
         visible = quickAddVisible,
-        onDismiss = { quickAddVisible = false },
+        initialCategoryId = quickAddCategoryId,
+        onDismiss = {
+            quickAddVisible = false
+            quickAddCategoryId = null
+        },
         onSave = { amount, type, cat, acc, note, rec ->
             viewModel.addTransaction(amount, type, cat, acc, note, rec)
         },

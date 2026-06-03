@@ -1,6 +1,12 @@
 package com.famly.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,7 +23,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -30,14 +35,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.famly.app.domain.DEFAULT_ACCOUNT_ICON
 import com.famly.app.domain.MoneyFormatter
+import com.famly.app.domain.nextAccountIcon
 import com.famly.app.domain.analytics.REPORT_PERIOD_LABELS
 import com.famly.app.domain.analytics.ReportPeriod
 import com.famly.app.domain.analytics.filterTransactionsByPeriod
@@ -45,14 +54,20 @@ import com.famly.app.domain.analytics.getReportPeriodDescription
 import com.famly.app.domain.iconsForType
 import com.famly.app.ui.FamlyUiState
 import com.famly.app.ui.components.FamlyCard
+import com.famly.app.ui.components.FamlyCategoryChip
+import com.famly.app.ui.components.FamlyFilterChip
 import com.famly.app.ui.components.HeroCard
 import com.famly.app.ui.components.PremiumGateContent
+import com.famly.app.ui.components.SectionHeading
+import com.famly.app.ui.components.categoryAccentColor
 import com.famly.app.ui.theme.Expense
 import com.famly.app.ui.theme.Income
 import com.famly.app.ui.theme.Premium
-import com.famly.app.ui.theme.PremiumBg
 import com.famly.app.ui.theme.Primary
+import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
+import com.famly.app.ui.theme.TextMuted
+import com.famly.app.ui.theme.famlySmShadow
 import kotlinx.coroutines.launch
 
 @Composable
@@ -67,7 +82,7 @@ fun OperationDetailScreen(
     val cat = state.categories.find { it.id == tx.categoryId }
     val acc = state.accounts.find { it.id == tx.accountId }
 
-    ScreenScaffold(title = "Операция", onBack = onBack) {
+    ScreenScaffold(onBack = onBack) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -126,7 +141,8 @@ fun CategoryBudgetScreen(state: FamlyUiState, categoryId: String, onBack: () -> 
     val cat = state.categories.find { it.id == categoryId } ?: return
     var limit by remember(cat) { mutableStateOf(((cat.budgetLimitKopecks ?: 0) / 100).toString()) }
 
-    ScreenScaffold(title = cat.name, onBack = onBack) {
+    ScreenScaffold(onBack = onBack) {
+        Text(cat.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = Spacing.sm))
         Column(modifier = Modifier.padding(16.dp)) {
             OutlinedTextField(
                 value = limit,
@@ -153,97 +169,215 @@ fun SettingsScreen(
     onStartDayChange: (Int) -> Unit,
     onCurrencyChange: (String) -> Unit,
 ) {
-    ScreenScaffold(title = "Настройки", onBack = onBack) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Начало периода (день)", style = MaterialTheme.typography.labelMedium)
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                (1..28).forEach { day ->
-                    if (day == state.settings.budgetPeriod.startDay || day % 7 == 0 || day == 1 || day == 28) {
-                        FilterChip(
-                            selected = state.settings.budgetPeriod.startDay == day,
-                            onClick = { onStartDayChange(day) },
-                            label = { Text("$day") },
-                            modifier = Modifier.padding(end = 4.dp),
-                        )
-                    }
-                }
-            }
-            Text("Тема", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 16.dp))
-            Row {
-                FilterChip(
-                    selected = state.settings.theme == "light",
-                    onClick = { onThemeChange("light") },
-                    label = { Text("☀️ Светлая") },
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                FilterChip(
-                    selected = state.settings.theme == "dark",
-                    onClick = { onThemeChange("dark") },
-                    label = { Text("🌙 Тёмная") },
+    ScreenScaffold(onBack = onBack) {
+        SectionHeading("📊", "Бюджет")
+        FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), padding = 0.dp) {
+            SettingRow(
+                icon = "📅",
+                label = "Начало периода",
+                hint = "День месяца, с которого начинается бюджет",
+            ) {
+                Text(
+                    "${state.settings.budgetPeriod.startDay}",
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(Radius.sm))
+                        .background(Primary.copy(alpha = 0.08f))
+                        .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.sm))
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    fontWeight = FontWeight.Bold,
+                    color = Primary,
                 )
             }
-            FamlyCard(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                Text("Валюта", style = MaterialTheme.typography.labelMedium)
-                Row(modifier = Modifier.padding(top = 8.dp)) {
-                    listOf("RUB" to "₽ Рубль", "USD" to "$ Доллар", "EUR" to "€ Евро").forEach { (code, label) ->
-                        FilterChip(
-                            selected = state.settings.currency == code,
-                            onClick = { onCurrencyChange(code) },
-                            label = { Text(label) },
-                            modifier = Modifier.padding(end = 8.dp),
-                        )
-                    }
+            HorizontalDivider(color = Primary.copy(alpha = 0.12f), thickness = 1.dp)
+            SettingRow(
+                icon = "₽",
+                label = "Валюта",
+                hint = "Отображение сумм в приложении",
+                isLast = true,
+            ) {
+                Text(
+                    state.settings.currency,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(Radius.sm))
+                        .background(Primary.copy(alpha = 0.08f))
+                        .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.sm))
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    fontWeight = FontWeight.Bold,
+                    color = Primary,
+                )
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            (1..28 step 7).forEach { day ->
+                FamlyFilterChip(
+                    label = "$day",
+                    selected = state.settings.budgetPeriod.startDay == day,
+                    onClick = { onStartDayChange(day) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("RUB", "USD", "EUR").forEach { code ->
+                FamlyFilterChip(
+                    label = code,
+                    selected = state.settings.currency == code,
+                    onClick = { onCurrencyChange(code) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        SectionHeading("🎨", "Оформление")
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FamlyFilterChip(
+                label = "☀️ Светлая",
+                selected = state.settings.theme == "light",
+                onClick = { onThemeChange("light") },
+                modifier = Modifier.weight(1f),
+            )
+            FamlyFilterChip(
+                label = "🌙 Тёмная",
+                selected = state.settings.theme == "dark",
+                onClick = { onThemeChange("dark") },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingRow(
+    icon: String,
+    label: String,
+    hint: String? = null,
+    isLast: Boolean = false,
+    trailing: @Composable () -> Unit,
+) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(Radius.sm))
+                    .background(Primary.copy(alpha = 0.06f))
+                    .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.sm)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(icon, fontSize = 16.sp)
+            }
+            Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(label, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                if (hint != null) {
+                    Text(hint, fontSize = 12.sp, color = TextMuted)
                 }
             }
+            trailing()
+        }
+        if (!isLast) {
+            HorizontalDivider(color = Primary.copy(alpha = 0.12f), thickness = 1.dp)
         }
     }
 }
 
 @Composable
 fun PremiumPaywallScreen(state: FamlyUiState, onBack: () -> Unit, onSubscribe: () -> Unit) {
-    ScreenScaffold(title = "Премиум", onBack = onBack) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            HeroCard(
-                gradientStart = Premium,
-                gradientEnd = Color(0xFFB8860B),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("⭐", fontSize = 36.sp)
-                Text("Famly Премиум", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
-                if (state.settings.trialDaysLeft() > 0) {
+    var plan by remember { mutableStateOf("yearly") }
+    val trialDays = state.settings.trialDaysLeft()
+    ScreenScaffold(onBack = onBack) {
+        HeroCard(
+            gradientStart = Premium,
+            gradientEnd = Color(0xFFA67C00),
+            modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("⭐", fontSize = 38.sp, modifier = Modifier.padding(end = 14.dp))
+                Column {
+                    Text("Подписка", color = Color.White.copy(alpha = 0.9f), fontSize = 13.sp)
                     Text(
-                        "Пробный период: ${state.settings.trialDaysLeft()} дн.",
-                        color = Color.White.copy(alpha = 0.9f),
-                        style = MaterialTheme.typography.bodySmall,
+                        "Премиум — наш бюджет",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp,
                     )
+                    if (trialDays > 0) {
+                        Text(
+                            "Пробный период: осталось $trialDays дн.",
+                            color = Color.White.copy(alpha = 0.92f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("199 ₽/мес  ·  1500 ₽/год (−37%)", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(12.dp))
-            listOf(
-                "Семья до 6 человек",
-                "Облачная синхронизация",
-                "Split + IOU",
-                "Перенос остатка бюджета",
-                "Расширенная аналитика",
-            ).forEach {
-                Text("✓ $it", modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp))
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(
-                onClick = onSubscribe,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Premium),
-            ) {
-                Text("Оформить Премиум")
-            }
-            Text(
-                "Оплата через RuStore",
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                textAlign = TextAlign.Center,
+        }
+        Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FamlyFilterChip(
+                label = "199 ₽/мес",
+                selected = plan == "monthly",
+                onClick = { plan = "monthly" },
+                modifier = Modifier.weight(1f),
+                accent = Premium,
             )
+            FamlyFilterChip(
+                label = "1500 ₽/год",
+                selected = plan == "yearly",
+                onClick = { plan = "yearly" },
+                modifier = Modifier.weight(1f),
+                accent = Premium,
+            )
+        }
+        Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            TierCard("📋", "Бесплатно", listOf("Операции без лимита", "Бюджет по категориям", "Backup JSON/CSV 30 дн."), premium = false, modifier = Modifier.weight(1f))
+            TierCard("⭐", "Премиум", listOf("Семья до 6", "Sync + Split", "Аналитика"), premium = true, modifier = Modifier.weight(1f))
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radius.lg))
+                .background(Premium)
+                .clickable(onClick = onSubscribe)
+                .padding(vertical = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("⭐", fontSize = 20.sp)
+                Text(
+                    if (trialDays > 0) "Подключить Премиум" else "Оформить подписку",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(start = 10.dp),
+                )
+            }
+        }
+        Text(
+            "Оплата через RuStore · Отмена в любой момент",
+            modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+            textAlign = TextAlign.Center,
+            fontSize = 12.sp,
+            color = TextMuted,
+        )
+    }
+}
+
+@Composable
+private fun TierCard(icon: String, title: String, features: List<String>, premium: Boolean, modifier: Modifier = Modifier) {
+    FamlyCard(
+        modifier = modifier,
+        borderColor = if (premium) Premium.copy(alpha = 0.33f) else Primary.copy(alpha = 0.27f),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+            Text(icon, fontSize = 20.sp)
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.padding(start = 8.dp))
+        }
+        features.forEach {
+            Text("✓ $it", fontSize = 12.sp, color = TextMuted, modifier = Modifier.padding(bottom = 4.dp))
         }
     }
 }
@@ -264,14 +398,19 @@ fun PremiumGateScreen(feature: String, onUpgrade: () -> Unit) {
 fun QuickAddSheet(
     state: FamlyUiState,
     visible: Boolean,
+    initialCategoryId: String? = null,
     onDismiss: () -> Unit,
     onSave: (amount: String, type: String, categoryId: String, accountId: String, note: String, recurring: Boolean) -> Unit,
 ) {
     if (!visible) return
     var amount by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf("expense") }
-    var categoryId by remember {
-        mutableStateOf(state.categories.firstOrNull { it.type == "expense" }?.id ?: "")
+    var type by remember(initialCategoryId) { mutableStateOf(if (initialCategoryId != null) "expense" else "expense") }
+    var categoryId by remember(initialCategoryId, state.categories) {
+        mutableStateOf(
+            initialCategoryId
+                ?: state.categories.firstOrNull { it.type == "expense" }?.id
+                ?: "",
+        )
     }
     var accountId by remember { mutableStateOf(state.accounts.firstOrNull()?.id ?: "") }
     var note by remember { mutableStateOf("") }
@@ -283,23 +422,31 @@ fun QuickAddSheet(
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text("Новая операция", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-            Row(modifier = Modifier.padding(vertical = 12.dp)) {
-                FilterChip(
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FamlyFilterChip(
+                    label = "Расход",
                     selected = type == "expense",
                     onClick = {
                         type = "expense"
                         categoryId = state.categories.first { it.type == "expense" }.id
                     },
-                    label = { Text("Расход") },
-                    modifier = Modifier.padding(end = 8.dp),
+                    modifier = Modifier.weight(1f),
+                    accent = Expense,
                 )
-                FilterChip(
+                FamlyFilterChip(
+                    label = "Доход",
                     selected = type == "income",
                     onClick = {
                         type = "income"
                         categoryId = state.categories.first { it.type == "income" }.id
                     },
-                    label = { Text("Доход") },
+                    modifier = Modifier.weight(1f),
+                    accent = Income,
                 )
             }
             OutlinedTextField(
@@ -310,22 +457,23 @@ fun QuickAddSheet(
                 textStyle = MaterialTheme.typography.displaySmall.copy(textAlign = TextAlign.Center),
             )
             Text("Категория", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
-            LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.categories.filter { it.type == type }) { cat ->
-                    FilterChip(
+                    FamlyCategoryChip(
+                        label = "${cat.icon} ${cat.name}",
                         selected = categoryId == cat.id,
                         onClick = { categoryId = cat.id },
-                        label = { Text("${cat.icon} ${cat.name}") },
+                        accent = categoryAccentColor(cat.color),
                     )
                 }
             }
             Text("Счёт", style = MaterialTheme.typography.labelMedium)
-            LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.accounts) { acc ->
-                    FilterChip(
+                    FamlyCategoryChip(
+                        label = "${acc.icon} ${acc.name}",
                         selected = accountId == acc.id,
                         onClick = { accountId = acc.id },
-                        label = { Text("${acc.icon} ${acc.name}") },
                     )
                 }
             }
@@ -358,52 +506,123 @@ fun QuickAddSheet(
 fun AccountsScreen(
     state: FamlyUiState,
     onBack: () -> Unit,
-    onAdd: (String) -> Unit,
+    onAdd: (String, String) -> Unit,
     onDelete: (String) -> Unit,
     onCycleIcon: (String) -> Unit,
 ) {
     var newName by remember { mutableStateOf("") }
+    var newIcon by remember { mutableStateOf(DEFAULT_ACCOUNT_ICON) }
     val total = state.accounts.sumOf { it.balanceKopecks }
-    ScreenScaffold(title = "Счета", onBack = onBack) {
-        HeroCard(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Общий баланс", color = Color.White.copy(alpha = 0.85f))
-            Text(
-                MoneyFormatter.formatKopecks(total),
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.headlineMedium,
-            )
-        }
-        state.accounts.forEach { acc ->
-            FamlyCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+    ScreenScaffold(onBack = onBack) {
+        HeroCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(RoundedCornerShape(Radius.md))
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .border(2.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(Radius.md)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("💰", fontSize = 28.sp)
+                }
+                Column(modifier = Modifier.padding(start = 14.dp)) {
+                    Text("Общий баланс", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp)
                     Text(
-                        acc.icon,
+                        MoneyFormatter.formatKopecks(total),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
                         fontSize = 28.sp,
-                        modifier = Modifier
-                            .clickable { onCycleIcon(acc.id) }
-                            .padding(end = 12.dp),
                     )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(acc.name, fontWeight = FontWeight.SemiBold)
-                        Text(MoneyFormatter.formatKopecks(acc.balanceKopecks))
-                    }
-                    TextButton(onClick = { onDelete(acc.id) }) { Text("✕") }
                 }
             }
         }
-        Row(modifier = Modifier.padding(16.dp)) {
-            OutlinedTextField(
-                value = newName,
-                onValueChange = { newName = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Новый счёт") },
-            )
-            Button(
-                onClick = { if (newName.isNotBlank()) { onAdd(newName); newName = "" } },
-                modifier = Modifier.padding(start = 8.dp),
+        state.accounts.forEach { acc ->
+            FamlyCard(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                cornerRadius = Radius.md,
+                padding = 0.dp,
             ) {
-                Text("+")
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(Radius.sm))
+                            .background(Primary.copy(alpha = 0.06f))
+                            .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.sm))
+                            .clickable { onCycleIcon(acc.id) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(acc.icon, fontSize = 22.sp)
+                    }
+                    Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(acc.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        Text(MoneyFormatter.formatKopecks(acc.balanceKopecks), color = TextMuted, fontSize = 14.sp)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(Radius.sm))
+                            .background(Expense.copy(alpha = 0.06f))
+                            .border(2.dp, Expense.copy(alpha = 0.25f), RoundedCornerShape(Radius.sm))
+                            .clickable { onDelete(acc.id) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("✕", color = Expense, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .famlySmShadow(RoundedCornerShape(Radius.md))
+                    .clip(RoundedCornerShape(Radius.md))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.md))
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    newIcon,
+                    fontSize = 22.sp,
+                    modifier = Modifier
+                        .clickable { newIcon = nextAccountIcon(newIcon) }
+                        .padding(end = 10.dp),
+                )
+                BasicTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    modifier = Modifier.weight(1f).padding(vertical = 12.dp),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(Primary),
+                    singleLine = true,
+                    decorationBox = { inner ->
+                        if (newName.isEmpty()) Text("Новый счёт...", color = TextMuted)
+                        inner()
+                    },
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(Radius.md))
+                    .background(Primary)
+                    .clickable {
+                        if (newName.isNotBlank()) {
+                            onAdd(newName.trim(), newIcon)
+                            newName = ""
+                            newIcon = DEFAULT_ACCOUNT_ICON
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("+", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
             }
         }
     }
@@ -425,17 +644,17 @@ fun BackupScreen(
     val periodDescription = remember(period) { getReportPeriodDescription(period) }
     val isPremium = state.settings.hasPremiumAccess()
 
-    ScreenScaffold(title = "Backup и экспорт", onBack = onBack) {
+    ScreenScaffold(onBack = onBack) {
         Column(modifier = Modifier.padding(16.dp)) {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(bottom = 16.dp),
             ) {
                 items(ReportPeriod.entries.toList()) { p ->
-                    FilterChip(
+                    FamlyFilterChip(
+                        label = REPORT_PERIOD_LABELS[p] ?: p.name,
                         selected = period == p,
                         onClick = { period = p },
-                        label = { Text(REPORT_PERIOD_LABELS[p] ?: p.name) },
                     )
                 }
             }
@@ -555,15 +774,20 @@ fun CategoriesScreen(
 ) {
     var tab by remember { mutableStateOf("expense") }
     var newName by remember { mutableStateOf("") }
-    ScreenScaffold(title = "Категории", onBack = onBack) {
-        Row(modifier = Modifier.padding(16.dp)) {
-            FilterChip(
+    ScreenScaffold(onBack = onBack) {
+        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FamlyFilterChip(
+                label = "Расходы",
                 selected = tab == "expense",
                 onClick = { tab = "expense" },
-                label = { Text("Расходы") },
-                modifier = Modifier.padding(end = 8.dp),
+                accent = Expense,
             )
-            FilterChip(selected = tab == "income", onClick = { tab = "income" }, label = { Text("Доходы") })
+            FamlyFilterChip(
+                label = "Доходы",
+                selected = tab == "income",
+                onClick = { tab = "income" },
+                accent = Income,
+            )
         }
         state.categories.filter { it.type == tab }.forEach { cat ->
             FamlyCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {

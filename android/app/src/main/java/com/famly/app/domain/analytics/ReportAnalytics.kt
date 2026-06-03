@@ -198,5 +198,18 @@ fun getAverageDailyExpense(
 fun getDailySafeSpend(remainingKopecks: Long, daysLeft: Int): Long =
     BudgetCalculator.dailySafeSpend(remainingKopecks, daysLeft)
 
+fun getTopExpenseCategoryIds(transactions: List<TransactionEntity>, limit: Int = 4): List<String> {
+    val counts = mutableMapOf<String, Int>()
+    transactions.forEach { tx ->
+        if (tx.type == "expense") {
+            counts[tx.categoryId] = (counts[tx.categoryId] ?: 0) + 1
+        }
+    }
+    return counts.entries
+        .sortedByDescending { it.value }
+        .take(limit)
+        .map { it.key }
+}
+
 fun getBudgetUsedPercent(spentKopecks: Long, limitKopecks: Long): Int =
     if (limitKopecks <= 0) 0 else minOf(100, (spentKopecks * 100 / limitKopecks).toInt())

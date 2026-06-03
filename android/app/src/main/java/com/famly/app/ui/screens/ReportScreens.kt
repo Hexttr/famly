@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +39,9 @@ import com.famly.app.domain.analytics.getReportPeriodDescription
 import com.famly.app.domain.analytics.getTotalExpenses
 import com.famly.app.domain.analytics.getTotalIncome
 import com.famly.app.ui.FamlyUiState
+import com.famly.app.ui.components.BudgetProgressBar
 import com.famly.app.ui.components.FamlyCard
+import com.famly.app.ui.components.FamlyFilterChip
 import com.famly.app.ui.components.HeroCard
 import com.famly.app.ui.components.PremiumGateContent
 import com.famly.app.ui.components.SectionHeading
@@ -51,6 +49,7 @@ import com.famly.app.ui.theme.Expense
 import com.famly.app.ui.theme.Income
 import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Spacing
+import com.famly.app.ui.theme.parseHexColor
 import kotlin.math.min
 
 @Composable
@@ -70,32 +69,30 @@ fun ReportsScreen(state: FamlyUiState, onBack: () -> Unit) {
     val top5 = expenseCategories.take(5)
     val periodDescription = getReportPeriodDescription(period)
 
-    ScreenScaffold(title = "Отчёты", onBack = onBack) {
-        Column(
-            modifier = Modifier
-                .padding(Spacing.md)
-                .verticalScroll(rememberScrollState()),
-        ) {
+    ScreenScaffold(onBack = onBack) {
+        Column {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReportPeriod.entries.forEach { p ->
-                    FilterChip(
+                    FamlyFilterChip(
+                        label = REPORT_PERIOD_LABELS[p] ?: "",
                         selected = period == p,
                         onClick = { period = p },
-                        label = { Text(REPORT_PERIOD_LABELS[p] ?: "", fontSize = 12.sp) },
                         modifier = Modifier.weight(1f),
                     )
                 }
             }
             Spacer(modifier = Modifier.height(Spacing.md))
             HeroCard(modifier = Modifier.fillMaxWidth()) {
-                Text(periodDescription, color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
-                Text(
-                    MoneyFormatter.formatKopecks(totalSpent),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.headlineMedium,
-                )
-                Text("расходы за период", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
+                Column {
+                    Text(periodDescription, color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
+                    Text(
+                        MoneyFormatter.formatKopecks(totalSpent),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
+                    Text("расходы за период", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
+                }
             }
             Spacer(modifier = Modifier.height(Spacing.md))
             if (totalSpent > 0 && top5.isNotEmpty()) {
@@ -127,10 +124,12 @@ fun ReportsScreen(state: FamlyUiState, onBack: () -> Unit) {
                         Text(cat.icon, modifier = Modifier.padding(end = 8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(cat.name, fontWeight = FontWeight.SemiBold)
-                            LinearProgressIndicator(
-                                progress = { min(1f, spent.toFloat() / totalSpent.coerceAtLeast(1)) },
-                                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                                color = Color(android.graphics.Color.parseColor(cat.color)),
+                            BudgetProgressBar(
+                                spent = spent,
+                                limit = totalSpent.coerceAtLeast(1),
+                                color = parseHexColor(cat.color),
+                                height = 6.dp,
+                                modifier = Modifier.padding(top = 6.dp),
                             )
                         }
                         Column(horizontalAlignment = Alignment.End) {
@@ -151,7 +150,7 @@ private fun DonutChart(
     modifier: Modifier = Modifier,
 ) {
     val colors = slices.map { (colorHex, _) ->
-        runCatching { Color(android.graphics.Color.parseColor(colorHex)) }.getOrElse { Primary }
+        runCatching { parseHexColor(colorHex) }.getOrElse { Primary }
     }
     Canvas(modifier = modifier) {
         var startAngle = -90f
@@ -176,7 +175,7 @@ private fun DonutChart(
 @Composable
 fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Unit) {
     if (!state.settings.hasPremiumAccess()) {
-        ScreenScaffold(title = "Аналитика", onBack = onBack) {
+        ScreenScaffold(onBack = onBack) {
             PremiumGateContent("Расширенная аналитика", onUpgrade, modifier = Modifier.fillMaxWidth())
         }
         return
@@ -201,18 +200,14 @@ fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Un
     val income = getTotalIncome(filteredTx)
     val expenses = getTotalExpenses(filteredTx)
 
-    ScreenScaffold(title = "Аналитика", onBack = onBack) {
-        Column(
-            modifier = Modifier
-                .padding(Spacing.md)
-                .verticalScroll(rememberScrollState()),
-        ) {
+    ScreenScaffold(onBack = onBack) {
+        Column {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReportPeriod.entries.forEach { p ->
-                    FilterChip(
+                    FamlyFilterChip(
+                        label = REPORT_PERIOD_LABELS[p] ?: "",
                         selected = period == p,
                         onClick = { period = p },
-                        label = { Text(REPORT_PERIOD_LABELS[p] ?: "", fontSize = 12.sp) },
                         modifier = Modifier.weight(1f),
                     )
                 }

@@ -14,6 +14,7 @@ import com.famly.app.data.repository.FamlyRepository
 import com.famly.app.data.sync.SyncRepository
 import com.famly.app.data.sync.SyncStatus
 import com.famly.app.domain.BudgetCalculator
+import com.famly.app.domain.DEFAULT_ACCOUNT_ICON
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.domain.analytics.ReportPeriod
 import com.famly.app.domain.analytics.getDailySafeSpend
@@ -221,13 +222,13 @@ class FamlyViewModel(
 
     fun deleteCategory(id: String) = viewModelScope.launch { repository.deleteCategory(id) }
 
-    fun addAccount(name: String) = viewModelScope.launch {
+    fun addAccount(name: String, icon: String = DEFAULT_ACCOUNT_ICON) = viewModelScope.launch {
         val now = System.currentTimeMillis()
         repository.upsertAccount(
             AccountEntity(
                 id = UUID.randomUUID().toString(),
                 name = name,
-                icon = "💳",
+                icon = icon,
                 balanceKopecks = 0,
                 color = "#2D6A4F",
                 createdAt = now,
