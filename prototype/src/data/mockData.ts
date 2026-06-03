@@ -61,12 +61,44 @@ export const mockFamily: FamilyMember[] = [
   { id: 'f1', name: 'Алексей', role: 'admin', visibility: 'full', avatar: '👨' },
   { id: 'f2', name: 'Мария', role: 'member', visibility: 'partial', avatar: '👩' },
   { id: 'f3', name: 'Саша', role: 'viewer', visibility: 'private', avatar: '👦' },
+  { id: 'f4', name: 'Дедушка Виктор', role: 'viewer', visibility: 'partial', avatar: '👴' },
+  { id: 'f5', name: 'Бабушка Нина', role: 'viewer', visibility: 'partial', avatar: '👵' },
 ]
 
 export const mockIOU: IOUBalance[] = [
   { fromId: 'f2', toId: 'f1', amount: 1250 },
   { fromId: 'f1', toId: 'f2', amount: 800 },
 ]
+
+/** Сводит встречные долги в один net-баланс по паре участников */
+export function netIOUBalances(balances: IOUBalance[]): IOUBalance[] {
+  const debt: Record<string, Record<string, number>> = {}
+
+  for (const { fromId, toId, amount } of balances) {
+    debt[fromId] ??= {}
+    debt[fromId][toId] = (debt[fromId][toId] ?? 0) + amount
+  }
+
+  const result: IOUBalance[] = []
+  const processed = new Set<string>()
+
+  for (const fromId of Object.keys(debt)) {
+    for (const toId of Object.keys(debt[fromId] ?? {})) {
+      const pairKey = [fromId, toId].sort().join('|')
+      if (processed.has(pairKey)) continue
+      processed.add(pairKey)
+
+      const forward = debt[fromId]?.[toId] ?? 0
+      const backward = debt[toId]?.[fromId] ?? 0
+      const net = forward - backward
+
+      if (net > 0) result.push({ fromId, toId, amount: net })
+      else if (net < 0) result.push({ fromId: toId, toId: fromId, amount: -net })
+    }
+  }
+
+  return result.sort((a, b) => b.amount - a.amount)
+}
 
 export function formatMoney(amount: number, currency = '₽'): string {
   return `${amount.toLocaleString('ru-RU')} ${currency}`
@@ -145,8 +177,61 @@ const MONTHS_RU = [
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
 ]
 
+const MONTHS_RU_SHORT = [
+  'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
+  'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек',
+]
+
 export function formatPeriodLabel(date = new Date()): string {
   return `${MONTHS_RU[date.getMonth()]} ${date.getFullYear()}`
+}
+
+export type ReportPeriod = 'month' | '3months' | '6months' | 'year'
+
+export const REPORT_PERIODS: { id: ReportPeriod; label: string }[] = [
+  { id: 'month', label: 'Месяц' },
+  { id: '3months', label: '3 мес.' },
+  { id: '6months', label: 'Полгода' },
+  { id: 'year', label: 'Год' },
+]
+
+function parseTxDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+export function getReportPeriodStart(period: ReportPeriod, now = new Date()): Date {
+  switch (period) {
+    case 'month':
+      return new Date(now.getFullYear(), now.getMonth(), 1)
+    case '3months':
+      return new Date(now.getFullYear(), now.getMonth() - 2, 1)
+    case '6months':
+      return new Date(now.getFullYear(), now.getMonth() - 5, 1)
+    case 'year':
+      return new Date(now.getFullYear(), now.getMonth() - 11, 1)
+  }
+}
+
+export function filterTransactionsByPeriod(
+  transactions: Transaction[],
+  period: ReportPeriod,
+  now = new Date(),
+): Transaction[] {
+  const start = getReportPeriodStart(period, now)
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+  return transactions.filter((t) => {
+    const d = parseTxDate(t.date)
+    return d >= start && d <= end
+  })
+}
+
+export function getReportPeriodDescription(period: ReportPeriod, now = new Date()): string {
+  if (period === 'month') return formatPeriodLabel(now)
+  const start = getReportPeriodStart(period, now)
+  const fmt = (d: Date) =>
+    `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
+  return `${fmt(start)} — ${fmt(now)}`
 }
 
 export function formatShortDate(dateStr: string): string {
@@ -161,4 +246,155 @@ export function formatShortDate(dateStr: string): string {
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const y = date.getFullYear()
   return `${d}-${m}-${y}`
+}
+
+export function getMonthsCountForPeriod(period: ReportPeriod): number {
+  switch (period) {
+    case 'month':
+      return 1
+    case '3months':
+      return 3
+    case '6months':
+      return 6
+    case 'year':
+      return 12
+  }
+}
+
+export interface MonthlyTotal {
+  key: string
+  label: string
+  year: number
+  month: number
+  expenses: number
+  income: number
+}
+
+export function getMonthlyTotals(
+  transactions: Transaction[],
+  monthsCount: number,
+  now = new Date(),
+): MonthlyTotal[] {
+  const result: MonthlyTotal[] = []
+  for (let i = monthsCount - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const year = d.getFullYear()
+    const month = d.getMonth()
+    const monthTx = transactions.filter((t) => {
+      const td = parseTxDate(t.date)
+      return td.getFullYear() === year && td.getMonth() === month
+    })
+    result.push({
+      key: `${year}-${String(month + 1).padStart(2, '0')}`,
+      label: MONTHS_RU_SHORT[month] ?? MONTHS_RU[month],
+      year,
+      month,
+      expenses: getTotalExpenses(monthTx),
+      income: getTotalIncome(monthTx),
+    })
+  }
+  return result
+}
+
+export function filterTransactionsByPreviousPeriod(
+  transactions: Transaction[],
+  period: ReportPeriod,
+  now = new Date(),
+): Transaction[] {
+  const currentStart = getReportPeriodStart(period, now)
+  const prevEnd = new Date(currentStart)
+  prevEnd.setDate(prevEnd.getDate() - 1)
+  prevEnd.setHours(23, 59, 59, 999)
+
+  const prevStart = new Date(currentStart)
+  switch (period) {
+    case 'month':
+      prevStart.setMonth(prevStart.getMonth() - 1)
+      break
+    case '3months':
+      prevStart.setMonth(prevStart.getMonth() - 3)
+      break
+    case '6months':
+      prevStart.setMonth(prevStart.getMonth() - 6)
+      break
+    case 'year':
+      prevStart.setFullYear(prevStart.getFullYear() - 1)
+      break
+  }
+
+  return transactions.filter((t) => {
+    const d = parseTxDate(t.date)
+    return d >= prevStart && d <= prevEnd
+  })
+}
+
+export interface PeriodComparison {
+  currentExpenses: number
+  previousExpenses: number
+  changePercent: number | null
+}
+
+export function getPeriodExpenseComparison(
+  transactions: Transaction[],
+  period: ReportPeriod,
+  now = new Date(),
+): PeriodComparison {
+  const currentExpenses = getTotalExpenses(filterTransactionsByPeriod(transactions, period, now))
+  const previousExpenses = getTotalExpenses(filterTransactionsByPreviousPeriod(transactions, period, now))
+  const changePercent =
+    previousExpenses > 0
+      ? Math.round(((currentExpenses - previousExpenses) / previousExpenses) * 100)
+      : null
+  return { currentExpenses, previousExpenses, changePercent }
+}
+
+export interface CategoryTrend {
+  categoryId: string
+  name: string
+  iconId: string
+  color: string
+  current: number
+  previous: number
+  changePercent: number | null
+}
+
+export function getCategoryExpenseTrends(
+  categories: Category[],
+  transactions: Transaction[],
+  period: ReportPeriod,
+  now = new Date(),
+): CategoryTrend[] {
+  const currentTx = filterTransactionsByPeriod(transactions, period, now)
+  const previousTx = filterTransactionsByPreviousPeriod(transactions, period, now)
+
+  return categories
+    .filter((c) => c.type === 'expense')
+    .map((c) => {
+      const current = getCategorySpent(c.id, currentTx)
+      const previous = getCategorySpent(c.id, previousTx)
+      const changePercent =
+        previous > 0 ? Math.round(((current - previous) / previous) * 100) : current > 0 ? 100 : null
+      return {
+        categoryId: c.id,
+        name: c.name,
+        iconId: c.iconId,
+        color: c.color,
+        current,
+        previous,
+        changePercent,
+      }
+    })
+    .filter((t) => t.current > 0 || t.previous > 0)
+    .sort((a, b) => Math.abs(b.changePercent ?? 0) - Math.abs(a.changePercent ?? 0))
+}
+
+export function getAverageDailyExpense(
+  transactions: Transaction[],
+  period: ReportPeriod,
+  now = new Date(),
+): number {
+  const total = getTotalExpenses(filterTransactionsByPeriod(transactions, period, now))
+  const start = getReportPeriodStart(period, now)
+  const days = Math.max(1, Math.ceil((now.getTime() - start.getTime()) / 86400000) + 1)
+  return Math.round(total / days)
 }
