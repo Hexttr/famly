@@ -58,6 +58,7 @@ class FamlyRepository(
         purgeLegacyDemoDataIfNeeded()
         resetSeedBudgetLimitsIfNeeded()
         purgeStaleLocalTransactionsIfNeeded()
+        purgeStaleLocalFamilyMembersIfNeeded()
         val now = System.currentTimeMillis()
         if (db.categoryDao().observeAll().first().isEmpty()) {
             FamlySeedData.categories(now).forEach { db.categoryDao().upsert(it) }
@@ -106,6 +107,33 @@ class FamlyRepository(
             }
         }
         preferences.setStaleTransactionsPurged()
+    }
+
+    private suspend fun purgeStaleLocalFamilyMembersIfNeeded() {
+        if (preferences.isStaleFamilyPurged()) return
+        val settings = preferences.settings.first()
+        if (!settings.isAuthenticated && settings.householdName.isNullOrBlank()) {
+            db.familyMemberDao().deleteAll()
+        }
+        preferences.setStaleFamilyPurged()
+    }
+
+    suspend fun updateHouseholdName(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        preferences.setHouseholdName(trimmed)
+    }
+
+    suspend fun reorderCategories(orderedIds: List<String>) {
+        if (orderedIds.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val baseOrder = orderedIds.mapNotNull { id -> db.categoryDao().getById(id)?.sortOrder }.minOrNull() ?: 0
+        orderedIds.forEachIndexed { index, id ->
+            val cat = db.categoryDao().getById(id) ?: return@forEachIndexed
+            val updated = cat.copy(sortOrder = baseOrder + index, updatedAt = now)
+            db.categoryDao().upsert(updated)
+            syncRepository?.enqueueCategory(updated)
+        }
     }
 
     suspend fun ensureLocalFamily(name: String) {

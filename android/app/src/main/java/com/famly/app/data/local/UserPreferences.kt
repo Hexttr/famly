@@ -79,6 +79,13 @@ class UserPreferences(private val context: Context) {
     suspend fun isStaleTransactionsPurged(): Boolean =
         context.dataStore.data.first()[KEY_STALE_TX_PURGED] == true
 
+    suspend fun setStaleFamilyPurged() = context.dataStore.edit {
+        it[KEY_STALE_FAMILY_PURGED] = true
+    }
+
+    suspend fun isStaleFamilyPurged(): Boolean =
+        context.dataStore.data.first()[KEY_STALE_FAMILY_PURGED] == true
+
     suspend fun setHouseholdId(householdId: String) = context.dataStore.edit {
         it[KEY_HOUSEHOLD_ID] = householdId
     }
@@ -132,6 +139,7 @@ class UserPreferences(private val context: Context) {
         private val KEY_HOUSEHOLD_ID = stringPreferencesKey("household_id")
         private val KEY_HOUSEHOLD_NAME = stringPreferencesKey("household_name")
         private val KEY_STALE_TX_PURGED = booleanPreferencesKey("stale_transactions_purged_v3")
+        private val KEY_STALE_FAMILY_PURGED = booleanPreferencesKey("stale_family_purged_v1")
         private val KEY_SEED_BUDGET_ZEROED = booleanPreferencesKey("seed_budget_zeroed_v2")
         private val KEY_LAST_SYNC_TOKEN = longPreferencesKey("last_sync_token")
         private val KEY_LAST_ROLLOVER_PERIOD = longPreferencesKey("last_rollover_period_start")

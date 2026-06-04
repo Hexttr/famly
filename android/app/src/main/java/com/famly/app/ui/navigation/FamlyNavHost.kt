@@ -63,6 +63,16 @@ private val tabs = listOf(
     TabItem(Routes.MORE, "Ещё", Icons.Default.Menu),
 )
 
+private fun bottomNavSelectedRoute(route: String?): String {
+    if (route == null) return Routes.HOME
+    if (tabs.any { it.route == route }) return route
+    return when {
+        route.startsWith("operations") -> Routes.OPERATIONS
+        route.startsWith("budget") || route == Routes.CATEGORIES -> Routes.BUDGET
+        else -> Routes.MORE
+    }
+}
+
 @Composable
 fun FamlyNavHost(
     viewModel: FamlyViewModel,
@@ -116,6 +126,7 @@ fun FamlyNavHost(
     val navBackStack by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStack?.destination?.route
     val isMainTab = tabs.any { it.route == currentRoute }
+    val bottomNavRoute = bottomNavSelectedRoute(currentRoute)
 
     fun navigateToPremium() {
         navController.navigate(Routes.PREMIUM)
@@ -160,21 +171,19 @@ fun FamlyNavHost(
             }
         },
         bottomBar = {
-            if (isMainTab) {
-                FamlyBottomNav(
-                    selectedRoute = currentRoute ?: Routes.HOME,
-                    onTabSelected = { route ->
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
+            FamlyBottomNav(
+                selectedRoute = bottomNavRoute,
+                onTabSelected = { route ->
+                    navController.navigate(route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
                         }
-                    },
-                    tabs = tabs.map { Triple(it.route, it.icon, it.label) },
-                )
-            }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                tabs = tabs.map { Triple(it.route, it.icon, it.label) },
+            )
         },
     ) { padding ->
         NavHost(
@@ -199,6 +208,7 @@ fun FamlyNavHost(
                     state,
                     { navController.navigate(Routes.budgetCategory(it)) },
                     { navController.navigate(Routes.CATEGORIES) },
+                    { viewModel.reorderBudgetCategories(it) },
                 )
             }
             composable(Routes.MORE) {
@@ -276,6 +286,7 @@ fun FamlyNavHost(
                     onUpgrade = { navigateToPremium() },
                     onOpenMember = { navController.navigate(Routes.familyMember(it)) },
                     onSetupFamily = { viewModel.setupFamily(it) },
+                    onSaveFamilyName = { viewModel.saveFamilyName(it) },
                     onJoinHousehold = { viewModel.joinHousehold(it) },
                     onRefreshInvite = { viewModel.generateInvite() },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },

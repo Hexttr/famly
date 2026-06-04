@@ -291,6 +291,14 @@ class FamlyViewModel(
         repository.updateCategoryRollover(categoryId, enabled)
     }
 
+    fun reorderBudgetCategories(orderedIds: List<String>) = viewModelScope.launch {
+        repository.reorderCategories(orderedIds)
+    }
+
+    fun saveFamilyName(name: String) = viewModelScope.launch {
+        repository.updateHouseholdName(name)
+    }
+
     fun addCategory(
         name: String,
         type: String,

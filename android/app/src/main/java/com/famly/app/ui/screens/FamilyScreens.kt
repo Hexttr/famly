@@ -32,7 +32,10 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,6 +75,7 @@ fun FamilyScreen(
     onUpgrade: () -> Unit,
     onOpenMember: (String) -> Unit,
     onSetupFamily: (String) -> Unit,
+    onSaveFamilyName: (String) -> Unit,
     onJoinHousehold: (String) -> Unit,
     onRefreshInvite: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -88,13 +92,15 @@ fun FamilyScreen(
         return
     }
 
-    val familyCreated = state.settings.householdName != null || state.familyMembers.isNotEmpty() || state.settings.isSynced
+    val familyCreated = !state.settings.householdName.isNullOrBlank() || state.settings.isSynced
     var familyName by remember(state.settings.householdName) {
         mutableStateOf(state.settings.householdName ?: "")
     }
     var joinCode by remember(initialJoinCode) { mutableStateOf(initialJoinCode) }
     val context = LocalContext.current
     val displayName = state.settings.householdName?.takeIf { it.isNotBlank() } ?: familyName.takeIf { it.isNotBlank() }
+    val nameFieldEnabled = !familyCreated || !state.settings.isSynced
+    val nameDirty = familyName.trim() != (state.settings.householdName ?: "").trim()
 
     LaunchedEffect(state.settings.isSynced, inviteCode, inviteLoading) {
         if (state.settings.isSynced && inviteCode == null && !inviteLoading) {
@@ -103,18 +109,51 @@ fun FamilyScreen(
     }
 
     ScreenScaffold(onBack = onBack) {
-        OutlinedTextField(
-            value = familyName,
-            onValueChange = { familyName = it },
-            label = { Text("Фамилия / название семьи") },
-            leadingIcon = { Icon(Icons.Default.Group, contentDescription = null) },
-            placeholder = { Text("Например, Ивановы") },
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = Spacing.md),
-            singleLine = true,
-            enabled = !familyCreated || !state.settings.isSynced,
-        )
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value = familyName,
+                onValueChange = { familyName = it },
+                label = { Text("Фамилия / название семьи") },
+                leadingIcon = { Icon(Icons.Default.Group, contentDescription = null) },
+                placeholder = { Text("Например, Ивановы") },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                enabled = nameFieldEnabled,
+                colors = if (!nameFieldEnabled) {
+                    OutlinedTextFieldDefaults.colors(
+                        disabledBorderColor = Primary.copy(alpha = 0.58f),
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                        disabledLabelColor = TextMuted,
+                        disabledLeadingIconColor = Primary.copy(alpha = 0.7f),
+                    )
+                } else {
+                    OutlinedTextFieldDefaults.colors()
+                },
+            )
+            if (nameFieldEnabled) {
+                IconButton(
+                    onClick = {
+                        val trimmed = familyName.trim()
+                        if (trimmed.isNotBlank()) {
+                            if (familyCreated) onSaveFamilyName(trimmed) else onSaveFamilyName(trimmed)
+                        }
+                    },
+                    enabled = familyName.isNotBlank() && nameDirty && !inviteLoading,
+                ) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Сохранить",
+                        tint = if (familyName.isNotBlank() && nameDirty && !inviteLoading) Primary else TextMuted.copy(alpha = 0.45f),
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
+            }
+        }
 
         if (!familyCreated && state.settings.isAuthenticated) {
             OutlinedTextField(
@@ -146,32 +185,6 @@ fun FamilyScreen(
                 enabled = !inviteLoading && familyName.isNotBlank(),
             ) {
                 Text(if (inviteLoading) "Создание…" else "Создать семью")
-            }
-        }
-
-        if (!state.settings.isAuthenticated) {
-            FamlyCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = Spacing.md)
-                    .clickable { onOpenSettings() },
-                padding = 14.dp,
-            ) {
-                Text("⚠️", fontSize = 20.sp)
-                Text(
-                    "Зарегистрируйтесь в Настройках, чтобы не потерять семью и синхронизировать бюджет между устройствами.",
-                    fontSize = 13.sp,
-                    color = Warning,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
-                Text(
-                    "Перейти в Настройки →",
-                    color = Primary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
             }
         }
 
@@ -221,29 +234,57 @@ fun FamilyScreen(
             }
         }
 
-        state.familyMembers.forEach { member ->
-            FamlyCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 10.dp)
-                    .clickable { onOpenMember(member.id) },
-                cornerRadius = Radius.md,
-                padding = 0.dp,
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+        if (familyCreated) {
+            state.familyMembers.forEach { member ->
+                FamlyCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                        .clickable { onOpenMember(member.id) },
+                    cornerRadius = Radius.md,
+                    padding = 0.dp,
                 ) {
-                    MemberAvatar(member.avatar)
-                    Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text(member.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                        Text(
-                            "${roleLabel(member.role)} · ${visibilityLabel(member.visibility)}",
-                            fontSize = 12.sp,
-                            color = TextMuted,
-                        )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        MemberAvatar(member.avatar)
+                        Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                            Text(member.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                            Text(
+                                "${roleLabel(member.role)} · ${visibilityLabel(member.visibility)}",
+                                fontSize = 12.sp,
+                                color = TextMuted,
+                            )
+                        }
+                        Text("›", color = TextMuted, fontSize = 18.sp)
                     }
-                    Text("›", color = TextMuted, fontSize = 18.sp)
+                }
+            }
+
+            if (!state.settings.isAuthenticated) {
+                FamlyCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = Spacing.md)
+                        .clickable { onOpenSettings() },
+                    padding = 14.dp,
+                ) {
+                    Text("⚠️", fontSize = 20.sp)
+                    Text(
+                        "Зарегистрируйтесь в Настройках, чтобы не потерять семью и синхронизировать бюджет между устройствами.",
+                        fontSize = 13.sp,
+                        color = Warning,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    Text(
+                        "Перейти в Настройки →",
+                        color = Primary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
                 }
             }
         }

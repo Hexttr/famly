@@ -13,6 +13,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import com.famly.app.data.local.entity.CategoryEntity
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -444,94 +451,156 @@ fun BudgetScreen(
     state: FamlyUiState,
     onOpenCategory: (String) -> Unit,
     onOpenCategories: () -> Unit,
+    onReorderCategories: (List<String>) -> Unit = {},
 ) {
+    val budgetCategories = state.categories.filter { it.type == "expense" && it.budgetLimitKopecks != null }
+    var orderedCategories by remember(budgetCategories.map { it.id }) {
+        mutableStateOf(budgetCategories)
+    }
+    LaunchedEffect(budgetCategories.map { it.id }) {
+        val newIds = budgetCategories.map { it.id }
+        val currentIds = orderedCategories.map { it.id }
+        orderedCategories = if (currentIds == newIds) {
+            orderedCategories.mapNotNull { old -> budgetCategories.find { it.id == old.id } }
+        } else {
+            budgetCategories
+        }
+    }
+    val lazyListState = rememberLazyListState()
+    val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        val headerCount = 2
+        val fromIndex = from.index - headerCount
+        val toIndex = to.index - headerCount
+        if (fromIndex in orderedCategories.indices && toIndex in orderedCategories.indices) {
+            orderedCategories = orderedCategories.toMutableList().apply {
+                add(toIndex, removeAt(fromIndex))
+            }
+            onReorderCategories(orderedCategories.map { it.id })
+        }
+    }
     val pct = if (state.budgetTotalKopecks > 0) {
         (state.spentKopecks * 100 / state.budgetTotalKopecks).toInt()
     } else {
         0
     }
-    Column(
-        modifier = Modifier
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+    LazyColumn(
+        state = lazyListState,
+        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
     ) {
-        HeroCard(modifier = Modifier.fillMaxWidth()) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        state.periodLabel,
-                        modifier = Modifier
-                            .background(Color.White.copy(alpha = 0.14f), androidx.compose.foundation.shape.RoundedCornerShape(50))
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
-                        color = Color.White.copy(alpha = 0.95f),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+        item {
+            HeroCard(modifier = Modifier.fillMaxWidth()) {
+                Column {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable(onClick = onOpenCategories),
                     ) {
-                        Text("Категории", color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(14.dp))
+                        Text(
+                            state.periodLabel,
+                            modifier = Modifier
+                                .background(Color.White.copy(alpha = 0.14f), androidx.compose.foundation.shape.RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            color = Color.White.copy(alpha = 0.95f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable(onClick = onOpenCategories),
+                        ) {
+                            Text("Категории", color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(14.dp))
+                        }
                     }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("Общий бюджет периода", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                Text(
-                    MoneyFormatter.formatKopecks(state.budgetTotalKopecks),
-                    color = Color.White,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.5).sp,
-                )
-                Spacer(modifier = Modifier.height(14.dp))
-                BudgetProgressBar(
-                    spent = state.spentKopecks,
-                    limit = state.budgetTotalKopecks,
-                    color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.22f),
-                    height = 6.dp,
-                    showLabel = true,
-                    label = "Потрачено ${MoneyFormatter.formatKopecks(state.spentKopecks)} из ${MoneyFormatter.formatKopecks(state.budgetTotalKopecks)} · $pct%",
-                    labelColor = Color.White.copy(alpha = 0.85f),
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(Spacing.md))
-        state.categories.filter { it.type == "expense" && it.budgetLimitKopecks != null }.forEach { cat ->
-            val spent = getCategorySpent(cat.id, state.transactions)
-            val limit = BudgetRolloverProcessor.effectiveLimit(cat)
-            val catPct = if (limit > 0) (spent * 100 / limit).toInt() else 0
-            FamlyCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 10.dp)
-                    .clickable { onOpenCategory(cat.id) },
-                cornerRadius = Radius.md,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
-                    CategoryEmojiIcon(emoji = cat.icon, size = 36.dp, accent = categoryAccentColor(cat.color))
-                    Text(cat.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f).padding(start = 10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Общий бюджет периода", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     Text(
-                        "$catPct%",
+                        MoneyFormatter.formatKopecks(state.budgetTotalKopecks),
+                        color = Color.White,
+                        fontSize = 34.sp,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = if (catPct >= 100) Expense else TextSecondary,
+                        letterSpacing = (-0.5).sp,
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    BudgetProgressBar(
+                        spent = state.spentKopecks,
+                        limit = state.budgetTotalKopecks,
+                        color = Color.White,
+                        trackColor = Color.White.copy(alpha = 0.22f),
+                        height = 6.dp,
+                        showLabel = true,
+                        label = "Потрачено ${MoneyFormatter.formatKopecks(state.spentKopecks)} из ${MoneyFormatter.formatKopecks(state.budgetTotalKopecks)} · $pct%",
+                        labelColor = Color.White.copy(alpha = 0.85f),
                     )
                 }
-                BudgetProgressBar(spent = spent, limit = limit, color = categoryAccentColor(cat.color), height = 6.dp)
-                Text(
-                    "${MoneyFormatter.formatKopecks(spent)} / ${MoneyFormatter.formatKopecks(limit)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextMuted,
-                    modifier = Modifier.padding(top = 8.dp),
+            }
+        }
+        item { Spacer(modifier = Modifier.height(Spacing.md)) }
+        items(orderedCategories, key = { it.id }) { cat ->
+            ReorderableItem(reorderableLazyListState, key = cat.id) { isDragging ->
+                BudgetCategoryCard(
+                    cat = cat,
+                    transactions = state.transactions,
+                    isDragging = isDragging,
+                    onOpenCategory = onOpenCategory,
+                    dragHandleModifier = Modifier.draggableHandle(),
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun BudgetCategoryCard(
+    cat: CategoryEntity,
+    transactions: List<TransactionEntity>,
+    isDragging: Boolean,
+    onOpenCategory: (String) -> Unit,
+    dragHandleModifier: Modifier,
+) {
+    val spent = getCategorySpent(cat.id, transactions)
+    val limit = BudgetRolloverProcessor.effectiveLimit(cat)
+    val catPct = if (limit > 0) (spent * 100 / limit).toInt() else 0
+    FamlyCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 10.dp)
+            .graphicsLayer {
+                alpha = if (isDragging) 0.92f else 1f
+                scaleX = if (isDragging) 1.02f else 1f
+                scaleY = if (isDragging) 1.02f else 1f
+            }
+            .clickable { onOpenCategory(cat.id) },
+        cornerRadius = Radius.md,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+            Box(
+                modifier = dragHandleModifier.padding(end = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.DragHandle,
+                    contentDescription = "Перетащить",
+                    tint = TextMuted,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            CategoryEmojiIcon(emoji = cat.icon, size = 36.dp, accent = categoryAccentColor(cat.color))
+            Text(cat.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f).padding(start = 10.dp))
+            Text(
+                "$catPct%",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = if (catPct >= 100) Expense else TextSecondary,
+            )
+        }
+        BudgetProgressBar(spent = spent, limit = limit, color = categoryAccentColor(cat.color), height = 6.dp)
+        Text(
+            "${MoneyFormatter.formatKopecks(spent)} / ${MoneyFormatter.formatKopecks(limit)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextMuted,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 }
 

@@ -33,7 +33,12 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.CurrencyRuble
+import androidx.compose.material.icons.filled.Euro
+import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -344,8 +349,14 @@ fun SettingsScreen(
                     singleLine = true,
                 )
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { onLogin(email, password) }, modifier = Modifier.weight(1f)) { Text("Войти") }
-                    Button(onClick = { onRegister(email, password, displayName) }, modifier = Modifier.weight(1f)) { Text("Регистрация") }
+                    Button(onClick = { onLogin(email, password) }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.Login, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text("Войти", modifier = Modifier.padding(start = 8.dp))
+                    }
+                    Button(onClick = { onRegister(email, password, displayName) }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text("Регистрация", modifier = Modifier.padding(start = 8.dp))
+                    }
                 }
             } else if (!state.settings.isSynced) {
                 Text(
@@ -409,12 +420,19 @@ fun SettingsScreen(
             }
         }
         Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("RUB", "USD", "EUR").forEach { code ->
+            listOf(
+                Triple("RUB", Icons.Default.CurrencyRuble, "₽"),
+                Triple("USD", Icons.Default.AttachMoney, "$"),
+                Triple("EUR", Icons.Default.Euro, "€"),
+            ).forEach { (code, icon, symbol) ->
                 FamlyFilterChip(
                     label = code,
                     selected = state.settings.currency == code,
                     onClick = { onCurrencyChange(code) },
                     modifier = Modifier.weight(1f),
+                    leading = {
+                        Icon(icon, contentDescription = symbol, modifier = Modifier.size(14.dp))
+                    },
                 )
             }
         }
