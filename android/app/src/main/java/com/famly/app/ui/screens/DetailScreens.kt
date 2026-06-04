@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Email
@@ -272,16 +274,12 @@ fun SettingsScreen(
     syncStatus: String?,
     onLogin: (String, String) -> Unit,
     onRegister: (String, String, String) -> Unit,
-    onCreateHousehold: (String) -> Unit,
-    onJoinHousehold: (String) -> Unit,
     onSyncNow: () -> Unit,
-    initialInviteCode: String = "",
+    onOpenFamily: () -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
-    var householdName by remember { mutableStateOf("Наша семья") }
-    var inviteCode by remember(initialInviteCode) { mutableStateOf(initialInviteCode) }
     var startDayInput by remember(state.settings.budgetPeriod.startDay) {
         mutableStateOf(state.settings.budgetPeriod.startDay.toString())
     }
@@ -311,8 +309,8 @@ fun SettingsScreen(
         FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), padding = 14.dp) {
             Text(
                 when {
-                    state.settings.isSynced -> "Синхронизация включена · household ${state.settings.householdId}"
-                    state.settings.isAuthenticated -> "Аккаунт подключён · создайте или присоединитесь к семье"
+                    state.settings.isSynced -> "Аккаунт подключён · семья «${state.settings.householdName ?: "без названия"}»"
+                    state.settings.isAuthenticated -> "Аккаунт подключён · создайте семью на странице «Семья»"
                     else -> "Войдите, чтобы синхронизировать бюджет между устройствами"
                 },
                 fontSize = 13.sp,
@@ -350,12 +348,21 @@ fun SettingsScreen(
                     Button(onClick = { onRegister(email, password, displayName) }, modifier = Modifier.weight(1f)) { Text("Регистрация") }
                 }
             } else if (!state.settings.isSynced) {
-                OutlinedTextField(value = householdName, onValueChange = { householdName = it }, label = { Text("Название семьи") }, modifier = Modifier.fillMaxWidth())
-                Button(onClick = { onCreateHousehold(householdName) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Создать семью") }
-                OutlinedTextField(value = inviteCode, onValueChange = { inviteCode = it }, label = { Text("Код приглашения") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                Button(onClick = { onJoinHousehold(inviteCode) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Присоединиться") }
+                Text(
+                    "Название семьи и приглашения — на странице «Семья» в разделе «Ещё».",
+                    fontSize = 13.sp,
+                    color = TextMuted,
+                    modifier = Modifier.padding(bottom = 10.dp),
+                )
+                Button(onClick = onOpenFamily, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Перейти в «Семья»", modifier = Modifier.padding(start = 8.dp))
+                }
             } else {
-                Button(onClick = onSyncNow, modifier = Modifier.fillMaxWidth()) { Text("Синхронизировать сейчас") }
+                Button(onClick = onSyncNow, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Синхронизировать сейчас", modifier = Modifier.padding(start = 8.dp))
+                }
             }
             syncStatus?.let {
                 Text(it, fontSize = 12.sp, color = if (it.contains("Hostname") || it.contains("error", true) || it.contains("Ошибка")) Expense else Primary, modifier = Modifier.padding(top = 10.dp))

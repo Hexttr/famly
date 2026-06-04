@@ -132,11 +132,27 @@ class SyncRepository(
             ?: return SyncStatus(success = false, error = "Not authenticated")
 
         return runCatching {
-            val currentSettings = preferences.settings.first()
-            val since = currentSettings.lastSyncToken ?: 0L
-            val toPush = buildPushPayload() + pendingQueue.toList()
-            val pushed = if (toPush.isNotEmpty()) api.push(token, toPush) else true
-            if (!pushed) return SyncStatus(success = false, error = "Push failed")
+            var settings = preferences.settings.first()
+            if (settings.householdId.isNullOrBlank()) {
+                val pendingName = settings.householdName?.trim().orEmpty()
+                if (pendingName.isNotEmpty()) {
+                    createHousehold(pendingName)
+                    settings = preferences.settings.first()
+                }
+            }
+            if (settings.householdId.isNullOrBlank()) {
+                return SyncStatus(
+                    success = false,
+                    error = "Сначала создайте семью на странице «Семья»",
+                )
+            }
+
+            val since = settings.lastSyncToken ?: 0L
+            val toPush = (buildPushPayload() + pendingQueue.toList())
+                .filterNot { it.id.startsWith("local") }
+            if (toPush.isNotEmpty()) {
+                api.push(token, toPush)
+            }
 
             val pull = api.pull(token, since)
             applyRemoteEntities(pull.entities)

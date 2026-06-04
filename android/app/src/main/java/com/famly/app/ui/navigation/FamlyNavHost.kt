@@ -79,7 +79,7 @@ fun FamlyNavHost(
     val inviteError by viewModel.inviteError.collectAsState()
     var notificationsVisible by rememberSaveable { mutableStateOf(false) }
     var quickAddInitialType by rememberSaveable { mutableStateOf<String?>(null) }
-    var settingsJoinCode by rememberSaveable { mutableStateOf("") }
+    var familyJoinCode by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(pendingQuickAddType) {
         if (!pendingQuickAddType.isNullOrBlank()) {
@@ -91,8 +91,8 @@ fun FamlyNavHost(
 
     LaunchedEffect(pendingJoinCode) {
         if (!pendingJoinCode.isNullOrBlank()) {
-            settingsJoinCode = pendingJoinCode
-            navController.navigate(Routes.SETTINGS)
+            familyJoinCode = pendingJoinCode
+            navController.navigate(Routes.FAMILY)
             onIntentHandled()
         }
     }
@@ -102,6 +102,7 @@ fun FamlyNavHost(
             it.success && it.pulledCount + it.pushedCount > 0 ->
                 "Синхронизировано: отправлено ${it.pushedCount}, получено ${it.pulledCount}"
             it.success -> "Синхронизация выполнена"
+            it.error?.contains("Push failed", true) == true -> "Не удалось отправить данные на сервер"
             else -> it.error ?: "Ошибка синхронизации"
         }
     }
@@ -223,10 +224,8 @@ fun FamlyNavHost(
                     syncMessage,
                     { email, password -> viewModel.login(email, password) },
                     { email, password, name -> viewModel.register(email, password, name) },
-                    { viewModel.createHousehold(it) },
-                    { viewModel.joinHousehold(it) },
                     { viewModel.syncNow() },
-                    initialInviteCode = settingsJoinCode,
+                    { navController.navigate(Routes.FAMILY) },
                 )
             }
             composable(Routes.RECURRING) {
@@ -271,12 +270,14 @@ fun FamlyNavHost(
                     onUpgrade = { navigateToPremium() },
                     onOpenMember = { navController.navigate(Routes.familyMember(it)) },
                     onSetupFamily = { viewModel.setupFamily(it) },
+                    onJoinHousehold = { viewModel.joinHousehold(it) },
                     onRefreshInvite = { viewModel.generateInvite() },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     inviteCode = inviteCode,
                     inviteUrl = viewModel.inviteUrl(),
                     inviteLoading = inviteLoading,
                     inviteError = inviteError,
+                    initialJoinCode = familyJoinCode,
                 )
             }
             composable(
@@ -290,6 +291,7 @@ fun FamlyNavHost(
                     { navController.popBackStack() },
                     { viewModel.updateFamilyMember(memberId, role = it) },
                     { viewModel.updateFamilyMember(memberId, visibility = it) },
+                    { viewModel.cycleMemberAvatar(memberId) },
                 )
             }
             composable(Routes.BALANCES) {

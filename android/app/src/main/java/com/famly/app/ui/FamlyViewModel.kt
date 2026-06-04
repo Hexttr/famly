@@ -273,6 +273,9 @@ class FamlyViewModel(
         )
     }
 
+    fun cycleMemberAvatar(memberId: String) =
+        viewModelScope.launch { repository.cycleMemberAvatar(memberId) }
+
     fun cycleAccountIcon(accountId: String) =
         viewModelScope.launch { repository.cycleAccountIcon(accountId) }
 

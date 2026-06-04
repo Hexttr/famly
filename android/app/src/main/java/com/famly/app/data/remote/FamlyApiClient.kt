@@ -130,27 +130,23 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
             }
         }
 
-    suspend fun push(token: String, entities: List<SyncEntityDto>): Boolean =
+    suspend fun push(token: String, entities: List<SyncEntityDto>) =
         withContext(Dispatchers.IO) {
-            try {
-                val arr = JSONArray()
-                entities.forEach { e ->
-                    arr.put(
-                        JSONObject().apply {
-                            put("type", e.type)
-                            put("id", e.id)
-                            put("payload", e.payload)
-                            put("syncVersion", e.syncVersion)
-                            put("updatedAt", e.updatedAt)
-                            put("deleted", e.deleted)
-                        },
-                    )
-                }
-                postJson("/sync/push", JSONObject().put("entities", arr), authToken = token)
-                true
-            } catch (_: Exception) {
-                false
+            if (entities.isEmpty()) return@withContext
+            val arr = JSONArray()
+            entities.forEach { e ->
+                arr.put(
+                    JSONObject().apply {
+                        put("type", e.type)
+                        put("id", e.id)
+                        put("payload", e.payload)
+                        put("syncVersion", e.syncVersion)
+                        put("updatedAt", e.updatedAt)
+                        put("deleted", e.deleted)
+                    },
+                )
             }
+            postJson("/sync/push", JSONObject().put("entities", arr), authToken = token)
         }
 
     suspend fun pull(token: String, since: Long): SyncPullResult =
@@ -198,7 +194,7 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
             authToken?.let { setRequestProperty("Authorization", "Bearer $it") }
         }
         OutputStreamWriter(conn.outputStream).use { it.write(body.toString()) }
-        return readResponse(conn)
+        return readResponse(conn, expectBody = true)
     }
 
     private fun getJson(path: String, authToken: String?): JSONObject {
@@ -206,16 +202,17 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
             requestMethod = "GET"
             authToken?.let { setRequestProperty("Authorization", "Bearer $it") }
         }
-        return readResponse(conn)
+        return readResponse(conn, expectBody = true)
     }
 
-    private fun readResponse(conn: HttpURLConnection): JSONObject {
+    private fun readResponse(conn: HttpURLConnection, expectBody: Boolean = true): JSONObject {
         val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
         val text = stream?.let { BufferedReader(InputStreamReader(it)).use { reader -> reader.readText() } }.orEmpty()
         if (conn.responseCode !in 200..299) {
             val message = parseErrorMessage(text).ifBlank { text.ifBlank { "Неизвестная ошибка" } }
             error("HTTP ${conn.responseCode}: $message")
         }
+        if (!expectBody || text.isBlank()) return JSONObject()
         return JSONObject(text)
     }
 

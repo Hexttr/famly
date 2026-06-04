@@ -10,6 +10,7 @@ import com.famly.app.data.local.entity.SplitAllocationEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.domain.nextAccountIcon
 import com.famly.app.domain.nextCategoryIcon
+import com.famly.app.domain.nextMemberAvatar
 import com.famly.app.data.sync.SyncRepository
 import com.famly.app.data.export.BackupExporter
 import com.famly.app.domain.budget.BudgetRolloverProcessor
@@ -349,6 +350,16 @@ class FamlyRepository(
                 updatedAt = System.currentTimeMillis(),
             ),
         )
+    }
+
+    suspend fun cycleMemberAvatar(memberId: String) {
+        val member = db.familyMemberDao().observeAll().first().find { it.id == memberId } ?: return
+        val updated = member.copy(
+            avatar = nextMemberAvatar(member.avatar),
+            updatedAt = System.currentTimeMillis(),
+        )
+        db.familyMemberDao().upsert(updated)
+        syncRepository?.enqueueFamilyMember(updated)
     }
 
     suspend fun cycleCategoryIcon(categoryId: String) {

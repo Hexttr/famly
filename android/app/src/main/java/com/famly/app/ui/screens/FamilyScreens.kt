@@ -20,8 +20,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -65,12 +72,14 @@ fun FamilyScreen(
     onUpgrade: () -> Unit,
     onOpenMember: (String) -> Unit,
     onSetupFamily: (String) -> Unit,
+    onJoinHousehold: (String) -> Unit,
     onRefreshInvite: () -> Unit,
     onOpenSettings: () -> Unit,
     inviteCode: String?,
     inviteUrl: String?,
     inviteLoading: Boolean,
     inviteError: String?,
+    initialJoinCode: String = "",
 ) {
     if (!FamlyAccess.hasPremium(state.settings)) {
         ScreenScaffold(onBack = onBack) {
@@ -83,6 +92,7 @@ fun FamilyScreen(
     var familyName by remember(state.settings.householdName) {
         mutableStateOf(state.settings.householdName ?: "")
     }
+    var joinCode by remember(initialJoinCode) { mutableStateOf(initialJoinCode) }
     val context = LocalContext.current
     val displayName = state.settings.householdName?.takeIf { it.isNotBlank() } ?: familyName.takeIf { it.isNotBlank() }
 
@@ -105,6 +115,27 @@ fun FamilyScreen(
             singleLine = true,
             enabled = !familyCreated || !state.settings.isSynced,
         )
+
+        if (!familyCreated && state.settings.isAuthenticated) {
+            OutlinedTextField(
+                value = joinCode,
+                onValueChange = { joinCode = it },
+                label = { Text("Код приглашения") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                singleLine = true,
+            )
+            Button(
+                onClick = { onJoinHousehold(joinCode.trim()) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Spacing.md),
+                enabled = joinCode.isNotBlank() && !inviteLoading,
+            ) {
+                Text("Присоединиться к семье")
+            }
+        }
 
         if (!familyCreated) {
             Button(
@@ -331,37 +362,100 @@ fun FamilyMemberScreen(
     onBack: () -> Unit,
     onUpdateRole: (String) -> Unit,
     onUpdateVisibility: (String) -> Unit,
+    onCycleAvatar: () -> Unit,
 ) {
     val member = state.familyMembers.find { it.id == memberId } ?: return
     ScreenScaffold(onBack = onBack) {
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            MemberAvatar(member.avatar, size = 56)
-            Text(member.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
-            Spacer(modifier = Modifier.height(Spacing.md))
-            Text("Роль", style = MaterialTheme.typography.labelMedium)
-            Row(modifier = Modifier.padding(vertical = 8.dp)) {
-                listOf("admin", "member", "viewer").forEach { role ->
-                    FamlyFilterChip(
-                        label = roleLabel(role),
-                        selected = member.role == role,
-                        onClick = { onUpdateRole(role) },
-                        modifier = Modifier.padding(end = 4.dp),
-                    )
+            Box(
+                modifier = Modifier
+                    .clickable { onCycleAvatar() }
+                    .padding(bottom = 4.dp),
+            ) {
+                MemberAvatar(member.avatar, size = 72)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 4.dp, y = 4.dp)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Primary)
+                        .border(2.dp, Color.White, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = "Сменить аватар", tint = Color.White, modifier = Modifier.size(14.dp))
                 }
             }
-            Text("Видимость", style = MaterialTheme.typography.labelMedium)
-            Row(modifier = Modifier.padding(vertical = 8.dp)) {
-                listOf("full", "partial", "private").forEach { vis ->
-                    FamlyFilterChip(
-                        label = visibilityLabel(vis),
-                        selected = member.visibility == vis,
-                        onClick = { onUpdateVisibility(vis) },
-                        modifier = Modifier.padding(end = 4.dp),
-                    )
-                }
+            Text("Нажмите на аватар, чтобы сменить", fontSize = 12.sp, color = TextMuted, modifier = Modifier.padding(bottom = 8.dp))
+            Text(member.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+
+            Spacer(modifier = Modifier.height(Spacing.lg))
+
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+                Text("Роль", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
+            }
+            Row(modifier = Modifier.padding(bottom = 8.dp)) {
+                RoleChip("admin", "Админ", Icons.Default.AdminPanelSettings, member.role, onUpdateRole)
+                RoleChip("member", "Участник", Icons.Default.Person, member.role, onUpdateRole)
+                RoleChip("viewer", "Наблюдатель", Icons.Default.Visibility, member.role, onUpdateRole)
+            }
+            FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), padding = 12.dp) {
+                Text("Админ — управляет семьёй и видит все операции.", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(bottom = 4.dp))
+                Text("Участник — добавляет и редактирует свои операции.", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(bottom = 4.dp))
+                Text("Наблюдатель — только просмотр, без изменений.", fontSize = 13.sp, color = TextMuted)
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                Icon(Icons.Default.Shield, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+                Text("Видимость", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
+            }
+            Row(modifier = Modifier.padding(bottom = 8.dp)) {
+                VisibilityChip("full", "Полный доступ", Icons.Default.Visibility, member.visibility, onUpdateVisibility)
+                VisibilityChip("partial", "Частичный", Icons.Default.VisibilityOff, member.visibility, onUpdateVisibility)
+                VisibilityChip("private", "Приватный", Icons.Default.Lock, member.visibility, onUpdateVisibility)
+            }
+            FamlyCard(modifier = Modifier.fillMaxWidth(), padding = 12.dp) {
+                Text("Полный доступ — все операции участника видны семье.", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(bottom = 4.dp))
+                Text("Частичный — видны только общие расходы.", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(bottom = 4.dp))
+                Text("Приватный — операции скрыты от других.", fontSize = 13.sp, color = TextMuted)
             }
         }
     }
+}
+
+@Composable
+private fun RoleChip(
+    value: String,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    FamlyFilterChip(
+        label = label,
+        selected = selected == value,
+        onClick = { onSelect(value) },
+        modifier = Modifier.padding(end = 4.dp),
+        leading = { Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp)) },
+    )
+}
+
+@Composable
+private fun VisibilityChip(
+    value: String,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    FamlyFilterChip(
+        label = label,
+        selected = selected == value,
+        onClick = { onSelect(value) },
+        modifier = Modifier.padding(end = 4.dp),
+        leading = { Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp)) },
+    )
 }
 
 @Composable
