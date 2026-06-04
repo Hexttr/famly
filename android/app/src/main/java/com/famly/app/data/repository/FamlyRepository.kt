@@ -57,6 +57,7 @@ class FamlyRepository(
     suspend fun ensureSeeded() {
         purgeLegacyDemoDataIfNeeded()
         resetSeedBudgetLimitsIfNeeded()
+        purgeStaleLocalTransactionsIfNeeded()
         val now = System.currentTimeMillis()
         if (db.categoryDao().observeAll().first().isEmpty()) {
             FamlySeedData.categories(now).forEach { db.categoryDao().upsert(it) }
@@ -90,6 +91,21 @@ class FamlyRepository(
             }
         }
         preferences.setSeedBudgetZeroed()
+    }
+
+    private suspend fun purgeStaleLocalTransactionsIfNeeded() {
+        if (preferences.isStaleTransactionsPurged()) return
+        val settings = preferences.settings.first()
+        if (!settings.isAuthenticated) {
+            if (db.transactionDao().observeAll().first().isNotEmpty()) {
+                db.transactionDao().deleteAll()
+                val now = System.currentTimeMillis()
+                db.accountDao().observeAll().first().forEach { account ->
+                    db.accountDao().upsert(account.copy(balanceKopecks = 0, updatedAt = now))
+                }
+            }
+        }
+        preferences.setStaleTransactionsPurged()
     }
 
     suspend fun ensureLocalFamily(name: String) {
