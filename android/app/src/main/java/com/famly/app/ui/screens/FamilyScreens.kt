@@ -289,14 +289,18 @@ fun FamilyScreen(
             }
         }
 
-        if (state.settings.isAuthenticated && (familyCreated || state.settings.isSynced)) {
+        if (familyCreated) {
             Text(
                 "Пригласить участников",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
-                modifier = Modifier.padding(bottom = Spacing.sm),
+                modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.sm),
             )
-            if (inviteLoading && inviteCode == null) {
+            if (!state.settings.isAuthenticated) {
+                Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md)) {
+                    Text("Создать ссылку приглашения")
+                }
+            } else if (inviteLoading && inviteCode == null) {
                 Text("Генерация ссылки…", color = TextMuted, fontSize = 14.sp)
             } else if (inviteCode != null) {
                 val link = inviteUrl ?: "famly://join?code=$inviteCode"
