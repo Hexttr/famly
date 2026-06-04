@@ -9,14 +9,38 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
+import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.plugins.contentnegotiation.*
+import kotlinx.serialization.json.Json
 
 fun Application.configureRouting() {
-    install(ContentNegotiation) { json() }
+    install(ContentNegotiation) {
+        json(
+            Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            },
+        )
+    }
+    install(StatusPages) {
+        exception<IllegalArgumentException> { call, cause ->
+            call.respond(HttpStatusCode.BadRequest, mapOf("error" to (cause.message ?: "Bad request")))
+        }
+        exception<IllegalStateException> { call, cause ->
+            call.respond(HttpStatusCode.Conflict, mapOf("error" to (cause.message ?: "Conflict")))
+        }
+        exception<Throwable> { call, cause ->
+            call.application.environment.log.error("Unhandled error", cause)
+            call.respond(
+                HttpStatusCode.InternalServerError,
+                mapOf("error" to (cause.message ?: "Internal server error")),
+            )
+        }
+    }
 
     val authService = AuthService()
     val householdService = HouseholdService()

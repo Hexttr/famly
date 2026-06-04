@@ -21,22 +21,27 @@ class AuthService {
     val verifier = JWT.require(Algorithm.HMAC256(secret)).build()
 
     fun register(email: String, password: String, displayName: String): Pair<String, String> = transaction {
-        val exists = Users.selectAll().where { Users.email eq email }.count() > 0
+        require(email.isNotBlank()) { "Email is required" }
+        require(password.length >= 6) { "Password must be at least 6 characters" }
+        require(displayName.isNotBlank()) { "Display name is required" }
+        val exists = Users.selectAll().where { Users.email eq email.trim().lowercase() }.count() > 0
         if (exists) error("Email already registered")
         val id = UUID.randomUUID().toString()
         Users.insert {
             it[Users.id] = id
-            it[Users.email] = email
+            it[Users.email] = email.trim().lowercase()
             it[Users.passwordHash] = hash(password)
-            it[Users.displayName] = displayName
+            it[Users.displayName] = displayName.trim()
         }
         id to token(id)
     }
 
     fun login(email: String, password: String): Pair<String, String> = transaction {
-        val row = Users.selectAll().where { Users.email eq email }.singleOrNull()
-            ?: error("Invalid credentials")
-        if (row[Users.passwordHash] != hash(password)) error("Invalid credentials")
+        require(email.isNotBlank()) { "Email is required" }
+        require(password.isNotBlank()) { "Password is required" }
+        val row = Users.selectAll().where { Users.email eq email.trim().lowercase() }.singleOrNull()
+            ?: throw IllegalArgumentException("Invalid credentials")
+        if (row[Users.passwordHash] != hash(password)) throw IllegalArgumentException("Invalid credentials")
         row[Users.id] to token(row[Users.id])
     }
 

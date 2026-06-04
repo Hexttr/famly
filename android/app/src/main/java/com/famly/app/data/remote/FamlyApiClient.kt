@@ -211,10 +211,19 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
 
     private fun readResponse(conn: HttpURLConnection): JSONObject {
         val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
-        val text = BufferedReader(InputStreamReader(stream)).use { it.readText() }
+        val text = stream?.let { BufferedReader(InputStreamReader(it)).use { reader -> reader.readText() } }.orEmpty()
         if (conn.responseCode !in 200..299) {
-            error("HTTP ${conn.responseCode}: $text")
+            val message = parseErrorMessage(text).ifBlank { text.ifBlank { "Неизвестная ошибка" } }
+            error("HTTP ${conn.responseCode}: $message")
         }
         return JSONObject(text)
+    }
+
+    private fun parseErrorMessage(body: String): String {
+        if (body.isBlank()) return ""
+        return runCatching {
+            val json = JSONObject(body)
+            json.optString("error").ifBlank { json.optString("message") }
+        }.getOrDefault(body)
     }
 }
