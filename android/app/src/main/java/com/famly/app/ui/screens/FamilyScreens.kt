@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shield
@@ -78,6 +79,7 @@ fun FamilyScreen(
     onSaveFamilyName: (String) -> Unit,
     onJoinHousehold: (String) -> Unit,
     onRefreshInvite: () -> Unit,
+    onRestoreLocalInvite: () -> Unit,
     onOpenSettings: () -> Unit,
     inviteCode: String?,
     inviteUrl: String?,
@@ -102,9 +104,12 @@ fun FamilyScreen(
     val nameFieldEnabled = !familyCreated || !state.settings.isSynced
     val nameDirty = familyName.trim() != (state.settings.householdName ?: "").trim()
 
-    LaunchedEffect(state.settings.isSynced, inviteCode, inviteLoading) {
-        if (state.settings.isSynced && inviteCode == null && !inviteLoading) {
+    LaunchedEffect(familyCreated, state.settings.isAuthenticated, state.settings.isSynced, inviteCode, inviteLoading) {
+        if (!familyCreated || inviteCode != null || inviteLoading) return@LaunchedEffect
+        if (state.settings.isSynced) {
             onRefreshInvite()
+        } else if (!state.settings.isAuthenticated) {
+            onRestoreLocalInvite()
         }
     }
 
@@ -290,21 +295,11 @@ fun FamilyScreen(
         }
 
         if (familyCreated) {
-            Text(
-                "Пригласить участников",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.sm),
-            )
-            if (!state.settings.isAuthenticated) {
-                Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md)) {
-                    Text("Создать ссылку приглашения")
-                }
-            } else if (inviteLoading && inviteCode == null) {
-                Text("Генерация ссылки…", color = TextMuted, fontSize = 14.sp)
+            if (inviteLoading && inviteCode == null) {
+                Text("Генерация ссылки…", color = TextMuted, fontSize = 14.sp, modifier = Modifier.padding(top = Spacing.sm))
             } else if (inviteCode != null) {
                 val link = inviteUrl ?: "famly://join?code=$inviteCode"
-                FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm), padding = 16.dp) {
+                FamlyCard(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm, bottom = Spacing.sm), padding = 16.dp) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         QrCodeImage(
                             content = link,
@@ -372,8 +367,14 @@ fun FamilyScreen(
                     }
                 }
             } else if (!inviteLoading) {
-                Button(onClick = onRefreshInvite, modifier = Modifier.fillMaxWidth()) {
-                    Text("Создать ссылку приглашения")
+                Button(
+                    onClick = onRefreshInvite,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Spacing.sm, bottom = Spacing.md),
+                ) {
+                    Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Создать ссылку приглашения", modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }

@@ -124,6 +124,20 @@ class FamlyRepository(
         preferences.setHouseholdName(trimmed)
     }
 
+    suspend fun getLocalInviteCode(): String? = preferences.getLocalInviteCode()
+
+    suspend fun getOrCreateLocalInviteCode(): String {
+        preferences.getLocalInviteCode()?.let { return it }
+        val code = buildLocalInviteCode()
+        preferences.setLocalInviteCode(code)
+        return code
+    }
+
+    private fun buildLocalInviteCode(): String {
+        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        return (1..8).map { chars.random() }.joinToString("")
+    }
+
     suspend fun reorderCategories(orderedIds: List<String>) {
         if (orderedIds.isEmpty()) return
         val now = System.currentTimeMillis()

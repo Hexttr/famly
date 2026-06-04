@@ -210,10 +210,32 @@ class FamlyViewModel(
     fun generateInvite() = viewModelScope.launch {
         _inviteLoading.value = true
         _inviteError.value = null
-        _inviteCode.value = runCatching { syncRepository.generateInviteCode() }
-            .onFailure { _inviteError.value = it.message ?: "Не удалось создать код" }
-            .getOrNull()
+        val settings = uiState.value.settings
+        _inviteCode.value = runCatching {
+            if (settings.isAuthenticated) {
+                if (!settings.isSynced) {
+                    val name = settings.householdName?.trim().orEmpty()
+                    if (name.isNotEmpty()) {
+                        val status = syncRepository.createHousehold(name)
+                        if (!status.success) error(status.error ?: "Не удалось создать семью")
+                    } else {
+                        syncRepository.ensureHouseholdLinked()
+                    }
+                }
+                syncRepository.generateInviteCode()
+            } else {
+                val name = settings.householdName?.trim().orEmpty()
+                if (name.isEmpty()) error("Сначала укажите название семьи")
+                repository.ensureLocalFamily(name)
+                repository.getOrCreateLocalInviteCode()
+            }
+        }.onFailure { _inviteError.value = it.message ?: "Не удалось создать код" }.getOrNull()
         _inviteLoading.value = false
+    }
+
+    fun restoreLocalInvite() = viewModelScope.launch {
+        if (uiState.value.settings.isAuthenticated) return@launch
+        repository.getLocalInviteCode()?.let { _inviteCode.value = it }
     }
 
     fun setupFamily(name: String) = viewModelScope.launch {
@@ -240,6 +262,8 @@ class FamlyViewModel(
             _inviteCode.value = runCatching { syncRepository.generateInviteCode() }
                 .onFailure { _inviteError.value = it.message ?: "Не удалось создать код" }
                 .getOrNull()
+        } else {
+            _inviteCode.value = repository.getOrCreateLocalInviteCode()
         }
         _inviteLoading.value = false
     }

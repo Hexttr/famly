@@ -289,6 +289,7 @@ fun FamlyNavHost(
                     onSaveFamilyName = { viewModel.saveFamilyName(it) },
                     onJoinHousehold = { viewModel.joinHousehold(it) },
                     onRefreshInvite = { viewModel.generateInvite() },
+                    onRestoreLocalInvite = { viewModel.restoreLocalInvite() },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     inviteCode = inviteCode,
                     inviteUrl = viewModel.inviteUrl(),

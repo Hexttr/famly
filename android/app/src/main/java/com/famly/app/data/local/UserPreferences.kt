@@ -94,6 +94,13 @@ class UserPreferences(private val context: Context) {
         it[KEY_HOUSEHOLD_NAME] = name.trim()
     }
 
+    suspend fun getLocalInviteCode(): String? =
+        context.dataStore.data.first()[KEY_LOCAL_INVITE_CODE]
+
+    suspend fun setLocalInviteCode(code: String) = context.dataStore.edit {
+        it[KEY_LOCAL_INVITE_CODE] = code
+    }
+
     suspend fun isSeedBudgetZeroed(): Boolean =
         context.dataStore.data.first()[KEY_SEED_BUDGET_ZEROED] == true
 
@@ -138,6 +145,7 @@ class UserPreferences(private val context: Context) {
         private val KEY_USER_ID = stringPreferencesKey("user_id")
         private val KEY_HOUSEHOLD_ID = stringPreferencesKey("household_id")
         private val KEY_HOUSEHOLD_NAME = stringPreferencesKey("household_name")
+        private val KEY_LOCAL_INVITE_CODE = stringPreferencesKey("local_invite_code")
         private val KEY_STALE_TX_PURGED = booleanPreferencesKey("stale_transactions_purged_v3")
         private val KEY_STALE_FAMILY_PURGED = booleanPreferencesKey("stale_family_purged_v1")
         private val KEY_SEED_BUDGET_ZEROED = booleanPreferencesKey("seed_budget_zeroed_v2")
