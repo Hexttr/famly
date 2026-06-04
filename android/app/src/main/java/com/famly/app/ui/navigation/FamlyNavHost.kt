@@ -1,6 +1,10 @@
 package com.famly.app.ui.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -88,6 +92,7 @@ fun FamlyNavHost(
     val inviteCode by viewModel.inviteCode.collectAsState()
     val inviteLoading by viewModel.inviteLoading.collectAsState()
     val inviteError by viewModel.inviteError.collectAsState()
+    val bootstrapReady by viewModel.bootstrapReady.collectAsState()
     var notificationsVisible by rememberSaveable { mutableStateOf(false) }
     var quickAddInitialType by rememberSaveable { mutableStateOf<String?>(null) }
     var familyJoinCode by rememberSaveable { mutableStateOf("") }
@@ -116,6 +121,13 @@ fun FamlyNavHost(
             it.error?.contains("Push failed", true) == true -> "Не удалось отправить данные на сервер"
             else -> it.error ?: "Ошибка синхронизации"
         }
+    }
+
+    if (!bootstrapReady) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
     }
 
     if (!state.settings.onboardingComplete) {
@@ -242,6 +254,7 @@ fun FamlyNavHost(
                     { email, password, name -> viewModel.register(email, password, name) },
                     { viewModel.syncNow() },
                     { navController.navigate(Routes.FAMILY) },
+                    { viewModel.logout() },
                 )
             }
             composable(Routes.RECURRING) {
@@ -289,7 +302,6 @@ fun FamlyNavHost(
                     onSaveFamilyName = { viewModel.saveFamilyName(it) },
                     onJoinHousehold = { viewModel.joinHousehold(it) },
                     onRefreshInvite = { viewModel.generateInvite() },
-                    onRestoreLocalInvite = { viewModel.restoreLocalInvite() },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     inviteCode = inviteCode,
                     inviteUrl = viewModel.inviteUrl(),

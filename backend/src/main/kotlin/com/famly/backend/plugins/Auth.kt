@@ -15,5 +15,13 @@ fun Application.configureAuth() {
                 if (userId.isNotBlank()) JWTPrincipal(credential.payload) else null
             }
         }
+        jwt("admin-jwt") {
+            verifier(authService.verifier)
+            validate { credential ->
+                val userId = credential.payload.getClaim("userId").asString()
+                val role = credential.payload.getClaim("role").asString()
+                if (userId.isNotBlank() && role == "admin") JWTPrincipal(credential.payload) else null
+            }
+        }
     }
 }

@@ -80,7 +80,6 @@ fun FamilyScreen(
     onSaveFamilyName: (String) -> Unit,
     onJoinHousehold: (String) -> Unit,
     onRefreshInvite: () -> Unit,
-    onRestoreLocalInvite: () -> Unit,
     onOpenSettings: () -> Unit,
     inviteCode: String?,
     inviteUrl: String?,
@@ -224,9 +223,20 @@ fun FamilyScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = Spacing.md),
-                enabled = !inviteLoading && familyName.isNotBlank(),
+                enabled = !inviteLoading && familyName.isNotBlank() && state.settings.isAuthenticated,
             ) {
                 Text(if (inviteLoading) "Создание…" else "Создать семью")
+            }
+            if (!state.settings.isAuthenticated) {
+                Button(
+                    onClick = onOpenSettings,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = Spacing.md),
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Войти, чтобы создать семью", modifier = Modifier.padding(start = 8.dp))
+                }
             }
         }
 
@@ -326,17 +336,7 @@ fun FamilyScreen(
                             sizePx = 512,
                         )
                         Text("Код: $inviteCode", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        if (!state.settings.isAuthenticated) {
-                            Text(
-                                "Для приглашения с другого телефона войдите в аккаунт — иначе код действует только на этом устройстве.",
-                                fontSize = 12.sp,
-                                color = Warning,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(top = 10.dp, bottom = 12.dp),
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
+                        Spacer(modifier = Modifier.height(12.dp))
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()

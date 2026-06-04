@@ -69,7 +69,26 @@ class UserPreferences(private val context: Context) {
         it.remove(KEY_AUTH_TOKEN)
         it.remove(KEY_USER_ID)
         it.remove(KEY_HOUSEHOLD_ID)
+        it.remove(KEY_HOUSEHOLD_NAME)
         it.remove(KEY_LAST_SYNC_TOKEN)
+        it.remove(KEY_LOCAL_INVITE_CODE)
+    }
+
+    suspend fun clearHouseholdSession() = context.dataStore.edit {
+        it.remove(KEY_HOUSEHOLD_ID)
+        it.remove(KEY_HOUSEHOLD_NAME)
+        it.remove(KEY_LAST_SYNC_TOKEN)
+    }
+
+    suspend fun setPremiumFromServer(isPremium: Boolean, expiresAt: Long?) = context.dataStore.edit {
+        it[KEY_PREMIUM] = isPremium
+        if (expiresAt != null && expiresAt > 0) {
+            it[KEY_PREMIUM_EXPIRES] = expiresAt
+        }
+    }
+
+    suspend fun clearLocalInviteCode() = context.dataStore.edit {
+        it.remove(KEY_LOCAL_INVITE_CODE)
     }
 
     suspend fun setStaleTransactionsPurged() = context.dataStore.edit {

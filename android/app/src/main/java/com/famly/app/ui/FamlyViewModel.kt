@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.util.UUID
@@ -73,6 +74,18 @@ class FamlyViewModel(
 
     private val _inviteLoading = MutableStateFlow(false)
     val inviteLoading: StateFlow<Boolean> = _inviteLoading.asStateFlow()
+
+    private val _bootstrapReady = MutableStateFlow(false)
+    val bootstrapReady: StateFlow<Boolean> = _bootstrapReady.asStateFlow()
+
+    private var cachedInviteUrl: String? = null
+
+    init {
+        viewModelScope.launch {
+            repository.settings.first()
+            _bootstrapReady.value = true
+        }
+    }
 
     fun dismissNotification(id: String) = viewModelScope.launch {
         repository.dismissNotification(id)
@@ -135,6 +148,12 @@ class FamlyViewModel(
     fun setCurrency(currency: String) = viewModelScope.launch { repository.setCurrency(currency) }
     fun activatePremium() = viewModelScope.launch { repository.activatePremium() }
 
+    fun clearInvite() {
+        _inviteCode.value = null
+        _inviteError.value = null
+        cachedInviteUrl = null
+    }
+
     fun purchasePremium(plan: PremiumPlan = PremiumPlan.MONTHLY) = viewModelScope.launch {
         val result = when (plan) {
             PremiumPlan.MONTHLY -> billingManager.purchaseMonthly()
@@ -142,6 +161,7 @@ class FamlyViewModel(
         }
         if (result is PurchaseResult.Success) {
             repository.activatePremium()
+            syncRepository.refreshPremiumStatus()
         }
     }
 
@@ -232,31 +252,26 @@ class FamlyViewModel(
         _inviteLoading.value = true
         _inviteError.value = null
         val settings = uiState.value.settings
+        if (!settings.isAuthenticated) {
+            _inviteError.value = "Войдите в аккаунт в Настройках, чтобы создать приглашение"
+            _inviteLoading.value = false
+            return@launch
+        }
         _inviteCode.value = runCatching {
-            if (settings.isAuthenticated) {
-                if (!settings.isSynced) {
-                    val name = settings.householdName?.trim().orEmpty()
-                    if (name.isNotEmpty()) {
-                        val status = syncRepository.createHousehold(name)
-                        if (!status.success) error(status.error ?: "Не удалось создать семью")
-                    } else {
-                        syncRepository.ensureHouseholdLinked()
-                    }
-                }
-                syncRepository.generateInviteCode()
-            } else {
+            if (!settings.isSynced) {
                 val name = settings.householdName?.trim().orEmpty()
-                if (name.isEmpty()) error("Сначала укажите название семьи")
-                repository.ensureLocalFamily(name)
-                repository.getOrCreateLocalInviteCode()
+                if (name.isNotEmpty()) {
+                    val status = syncRepository.createHousehold(name)
+                    if (!status.success) error(status.error ?: "Не удалось создать семью")
+                } else {
+                    syncRepository.ensureHouseholdLinked()
+                }
             }
+            val invite = syncRepository.generateInviteCode()
+            cachedInviteUrl = invite.inviteUrl
+            invite.inviteCode
         }.onFailure { _inviteError.value = it.message ?: "Не удалось создать код" }.getOrNull()
         _inviteLoading.value = false
-    }
-
-    fun restoreLocalInvite() = viewModelScope.launch {
-        if (uiState.value.settings.isAuthenticated) return@launch
-        repository.getLocalInviteCode()?.let { _inviteCode.value = it }
     }
 
     fun setupFamily(name: String) = viewModelScope.launch {
@@ -265,36 +280,44 @@ class FamlyViewModel(
             _inviteError.value = "Введите название семьи"
             return@launch
         }
+        if (!uiState.value.settings.isAuthenticated) {
+            _inviteError.value = "Войдите в аккаунт в Настройках, чтобы создать семью"
+            return@launch
+        }
         _inviteLoading.value = true
         _inviteError.value = null
         repository.ensureLocalFamily(trimmed)
         val settings = uiState.value.settings
-        if (settings.isAuthenticated) {
-            val status = if (!settings.isSynced) {
-                syncRepository.createHousehold(trimmed)
-            } else {
-                SyncStatus(success = true)
-            }
-            if (!status.success) {
-                _inviteError.value = status.error
-                _inviteLoading.value = false
-                return@launch
-            }
-            _inviteCode.value = runCatching { syncRepository.generateInviteCode() }
-                .onFailure { _inviteError.value = it.message ?: "Не удалось создать код" }
-                .getOrNull()
+        val status = if (!settings.isSynced) {
+            syncRepository.createHousehold(trimmed)
         } else {
-            _inviteCode.value = repository.getOrCreateLocalInviteCode()
+            SyncStatus(success = true)
         }
+        if (!status.success) {
+            _inviteError.value = status.error
+            _inviteLoading.value = false
+            return@launch
+        }
+        _inviteCode.value = runCatching {
+            val invite = syncRepository.generateInviteCode()
+            cachedInviteUrl = invite.inviteUrl
+            invite.inviteCode
+        }.onFailure { _inviteError.value = it.message ?: "Не удалось создать код" }.getOrNull()
         _inviteLoading.value = false
     }
 
-    fun clearInvite() {
-        _inviteCode.value = null
-        _inviteError.value = null
+    fun logout() = viewModelScope.launch {
+        _syncStatus.value = syncRepository.logout()
+        clearInvite()
     }
 
-    fun inviteUrl(): String? = _inviteCode.value?.let { "famly://join?code=$it" }
+    fun leaveHousehold() = viewModelScope.launch {
+        _syncStatus.value = syncRepository.leaveHousehold()
+        clearInvite()
+    }
+
+    fun inviteUrl(): String? =
+        cachedInviteUrl ?: syncRepository.cachedInviteUrl() ?: _inviteCode.value?.let { "https://famly.app/join?code=$it" }
 
     fun saveSplit(transactionId: String, memberIds: List<String>) =
         viewModelScope.launch { repository.saveSplit(transactionId, memberIds) }

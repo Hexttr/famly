@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,6 +39,7 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CurrencyRuble
 import androidx.compose.material.icons.filled.Euro
 import androidx.compose.material.icons.filled.Login
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.foundation.text.KeyboardOptions
@@ -280,10 +284,12 @@ fun SettingsScreen(
     onRegister: (String, String, String) -> Unit,
     onSyncNow: () -> Unit,
     onOpenFamily: () -> Unit,
+    onLogout: () -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
     var startDayInput by remember(state.settings.budgetPeriod.startDay) {
         mutableStateOf(state.settings.budgetPeriod.startDay.toString())
     }
@@ -374,9 +380,49 @@ fun SettingsScreen(
                     Text("Синхронизировать сейчас", modifier = Modifier.padding(start = 8.dp))
                 }
             }
+            if (state.settings.isAuthenticated) {
+                OutlinedButton(
+                    onClick = { showLogoutConfirm = true },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) {
+                    Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Выйти", modifier = Modifier.padding(start = 8.dp))
+                }
+            }
             syncStatus?.let {
                 Text(it, fontSize = 12.sp, color = if (it.contains("Hostname") || it.contains("error", true) || it.contains("Ошибка")) Expense else Primary, modifier = Modifier.padding(top = 10.dp))
             }
+        }
+
+        if (showLogoutConfirm) {
+            AlertDialog(
+                onDismissRequest = { showLogoutConfirm = false },
+                title = { Text("Выйти?") },
+                text = {
+                    Text(
+                        if (state.settings.isSynced) {
+                            "Вы выйдете из аккаунта «${state.settings.householdName ?: "семьи"}». Бюджет на этом устройстве сохранится."
+                        } else {
+                            "Вы уверены, что хотите выйти из аккаунта?"
+                        },
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showLogoutConfirm = false
+                            onLogout()
+                        },
+                    ) {
+                        Text("Выйти")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLogoutConfirm = false }) {
+                        Text("Отмена")
+                    }
+                },
+            )
         }
         SectionHeading("📊", "Бюджет")
         FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), padding = 0.dp) {

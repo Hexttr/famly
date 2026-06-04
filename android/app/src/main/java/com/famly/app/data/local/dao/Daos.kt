@@ -8,6 +8,7 @@ import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.CategoryEntity
 import com.famly.app.data.local.entity.FamilyMemberEntity
 import com.famly.app.data.local.entity.IouBalanceEntity
+import com.famly.app.data.local.entity.PendingSyncEntity
 import com.famly.app.data.local.entity.SplitAllocationEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
@@ -112,4 +113,19 @@ interface SplitAllocationDao {
 
     @Query("DELETE FROM split_allocations WHERE transactionId = :transactionId")
     suspend fun deleteByTransaction(transactionId: String)
+}
+
+@Dao
+interface PendingSyncDao {
+    @Query("SELECT * FROM pending_sync ORDER BY updatedAt ASC")
+    suspend fun getAll(): List<PendingSyncEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: PendingSyncEntity)
+
+    @Query("DELETE FROM pending_sync WHERE compositeKey = :key")
+    suspend fun delete(key: String)
+
+    @Query("DELETE FROM pending_sync")
+    suspend fun deleteAll()
 }

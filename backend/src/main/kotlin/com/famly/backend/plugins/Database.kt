@@ -1,10 +1,13 @@
 package com.famly.backend.plugins
 
+import com.famly.backend.db.AdminAuditLog
 import com.famly.backend.db.HouseholdMembers
 import com.famly.backend.db.Households
 import com.famly.backend.db.Subscriptions
 import com.famly.backend.db.SyncLog
 import com.famly.backend.db.Users
+import com.famly.backend.services.AuthService
+import com.famly.backend.services.seedAdminUser
 import io.ktor.server.application.*
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -18,6 +21,21 @@ fun Application.configureDatabase() {
     }
     Database.connect(databaseUrl, driver = driver)
     transaction {
-        SchemaUtils.create(Users, Households, HouseholdMembers, SyncLog, Subscriptions)
+        SchemaUtils.create(
+            Users,
+            Households,
+            HouseholdMembers,
+            SyncLog,
+            Subscriptions,
+            AdminAuditLog,
+        )
+        listOf(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at BIGINT DEFAULT 0",
+            "ALTER TABLE households ADD COLUMN IF NOT EXISTS created_at BIGINT DEFAULT 0",
+        ).forEach { sql ->
+            runCatching { exec(sql) }
+        }
     }
+    seedAdminUser(AuthService())
 }

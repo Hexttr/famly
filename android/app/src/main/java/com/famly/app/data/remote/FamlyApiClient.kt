@@ -43,6 +43,13 @@ data class SyncEntityDto(
     val deleted: Boolean = false,
 )
 
+data class InviteResult(val inviteCode: String, val inviteUrl: String)
+
+data class SubscriptionStatusResult(
+    val isPremium: Boolean,
+    val expiresAt: Long?,
+)
+
 data class SyncPullResult(
     val entities: List<SyncEntityDto>,
     val syncToken: Long,
@@ -97,11 +104,37 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
             )
         }
 
-    suspend fun generateInvite(token: String, householdId: String): String =
+    suspend fun generateInvite(token: String, householdId: String): InviteResult =
         withContext(Dispatchers.IO) {
             val response = postJson("/households/$householdId/invite", JSONObject(), authToken = token)
-            response.getString("inviteCode")
+            InviteResult(
+                inviteCode = response.getString("inviteCode"),
+                inviteUrl = response.optString("inviteUrl", "https://famly.app/join?code=${response.getString("inviteCode")}"),
+            )
         }
+
+    suspend fun leaveHousehold(token: String) = withContext(Dispatchers.IO) {
+        postJson("/households/leave", JSONObject(), authToken = token)
+    }
+
+    suspend fun updateMember(
+        token: String,
+        householdId: String,
+        memberId: String,
+        role: String? = null,
+        visibility: String? = null,
+        displayName: String? = null,
+    ) = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+        role?.let { body.put("role", it) }
+        visibility?.let { body.put("visibility", it) }
+        displayName?.let { body.put("displayName", it) }
+        patchJson("/households/$householdId/members/$memberId", body, authToken = token)
+    }
+
+    suspend fun logout(token: String) = withContext(Dispatchers.IO) {
+        postJson("/auth/logout", JSONObject(), authToken = token)
+    }
 
     suspend fun getHousehold(token: String): HouseholdFullResult? =
         withContext(Dispatchers.IO) {
@@ -168,12 +201,19 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
             SyncPullResult(entities, response.getLong("syncToken"))
         }
 
-    suspend fun getSubscriptionStatus(token: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun getSubscriptionStatus(token: String): SubscriptionStatusResult = withContext(Dispatchers.IO) {
         try {
             val response = getJson("/subscription/status", authToken = token)
-            response.getBoolean("isPremium")
+            SubscriptionStatusResult(
+                isPremium = response.getBoolean("isPremium"),
+                expiresAt = if (response.has("expiresAt") && !response.isNull("expiresAt")) {
+                    response.getLong("expiresAt")
+                } else {
+                    null
+                },
+            )
         } catch (_: Exception) {
-            false
+            SubscriptionStatusResult(isPremium = false, expiresAt = null)
         }
     }
 
@@ -184,6 +224,17 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
         } catch (_: Exception) {
             false
         }
+    }
+
+    private fun patchJson(path: String, body: JSONObject, authToken: String?): JSONObject {
+        val conn = (URL("$baseUrl$path").openConnection() as HttpURLConnection).apply {
+            requestMethod = "PATCH"
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            authToken?.let { setRequestProperty("Authorization", "Bearer $it") }
+        }
+        OutputStreamWriter(conn.outputStream).use { it.write(body.toString()) }
+        return readResponse(conn, expectBody = true)
     }
 
     private fun postJson(path: String, body: JSONObject, authToken: String?): JSONObject {

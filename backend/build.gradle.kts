@@ -26,8 +26,16 @@ dependencies {
     implementation(libs.exposed.jdbc)
     implementation(libs.exposed.java.time)
     implementation(libs.h2)
+    implementation(libs.postgresql)
+    implementation(libs.jbcrypt)
+    testImplementation(kotlin("test"))
+    testImplementation(libs.ktor.server.test.host)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 }

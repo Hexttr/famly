@@ -10,12 +10,14 @@ import com.famly.app.data.local.dao.AccountDao
 import com.famly.app.data.local.dao.CategoryDao
 import com.famly.app.data.local.dao.FamilyMemberDao
 import com.famly.app.data.local.dao.IouBalanceDao
+import com.famly.app.data.local.dao.PendingSyncDao
 import com.famly.app.data.local.dao.SplitAllocationDao
 import com.famly.app.data.local.dao.TransactionDao
 import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.CategoryEntity
 import com.famly.app.data.local.entity.FamilyMemberEntity
 import com.famly.app.data.local.entity.IouBalanceEntity
+import com.famly.app.data.local.entity.PendingSyncEntity
 import com.famly.app.data.local.entity.SplitAllocationEntity
 import com.famly.app.data.local.entity.TransactionEntity
 
@@ -27,8 +29,9 @@ import com.famly.app.data.local.entity.TransactionEntity
         FamilyMemberEntity::class,
         IouBalanceEntity::class,
         SplitAllocationEntity::class,
+        PendingSyncEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class FamlyDatabase : RoomDatabase() {
@@ -38,6 +41,7 @@ abstract class FamlyDatabase : RoomDatabase() {
     abstract fun familyMemberDao(): FamilyMemberDao
     abstract fun iouBalanceDao(): IouBalanceDao
     abstract fun splitAllocationDao(): SplitAllocationDao
+    abstract fun pendingSyncDao(): PendingSyncDao
 
     companion object {
         @Volatile
@@ -104,6 +108,24 @@ abstract class FamlyDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS pending_sync (
+                        compositeKey TEXT NOT NULL PRIMARY KEY,
+                        type TEXT NOT NULL,
+                        entityId TEXT NOT NULL,
+                        payload TEXT NOT NULL,
+                        syncVersion INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL,
+                        deleted INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent(),
+                )
+            }
+        }
+
         fun get(context: Context): FamlyDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -111,8 +133,7 @@ abstract class FamlyDatabase : RoomDatabase() {
                     FamlyDatabase::class.java,
                     "famly.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }

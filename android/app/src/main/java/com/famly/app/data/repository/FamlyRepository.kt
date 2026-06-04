@@ -55,6 +55,7 @@ class FamlyRepository(
         db.familyMemberDao().observeById(id)
 
     suspend fun ensureSeeded() {
+        preferences.clearLocalInviteCode()
         purgeLegacyDemoDataIfNeeded()
         resetSeedBudgetLimitsIfNeeded()
         purgeStaleLocalTransactionsIfNeeded()
@@ -124,18 +125,18 @@ class FamlyRepository(
         preferences.setHouseholdName(trimmed)
     }
 
-    suspend fun getLocalInviteCode(): String? = preferences.getLocalInviteCode()
-
-    suspend fun getOrCreateLocalInviteCode(): String {
-        preferences.getLocalInviteCode()?.let { return it }
-        val code = buildLocalInviteCode()
-        preferences.setLocalInviteCode(code)
-        return code
+    suspend fun clearLocalFamilyData() {
+        db.familyMemberDao().deleteAll()
     }
 
-    private fun buildLocalInviteCode(): String {
-        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-        return (1..8).map { chars.random() }.joinToString("")
+    suspend fun logoutLocal() {
+        preferences.clearAuthSession()
+        db.familyMemberDao().deleteAll()
+    }
+
+    suspend fun leaveHouseholdLocal() {
+        preferences.clearHouseholdSession()
+        db.familyMemberDao().deleteAll()
     }
 
     suspend fun reorderCategories(orderedIds: List<String>) {
@@ -152,22 +153,6 @@ class FamlyRepository(
 
     suspend fun ensureLocalFamily(name: String) {
         preferences.setHouseholdName(name)
-        val now = System.currentTimeMillis()
-        val existing = db.familyMemberDao().observeAll().first()
-        if (existing.isNotEmpty()) return
-        db.familyMemberDao().upsert(
-            FamilyMemberEntity(
-                id = "local_self",
-                householdId = "local",
-                userId = null,
-                name = "Я",
-                role = "admin",
-                visibility = "full",
-                avatar = "🧑",
-                createdAt = now,
-                updatedAt = now,
-            ),
-        )
     }
 
     suspend fun processBudgetRollover() {
@@ -397,7 +382,7 @@ class FamlyRepository(
     suspend fun updateFamilyMember(member: FamilyMemberEntity) {
         val updated = member.copy(updatedAt = System.currentTimeMillis())
         db.familyMemberDao().upsert(updated)
-        syncRepository?.enqueueFamilyMember(updated)
+        syncRepository?.updateFamilyMemberOnServer(updated)
     }
 
     suspend fun cycleAccountIcon(accountId: String) {

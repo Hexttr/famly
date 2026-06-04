@@ -1,6 +1,7 @@
 package com.famly.backend.plugins
 
 import com.famly.backend.models.*
+import com.famly.backend.services.AdminService
 import com.famly.backend.services.AuthService
 import com.famly.backend.services.HouseholdService
 import com.famly.backend.services.SubscriptionService
@@ -46,10 +47,20 @@ fun Application.configureRouting() {
     val householdService = HouseholdService()
     val subscriptionService = SubscriptionService()
     val syncService = SyncService()
+    val adminService = AdminService()
 
     routing {
         get("/health") {
-            call.respond(mapOf("status" to "ok", "service" to "famly-backend"))
+            call.respond(mapOf("status" to "ok", "service" to "famly-backend", "version" to "1.1.0"))
+        }
+
+        get("/join") {
+            val code = call.request.queryParameters["code"]
+            if (code.isNullOrBlank()) {
+                call.respondText(joinLandingHtml(null), ContentType.Text.Html)
+            } else {
+                call.respondText(joinLandingHtml(code), ContentType.Text.Html)
+            }
         }
 
         get("/legal/privacy") {
@@ -70,6 +81,9 @@ fun Application.configureRouting() {
                 val (userId, token) = authService.login(body.email, body.password)
                 call.respond(AuthResponse(token, userId))
             }
+            post("/logout") {
+                call.respond(HttpStatusCode.OK, mapOf("status" to "ok"))
+            }
         }
 
         authenticate("auth-jwt") {
@@ -80,14 +94,7 @@ fun Application.configureRouting() {
                     if (h == null) {
                         call.respond(HttpStatusCode.NotFound, mapOf("error" to "No household"))
                     } else {
-                        call.respond(
-                            HouseholdResponse(
-                                h.id, h.name, h.ownerId,
-                                householdService.members(h.id).map {
-                                    HouseholdMemberDto(it.id, it.userId, it.displayName, it.role, it.visibility)
-                                },
-                            ),
-                        )
+                        call.respond(toHouseholdResponse(h, householdService))
                     }
                 }
                 post {
@@ -95,27 +102,80 @@ fun Application.configureRouting() {
                     val body = call.receive<CreateHouseholdRequest>()
                     val displayName = authService.displayName(userId)
                     val h = householdService.create(body.name, userId, displayName)
-                    call.respond(HouseholdResponse(h.id, h.name, h.ownerId, householdService.members(h.id).map {
-                        HouseholdMemberDto(it.id, it.userId, it.displayName, it.role, it.visibility)
-                    }))
+                    call.respond(toHouseholdResponse(h, householdService))
                 }
                 post("/join") {
                     val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
                     val body = call.receive<JoinHouseholdRequest>()
                     val displayName = authService.displayName(userId)
                     val h = householdService.join(body.inviteCode, userId, displayName)
-                    call.respond(HouseholdResponse(h.id, h.name, h.ownerId, householdService.members(h.id).map {
-                        HouseholdMemberDto(it.id, it.userId, it.displayName, it.role, it.visibility)
-                    }))
+                    call.respond(toHouseholdResponse(h, householdService))
+                }
+                post("/leave") {
+                    val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
+                    householdService.leave(userId)
+                    call.respond(HttpStatusCode.OK, mapOf("status" to "left"))
                 }
                 post("/{id}/invite") {
                     val id = call.parameters["id"]!!
-                    val h = householdService.getForUser(call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString())
+                    val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
+                    val h = householdService.getForUser(userId)
                     if (h?.id != id) {
                         call.respond(HttpStatusCode.Forbidden)
                     } else {
-                        call.respond(InviteResponse(h.inviteCode, "https://famly.app/join/${h.inviteCode}"))
+                        val member = householdService.memberForUser(id, userId)
+                        if (member?.role != "admin") {
+                            call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Admin role required"))
+                        } else {
+                            val regenerate = call.request.queryParameters["regenerate"] == "true"
+                            val code = if (regenerate) {
+                                householdService.regenerateInvite(id, userId)
+                            } else {
+                                h.inviteCode
+                            }
+                            call.respond(
+                                InviteResponse(
+                                    code,
+                                    "https://famly.app/join?code=$code",
+                                ),
+                            )
+                        }
                     }
+                }
+                get("/{id}/members") {
+                    val id = call.parameters["id"]!!
+                    val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
+                    val h = householdService.getForUser(userId)
+                    if (h?.id != id) {
+                        call.respond(HttpStatusCode.Forbidden)
+                    } else {
+                        call.respond(
+                            householdService.members(id).map {
+                                HouseholdMemberDto(it.id, it.userId, it.displayName, it.role, it.visibility)
+                            },
+                        )
+                    }
+                }
+                patch("/{id}/members/{memberId}") {
+                    val id = call.parameters["id"]!!
+                    val memberId = call.parameters["memberId"]!!
+                    val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
+                    val body = call.receive<UpdateMemberRequest>()
+                    val updated = householdService.updateMember(
+                        id, memberId, userId, body.role, body.visibility, body.displayName,
+                    )
+                    call.respond(
+                        HouseholdMemberDto(
+                            updated.id, updated.userId, updated.displayName, updated.role, updated.visibility,
+                        ),
+                    )
+                }
+                delete("/{id}/members/{memberId}") {
+                    val id = call.parameters["id"]!!
+                    val memberId = call.parameters["memberId"]!!
+                    val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
+                    householdService.removeMember(id, memberId, userId)
+                    call.respond(HttpStatusCode.OK, mapOf("status" to "removed"))
                 }
             }
 
@@ -144,6 +204,7 @@ fun Application.configureRouting() {
         }
 
         post("/webhooks/rustore") {
+            verifyWebhookSecret(call, "RUSTORE_WEBHOOK_SECRET", "X-RuStore-Signature")
             val body = call.receive<RuStoreWebhookPayload>()
             when (body.event) {
                 "SUBSCRIPTION_RENEWED", "SUBSCRIPTION_PURCHASED" ->
@@ -154,6 +215,7 @@ fun Application.configureRouting() {
         }
 
         post("/webhooks/yookassa") {
+            verifyWebhookSecret(call, "YOOKASSA_WEBHOOK_SECRET", "X-YooKassa-Signature")
             val body = call.receive<YooKassaWebhookPayload>()
             if (body.event == "payment.succeeded" && body.userId != null) {
                 val expires = System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000
@@ -161,11 +223,55 @@ fun Application.configureRouting() {
             }
             call.respond(HttpStatusCode.OK)
         }
+
+        configureAdminRouting(authService, adminService, subscriptionService, householdService)
     }
+}
+
+private fun toHouseholdResponse(
+    h: HouseholdService.HouseholdRecord,
+    householdService: HouseholdService,
+) = HouseholdResponse(
+    h.id, h.name, h.ownerId,
+    householdService.members(h.id).map {
+        HouseholdMemberDto(it.id, it.userId, it.displayName, it.role, it.visibility)
+    },
+)
+
+private fun verifyWebhookSecret(call: io.ktor.server.application.ApplicationCall, envKey: String, headerName: String) {
+    val secret = System.getenv(envKey) ?: return
+    val provided = call.request.header(headerName)
+    if (provided != secret) throw IllegalArgumentException("Invalid webhook signature")
 }
 
 private fun loadLegalResource(name: String): String {
     val stream = object {}.javaClass.classLoader.getResourceAsStream("legal/$name")
         ?: return "<html><body><h1>Document not found</h1></body></html>"
     return stream.bufferedReader().use { it.readText() }
+}
+
+private fun joinLandingHtml(code: String?): String {
+    val deepLink = code?.let { "famly://join?code=$it" } ?: "famly://join"
+    val displayCode = code ?: ""
+    return """
+        <!DOCTYPE html>
+        <html lang="ru">
+        <head>
+          <meta charset="utf-8"/>
+          <meta name="viewport" content="width=device-width, initial-scale=1"/>
+          <title>Присоединиться к семье — Famly</title>
+          <style>
+            body { font-family: system-ui, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; }
+            .btn { display: block; background: #1B4332; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-weight: 600; margin-top: 16px; }
+            code { background: #f0f0f0; padding: 4px 8px; border-radius: 6px; }
+          </style>
+        </head>
+        <body>
+          <h1>Мой (Наш) Бюджет</h1>
+          ${if (code != null) "<p>Код приглашения: <code>$displayCode</code></p>" else "<p>Откройте ссылку из приглашения в приложении.</p>"}
+          <a class="btn" href="$deepLink">Открыть в приложении</a>
+          <p style="color:#666;font-size:14px;margin-top:24px;">Если приложение не установлено, скачайте «Мой (Наш) Бюджет» в RuStore.</p>
+        </body>
+        </html>
+    """.trimIndent()
 }

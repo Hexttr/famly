@@ -38,6 +38,13 @@ data class InviteResponse(val inviteCode: String, val inviteUrl: String)
 data class JoinHouseholdRequest(val inviteCode: String)
 
 @Serializable
+data class UpdateMemberRequest(
+    val role: String? = null,
+    val visibility: String? = null,
+    val displayName: String? = null,
+)
+
+@Serializable
 data class SyncPushRequest(val entities: List<SyncEntity>)
 
 @Serializable
@@ -65,3 +72,48 @@ data class RuStoreWebhookPayload(val userId: String, val productId: String, val 
 
 @Serializable
 data class YooKassaWebhookPayload(val event: String, val objectId: String, val userId: String?)
+
+@Serializable
+data class AdminLoginRequest(val email: String, val password: String)
+
+@Serializable
+data class AdminStatsResponse(
+    val usersCount: Int,
+    val householdsCount: Int,
+    val syncEvents24h: Int,
+    val activeSubscriptions: Int,
+)
+
+@Serializable
+data class AdminUserDto(
+    val id: String,
+    val email: String,
+    val displayName: String,
+    val createdAt: Long,
+    val householdId: String?,
+    val isAdmin: Boolean,
+)
+
+@Serializable
+data class AdminHouseholdDto(
+    val id: String,
+    val name: String,
+    val ownerId: String,
+    val inviteCode: String,
+    val createdAt: Long,
+    val members: List<HouseholdMemberDto>,
+)
+
+@Serializable
+data class AdminSyncLogDto(
+    val id: String,
+    val householdId: String,
+    val entityType: String,
+    val entityId: String,
+    val payload: String,
+    val updatedAt: Long,
+    val deleted: Boolean,
+)
+
+@Serializable
+data class AdminGrantSubscriptionRequest(val userId: String, val expiresAt: Long?)

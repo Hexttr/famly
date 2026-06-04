@@ -6,9 +6,11 @@ import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.CategoryEntity
 import com.famly.app.data.local.entity.FamilyMemberEntity
 import com.famly.app.data.local.entity.IouBalanceEntity
+import com.famly.app.data.local.entity.PendingSyncEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.data.remote.FamlyApiClient
 import com.famly.app.data.remote.HouseholdMemberDto
+import com.famly.app.data.remote.InviteResult
 import com.famly.app.data.remote.SyncEntityDto
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
@@ -22,20 +24,21 @@ data class SyncStatus(
 )
 
 /**
- * Offline-first sync: queues local changes, pushes when online, pulls remote updates.
+ * Offline-first sync: persists pending changes in Room, pushes delta when online.
  */
 class SyncRepository(
     private val api: FamlyApiClient,
     private val db: FamlyDatabase,
     private val preferences: UserPreferences,
 ) {
-    private val pendingQueue = mutableListOf<SyncEntityDto>()
+    private var cachedInvite: InviteResult? = null
 
     suspend fun register(email: String, password: String, displayName: String): SyncStatus =
         runCatching {
             val result = api.register(email, password, displayName)
             preferences.setAuthSession(result.token, result.userId)
             restoreHouseholdFromServer(result.token)
+            refreshPremiumStatus(result.token)
             SyncStatus(success = true)
         }.getOrElse { SyncStatus(success = false, error = it.message) }
 
@@ -44,15 +47,37 @@ class SyncRepository(
             val result = api.login(email, password)
             preferences.setAuthSession(result.token, result.userId)
             restoreHouseholdFromServer(result.token)
+            refreshPremiumStatus(result.token)
             SyncStatus(success = true)
         }.getOrElse { SyncStatus(success = false, error = it.message) }
+
+    suspend fun logout(): SyncStatus = runCatching {
+        val token = preferences.settings.first().authToken
+        if (!token.isNullOrBlank()) {
+            runCatching { api.logout(token) }
+        }
+        preferences.clearAuthSession()
+        db.familyMemberDao().deleteAll()
+        db.pendingSyncDao().deleteAll()
+        cachedInvite = null
+        SyncStatus(success = true)
+    }.getOrElse { SyncStatus(success = false, error = it.message) }
+
+    suspend fun leaveHousehold(): SyncStatus = runCatching {
+        val token = requireAuthToken()
+        api.leaveHousehold(token)
+        preferences.clearHouseholdSession()
+        db.familyMemberDao().deleteAll()
+        cachedInvite = null
+        SyncStatus(success = true)
+    }.getOrElse { SyncStatus(success = false, error = it.message) }
 
     suspend fun createHousehold(name: String): SyncStatus =
         runCatching {
             val token = requireAuthToken()
             val household = api.createHousehold(token, name)
             preferences.setHouseholdId(household.id)
-            preferences.setHouseholdName(name)
+            preferences.setHouseholdName(household.name)
             syncHouseholdMembers(token, household.id)
             SyncStatus(success = true)
         }.getOrElse { SyncStatus(success = false, error = it.message) }
@@ -62,31 +87,44 @@ class SyncRepository(
             val token = requireAuthToken()
             val household = api.joinHousehold(token, inviteCode)
             preferences.setHouseholdId(household.id)
+            preferences.setHouseholdName(household.name)
             syncHouseholdMembers(token, household.id)
             SyncStatus(success = true)
         }.getOrElse { SyncStatus(success = false, error = it.message) }
 
-    fun enqueue(entity: SyncEntityDto) {
-        pendingQueue.removeAll { it.type == entity.type && it.id == entity.id }
-        pendingQueue.add(entity)
+    suspend fun enqueue(entity: SyncEntityDto) {
+        if (entity.type == "family_member") return
+        val key = "${entity.type}:${entity.id}"
+        db.pendingSyncDao().upsert(
+            PendingSyncEntity(
+                compositeKey = key,
+                type = entity.type,
+                entityId = entity.id,
+                payload = entity.payload,
+                syncVersion = entity.syncVersion,
+                updatedAt = entity.updatedAt,
+                deleted = entity.deleted,
+            ),
+        )
     }
 
-    fun enqueueTransaction(tx: TransactionEntity) =
+    suspend fun enqueueTransaction(tx: TransactionEntity) =
         enqueue(tx.toSyncEntity(System.currentTimeMillis()))
 
-    fun enqueueAccount(account: AccountEntity) =
+    suspend fun enqueueAccount(account: AccountEntity) =
         enqueue(account.toSyncEntity(System.currentTimeMillis()))
 
-    fun enqueueCategory(category: CategoryEntity) =
+    suspend fun enqueueCategory(category: CategoryEntity) =
         enqueue(category.toSyncEntity(System.currentTimeMillis()))
 
-    fun enqueueFamilyMember(member: FamilyMemberEntity) =
-        enqueue(member.toSyncEntity(System.currentTimeMillis()))
+    suspend fun enqueueFamilyMember(member: FamilyMemberEntity) {
+        // Members are synced from server; local avatar changes stay local.
+    }
 
-    fun enqueueIouBalance(balance: IouBalanceEntity) =
+    suspend fun enqueueIouBalance(balance: IouBalanceEntity) =
         enqueue(balance.toSyncEntity(System.currentTimeMillis()))
 
-    fun enqueueDeleted(type: String, id: String) =
+    suspend fun enqueueDeleted(type: String, id: String) =
         enqueue(
             SyncEntityDto(
                 type = type,
@@ -98,13 +136,32 @@ class SyncRepository(
             ),
         )
 
-    suspend fun generateInviteCode(): String {
+    suspend fun updateFamilyMemberOnServer(member: FamilyMemberEntity) {
+        val settings = preferences.settings.first()
+        val token = settings.authToken ?: return
+        val householdId = settings.householdId ?: return
+        runCatching {
+            api.updateMember(
+                token = token,
+                householdId = householdId,
+                memberId = member.id,
+                role = member.role,
+                visibility = member.visibility,
+                displayName = member.name,
+            )
+            syncHouseholdMembers(token, householdId)
+        }
+    }
+
+    suspend fun generateInviteCode(): InviteResult {
         ensureHouseholdLinked()
         val settings = preferences.settings.first()
         val token = settings.authToken ?: error("Войдите в аккаунт в Настройках")
         val householdId = settings.householdId ?: error("Не удалось создать семью")
-        return api.generateInvite(token, householdId)
+        return api.generateInvite(token, householdId).also { cachedInvite = it }
     }
+
+    fun cachedInviteUrl(): String? = cachedInvite?.inviteUrl
 
     suspend fun ensureHouseholdLinked() {
         val settings = preferences.settings.first()
@@ -113,18 +170,29 @@ class SyncRepository(
         restoreHouseholdFromServer(token)
         val updated = preferences.settings.first()
         if (!updated.householdId.isNullOrBlank()) return
-        val household = api.createHousehold(token, "Наша семья")
+        val household = api.createHousehold(token, updated.householdName?.trim().orEmpty().ifBlank { "Наша семья" })
         preferences.setHouseholdId(household.id)
-        preferences.setHouseholdName("Наша семья")
+        preferences.setHouseholdName(household.name)
         syncHouseholdMembers(token, household.id)
     }
 
     private suspend fun restoreHouseholdFromServer(token: String) {
         val settings = preferences.settings.first()
-        if (!settings.householdId.isNullOrBlank()) return
+        if (!settings.householdId.isNullOrBlank()) {
+            syncHouseholdMembers(token, settings.householdId!!)
+            return
+        }
         val household = api.getHousehold(token) ?: return
         preferences.setHouseholdId(household.id)
+        preferences.setHouseholdName(household.name)
         syncHouseholdMembers(token, household.id)
+    }
+
+    suspend fun refreshPremiumStatus(token: String? = null) {
+        val authToken = token ?: preferences.settings.first().authToken
+        if (authToken.isNullOrBlank()) return
+        val status = api.getSubscriptionStatus(authToken)
+        preferences.setPremiumFromServer(status.isPremium, status.expiresAt)
     }
 
     suspend fun sync(): SyncStatus {
@@ -147,28 +215,39 @@ class SyncRepository(
                 )
             }
 
+            refreshPremiumStatus(token)
+
             val since = settings.lastSyncToken ?: 0L
-            val toPush = (buildPushPayload() + pendingQueue.toList())
-                .filterNot { it.id.startsWith("local") }
-            if (toPush.isNotEmpty()) {
-                api.push(token, toPush)
+            val pending = loadPendingEntities()
+            if (pending.isNotEmpty()) {
+                api.push(token, pending)
             }
 
             val pull = api.pull(token, since)
             applyRemoteEntities(pull.entities)
-            restoreHouseholdFromServer(token)
-            val householdId = preferences.settings.first().householdId
-            householdId?.let { syncHouseholdMembers(token, it) }
+            syncHouseholdMembers(token, settings.householdId!!)
             preferences.setLastSyncToken(pull.syncToken)
-            pendingQueue.clear()
+            db.pendingSyncDao().deleteAll()
 
             SyncStatus(
                 success = true,
-                pushedCount = toPush.size,
+                pushedCount = pending.size,
                 pulledCount = pull.entities.size,
             )
         }.getOrElse { SyncStatus(success = false, error = it.message) }
     }
+
+    private suspend fun loadPendingEntities(): List<SyncEntityDto> =
+        db.pendingSyncDao().getAll().map { row ->
+            SyncEntityDto(
+                type = row.type,
+                id = row.entityId,
+                payload = row.payload,
+                syncVersion = row.syncVersion,
+                updatedAt = row.updatedAt,
+                deleted = row.deleted,
+            )
+        }
 
     private suspend fun requireAuthToken(): String {
         val token = preferences.settings.first().authToken
@@ -176,39 +255,38 @@ class SyncRepository(
         return token
     }
 
-    private suspend fun buildPushPayload(): List<SyncEntityDto> {
-        val now = System.currentTimeMillis()
-        val accounts = db.accountDao().observeAll().first().map { it.toSyncEntity(now) }
-        val categories = db.categoryDao().observeAll().first().map { it.toSyncEntity(now) }
-        val transactions = db.transactionDao().observeAll().first().map { it.toSyncEntity(now) }
-        val members = db.familyMemberDao().observeAll().first().map { it.toSyncEntity(now) }
-        val iouBalances = db.iouBalanceDao().observeOpen().first().map { it.toSyncEntity(now) }
-        return accounts + categories + transactions + members + iouBalances
-    }
-
     private suspend fun syncHouseholdMembers(token: String, householdId: String?) {
         if (householdId.isNullOrBlank()) return
         val household = api.getHousehold(token) ?: return
         val now = System.currentTimeMillis()
+        val serverIds = household.members.map { it.id }.toSet()
+        val localMembers = db.familyMemberDao().observeAll().first()
+        localMembers.filter { it.id !in serverIds && !it.id.startsWith("local") }.forEach {
+            db.familyMemberDao().delete(it.id)
+        }
         household.members.forEach { dto ->
-            val member = dto.toFamilyMemberEntity(householdId, now)
+            val existing = localMembers.find { it.id == dto.id }
+            val member = dto.toFamilyMemberEntity(householdId, now, existing?.avatar)
             db.familyMemberDao().upsert(member)
         }
     }
 
-    private fun HouseholdMemberDto.toFamilyMemberEntity(householdId: String, now: Long) =
-        FamilyMemberEntity(
-            id = id,
-            householdId = householdId,
-            userId = userId,
-            name = displayName,
-            role = role,
-            visibility = visibility,
-            avatar = memberAvatar(displayName),
-            syncVersion = 0,
-            createdAt = now,
-            updatedAt = now,
-        )
+    private fun HouseholdMemberDto.toFamilyMemberEntity(
+        householdId: String,
+        now: Long,
+        existingAvatar: String?,
+    ) = FamilyMemberEntity(
+        id = id,
+        householdId = householdId,
+        userId = userId,
+        name = displayName,
+        role = role,
+        visibility = visibility,
+        avatar = existingAvatar ?: memberAvatar(displayName),
+        syncVersion = 0,
+        createdAt = now,
+        updatedAt = now,
+    )
 
     private fun memberAvatar(name: String): String {
         val emojis = listOf("👨", "👩", "👦", "👧", "👴", "👵", "🧑")
@@ -295,25 +373,6 @@ class SyncRepository(
             put("updatedAt", updatedAt)
         }.toString(),
         syncVersion = 1,
-        updatedAt = now,
-    )
-
-    private fun FamilyMemberEntity.toSyncEntity(now: Long) = SyncEntityDto(
-        type = "family_member",
-        id = id,
-        payload = JSONObject().apply {
-            put("id", id)
-            put("householdId", householdId)
-            put("userId", userId)
-            put("name", name)
-            put("role", role)
-            put("visibility", visibility)
-            put("avatar", avatar)
-            put("syncVersion", syncVersion)
-            put("createdAt", createdAt)
-            put("updatedAt", updatedAt)
-        }.toString(),
-        syncVersion = syncVersion.toInt(),
         updatedAt = now,
     )
 

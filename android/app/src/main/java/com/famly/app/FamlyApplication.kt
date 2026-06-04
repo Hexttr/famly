@@ -33,7 +33,10 @@ class FamlyApplication : Application() {
         val preferences = UserPreferences(this)
         syncRepository = SyncRepository(FamlyApiClient(), db, preferences)
         repository = FamlyRepository(db, preferences, syncRepository)
-        billingManager = RuStoreBillingManager(onPremiumActivated = { repository.activatePremium() })
+        billingManager = RuStoreBillingManager(
+            onPremiumActivated = { repository.activatePremium() },
+            syncRepository = syncRepository,
+        )
         RecurringWorkScheduler.schedule(this)
         SyncWorkScheduler.schedulePeriodic(this)
         BudgetRolloverWorkScheduler.schedule(this)

@@ -1,7 +1,9 @@
 package com.famly.app.billing
 
+import com.famly.app.data.sync.SyncRepository
+
 /**
- * RuStore Pay SDK integration.
+ * RuStore Pay SDK integration with server subscription sync.
  *
  * Production checklist:
  * 1. Add dependency: ru.rustore.sdk:billingclient (see RuStore docs)
@@ -30,11 +32,11 @@ interface FamlyBillingManager {
 }
 
 /**
- * Stub implementation that simulates a successful RuStore purchase.
- * Calls [onPremiumActivated] when purchase succeeds.
+ * Stub implementation that simulates RuStore purchase and refreshes server subscription status.
  */
 class RuStoreBillingManager(
     private val onPremiumActivated: suspend () -> Unit,
+    private val syncRepository: SyncRepository? = null,
 ) : FamlyBillingManager {
 
     override suspend fun purchaseMonthly(): PurchaseResult {
@@ -48,14 +50,23 @@ class RuStoreBillingManager(
     }
 
     override suspend fun restorePurchases(): Boolean {
-        // Query RuStore for active subscriptions and call onPremiumActivated if found
+        syncRepository?.refreshPremiumStatus()
+        return syncRepository?.let {
+            runCatching {
+                it.refreshPremiumStatus()
+                true
+            }.getOrDefault(false)
+        } ?: false
+    }
+
+    override suspend fun isPremiumActive(): Boolean {
+        syncRepository?.refreshPremiumStatus()
         return false
     }
 
-    override suspend fun isPremiumActive(): Boolean = false
-
     private suspend fun completePurchase(): PurchaseResult {
         onPremiumActivated()
+        syncRepository?.refreshPremiumStatus()
         return PurchaseResult.Success
     }
 }

@@ -7,6 +7,8 @@ object Users : Table("users") {
     val email = varchar("email", 255).uniqueIndex()
     val passwordHash = varchar("password_hash", 255)
     val displayName = varchar("display_name", 100)
+    val isAdmin = bool("is_admin").default(false)
+    val createdAt = long("created_at")
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -15,6 +17,7 @@ object Households : Table("households") {
     val name = varchar("name", 100)
     val ownerId = varchar("owner_id", 36)
     val inviteCode = varchar("invite_code", 12).uniqueIndex()
+    val createdAt = long("created_at")
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -46,4 +49,15 @@ object Subscriptions : Table("subscriptions") {
     val expiresAt = long("expires_at").nullable()
     val paymentProvider = varchar("source", 20)
     override val primaryKey = PrimaryKey(userId)
+}
+
+object AdminAuditLog : Table("admin_audit_log") {
+    val id = varchar("id", 36)
+    val adminUserId = varchar("admin_user_id", 36)
+    val action = varchar("action", 100)
+    val targetType = varchar("target_type", 50).nullable()
+    val targetId = varchar("target_id", 36).nullable()
+    val details = text("details").nullable()
+    val createdAt = long("created_at")
+    override val primaryKey = PrimaryKey(id)
 }

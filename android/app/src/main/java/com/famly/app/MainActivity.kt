@@ -71,8 +71,9 @@ class MainActivity : ComponentActivity() {
                 when {
                     data?.scheme == "famly" && data.host == "join" ->
                         pendingJoinCode = data.getQueryParameter("code")
-                    data?.host == "famly.app" && data.path?.startsWith("/join/") == true ->
-                        pendingJoinCode = data.lastPathSegment
+                    data?.host == "famly.app" && data.path?.startsWith("/join") == true ->
+                        pendingJoinCode = data.getQueryParameter("code")
+                            ?: data.lastPathSegment?.takeIf { it.isNotBlank() && it != "join" }
                 }
             }
         }
