@@ -55,6 +55,7 @@ class FamlyRepository(
 
     suspend fun ensureSeeded() {
         purgeLegacyDemoDataIfNeeded()
+        resetSeedBudgetLimitsIfNeeded()
         val now = System.currentTimeMillis()
         if (db.categoryDao().observeAll().first().isEmpty()) {
             FamlySeedData.categories(now).forEach { db.categoryDao().upsert(it) }
@@ -76,6 +77,38 @@ class FamlyRepository(
             db.accountDao().upsert(FamlySeedData.defaultAccount(System.currentTimeMillis()))
         }
         preferences.setLegacyDemoPurged()
+    }
+
+    private suspend fun resetSeedBudgetLimitsIfNeeded() {
+        if (preferences.isSeedBudgetZeroed()) return
+        val now = System.currentTimeMillis()
+        db.categoryDao().observeAll().first().forEach { cat ->
+            val legacyLimit = FamlySeedData.LEGACY_SEED_BUDGET_LIMITS[cat.id]
+            if (legacyLimit != null && cat.budgetLimitKopecks == legacyLimit) {
+                db.categoryDao().upsert(cat.copy(budgetLimitKopecks = 0L, updatedAt = now))
+            }
+        }
+        preferences.setSeedBudgetZeroed()
+    }
+
+    suspend fun ensureLocalFamily(name: String) {
+        preferences.setHouseholdName(name)
+        val now = System.currentTimeMillis()
+        val existing = db.familyMemberDao().observeAll().first()
+        if (existing.isNotEmpty()) return
+        db.familyMemberDao().upsert(
+            FamilyMemberEntity(
+                id = "local_self",
+                householdId = "local",
+                userId = null,
+                name = "Я",
+                role = "admin",
+                visibility = "full",
+                avatar = "🧑",
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
     }
 
     suspend fun processBudgetRollover() {

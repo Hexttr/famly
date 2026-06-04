@@ -216,6 +216,34 @@ class FamlyViewModel(
         _inviteLoading.value = false
     }
 
+    fun setupFamily(name: String) = viewModelScope.launch {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) {
+            _inviteError.value = "Введите название семьи"
+            return@launch
+        }
+        _inviteLoading.value = true
+        _inviteError.value = null
+        repository.ensureLocalFamily(trimmed)
+        val settings = uiState.value.settings
+        if (settings.isAuthenticated) {
+            val status = if (!settings.isSynced) {
+                syncRepository.createHousehold(trimmed)
+            } else {
+                SyncStatus(success = true)
+            }
+            if (!status.success) {
+                _inviteError.value = status.error
+                _inviteLoading.value = false
+                return@launch
+            }
+            _inviteCode.value = runCatching { syncRepository.generateInviteCode() }
+                .onFailure { _inviteError.value = it.message ?: "Не удалось создать код" }
+                .getOrNull()
+        }
+        _inviteLoading.value = false
+    }
+
     fun clearInvite() {
         _inviteCode.value = null
         _inviteError.value = null

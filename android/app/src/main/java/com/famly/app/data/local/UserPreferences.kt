@@ -34,6 +34,7 @@ class UserPreferences(private val context: Context) {
             authToken = prefs[KEY_AUTH_TOKEN],
             userId = prefs[KEY_USER_ID],
             householdId = prefs[KEY_HOUSEHOLD_ID],
+            householdName = prefs[KEY_HOUSEHOLD_NAME],
             lastSyncToken = prefs[KEY_LAST_SYNC_TOKEN]?.takeIf { it > 0 },
             lastRolloverPeriodStart = prefs[KEY_LAST_ROLLOVER_PERIOD]?.takeIf { it != 0L },
             dismissedNotificationIds = prefs[KEY_DISMISSED_NOTIFICATIONS] ?: emptySet(),
@@ -75,6 +76,17 @@ class UserPreferences(private val context: Context) {
         it[KEY_HOUSEHOLD_ID] = householdId
     }
 
+    suspend fun setHouseholdName(name: String) = context.dataStore.edit {
+        it[KEY_HOUSEHOLD_NAME] = name.trim()
+    }
+
+    suspend fun isSeedBudgetZeroed(): Boolean =
+        context.dataStore.data.first()[KEY_SEED_BUDGET_ZEROED] == true
+
+    suspend fun setSeedBudgetZeroed() = context.dataStore.edit {
+        it[KEY_SEED_BUDGET_ZEROED] = true
+    }
+
     suspend fun setLastSyncToken(token: Long) = context.dataStore.edit {
         it[KEY_LAST_SYNC_TOKEN] = token
     }
@@ -111,6 +123,8 @@ class UserPreferences(private val context: Context) {
         private val KEY_AUTH_TOKEN = stringPreferencesKey("auth_token")
         private val KEY_USER_ID = stringPreferencesKey("user_id")
         private val KEY_HOUSEHOLD_ID = stringPreferencesKey("household_id")
+        private val KEY_HOUSEHOLD_NAME = stringPreferencesKey("household_name")
+        private val KEY_SEED_BUDGET_ZEROED = booleanPreferencesKey("seed_budget_zeroed_v2")
         private val KEY_LAST_SYNC_TOKEN = longPreferencesKey("last_sync_token")
         private val KEY_LAST_ROLLOVER_PERIOD = longPreferencesKey("last_rollover_period_start")
         private val KEY_LEGACY_DEMO_PURGED = booleanPreferencesKey("legacy_demo_purged_v1")

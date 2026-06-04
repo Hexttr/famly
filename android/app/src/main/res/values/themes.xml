@@ -2,7 +2,7 @@
 <resources>
     <style name="Theme.Famly" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@color/famly_primary</item>
-        <item name="android:navigationBarColor">@color/famly_background</item>
+        <item name="android:navigationBarColor">#1B4332</item>
         <item name="android:windowBackground">@color/famly_background</item>
     </style>
 

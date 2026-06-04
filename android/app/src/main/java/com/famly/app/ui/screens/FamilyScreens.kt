@@ -1,5 +1,9 @@
 package com.famly.app.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,14 +15,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,22 +37,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.famly.app.domain.FamlyAccess
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.ui.FamlyUiState
 import com.famly.app.ui.components.FamlyCard
 import com.famly.app.ui.components.FamlyFilterChip
 import com.famly.app.ui.components.HeroCard
-import com.famly.app.ui.components.PremiumGateContent
+import com.famly.app.ui.components.QrCodeImage
 import com.famly.app.ui.theme.Expense
 import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
+import com.famly.app.ui.theme.Warning
 import com.famly.app.ui.theme.famlySmShadow
 
 @Composable
@@ -51,7 +64,13 @@ fun FamilyScreen(
     onBack: () -> Unit,
     onUpgrade: () -> Unit,
     onOpenMember: (String) -> Unit,
-    onInvite: () -> Unit,
+    onSetupFamily: (String) -> Unit,
+    onRefreshInvite: () -> Unit,
+    onOpenSettings: () -> Unit,
+    inviteCode: String?,
+    inviteUrl: String?,
+    inviteLoading: Boolean,
+    inviteError: String?,
 ) {
     if (!FamlyAccess.hasPremium(state.settings)) {
         ScreenScaffold(onBack = onBack) {
@@ -59,41 +78,118 @@ fun FamilyScreen(
         }
         return
     }
+
+    val familyCreated = state.settings.householdName != null || state.familyMembers.isNotEmpty() || state.settings.isSynced
+    var familyName by remember(state.settings.householdName) {
+        mutableStateOf(state.settings.householdName ?: "")
+    }
+    val context = LocalContext.current
+    val displayName = state.settings.householdName?.takeIf { it.isNotBlank() } ?: familyName.takeIf { it.isNotBlank() }
+
+    LaunchedEffect(state.settings.isSynced, inviteCode, inviteLoading) {
+        if (state.settings.isSynced && inviteCode == null && !inviteLoading) {
+            onRefreshInvite()
+        }
+    }
+
     ScreenScaffold(onBack = onBack) {
-        HeroCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md)) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
+        OutlinedTextField(
+            value = familyName,
+            onValueChange = { familyName = it },
+            label = { Text("Фамилия / название семьи") },
+            leadingIcon = { Icon(Icons.Default.Group, contentDescription = null) },
+            placeholder = { Text("Например, Ивановы") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = Spacing.md),
+            singleLine = true,
+            enabled = !familyCreated || !state.settings.isSynced,
+        )
+
+        if (!familyCreated) {
+            Button(
+                onClick = { onSetupFamily(familyName) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Spacing.md),
+                enabled = !inviteLoading && familyName.isNotBlank(),
             ) {
-                Text("Участников семьи", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp)
+                Text(if (inviteLoading) "Создание…" else "Создать семью")
+            }
+        }
+
+        if (!state.settings.isAuthenticated) {
+            FamlyCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Spacing.md)
+                    .clickable { onOpenSettings() },
+                padding = 14.dp,
+            ) {
+                Text("⚠️", fontSize = 20.sp)
                 Text(
-                    "${state.familyMembers.size} / 6",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 34.sp,
-                    modifier = Modifier.padding(top = 6.dp, bottom = 14.dp),
+                    "Зарегистрируйтесь в Настройках, чтобы не потерять семью и синхронизировать бюджет между устройствами.",
+                    fontSize = 13.sp,
+                    color = Warning,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
+                Text(
+                    "Перейти в Настройки →",
+                    color = Primary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+        }
+
+        inviteError?.let {
+            Text(it, color = Expense, fontSize = 13.sp, modifier = Modifier.padding(bottom = Spacing.sm))
+        }
+
+        if (familyCreated || state.settings.isSynced) {
+            HeroCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.md)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    state.familyMembers.forEachIndexed { index, member ->
-                        Box(
-                            modifier = Modifier
-                                .offset(x = if (index > 0) (-6 * index).dp else 0.dp)
-                                .zIndex((state.familyMembers.size - index).toFloat())
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.16f))
-                                .border(2.dp, Color.White.copy(alpha = 0.45f), CircleShape),
-                            contentAlignment = Alignment.Center,
+                    displayName?.let {
+                        Text(it, color = Color.White.copy(alpha = 0.92f), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text("Участников семьи", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text(
+                        "${state.familyMembers.size.coerceAtLeast(if (familyCreated) 1 else 0)} / 6",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 34.sp,
+                        modifier = Modifier.padding(top = 6.dp, bottom = 14.dp),
+                    )
+                    if (state.familyMembers.isNotEmpty()) {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(member.avatar, fontSize = 24.sp)
+                            state.familyMembers.forEachIndexed { index, member ->
+                                Box(
+                                    modifier = Modifier
+                                        .offset(x = if (index > 0) (-6 * index).dp else 0.dp)
+                                        .zIndex((state.familyMembers.size - index).toFloat())
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.16f))
+                                        .border(2.dp, Color.White.copy(alpha = 0.45f), CircleShape),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(member.avatar, fontSize = 24.sp)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+
         state.familyMembers.forEach { member ->
             FamlyCard(
                 modifier = Modifier
@@ -120,19 +216,97 @@ fun FamilyScreen(
                 }
             }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(Radius.md))
-                .background(Primary.copy(alpha = 0.06f))
-                .border(2.dp, Primary, RoundedCornerShape(Radius.md))
-                .clickable { onInvite() }
-                .padding(vertical = 14.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("+ Пригласить по ссылке / QR", color = Primary, fontWeight = FontWeight.Bold)
+
+        if (state.settings.isAuthenticated && (familyCreated || state.settings.isSynced)) {
+            Text(
+                "Пригласить участников",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(bottom = Spacing.sm),
+            )
+            if (inviteLoading && inviteCode == null) {
+                Text("Генерация ссылки…", color = TextMuted, fontSize = 14.sp)
+            } else if (inviteCode != null) {
+                val link = inviteUrl ?: "famly://join?code=$inviteCode"
+                FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm), padding = 16.dp) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        QrCodeImage(
+                            content = link,
+                            modifier = Modifier
+                                .size(180.dp)
+                                .padding(bottom = 12.dp),
+                            sizePx = 512,
+                        )
+                        Text("Код: $inviteCode", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    }
+                }
+                FamlyCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = Spacing.sm)
+                        .clickable { copyToClipboard(context, link) },
+                    padding = 14.dp,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Ссылка для приглашения", fontSize = 12.sp, color = TextMuted)
+                            Text(link, fontSize = 13.sp, color = Primary, fontWeight = FontWeight.Medium)
+                        }
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Копировать", tint = Primary)
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(Radius.md))
+                            .background(Primary.copy(alpha = 0.08f))
+                            .border(2.dp, Primary, RoundedCornerShape(Radius.md))
+                            .clickable { copyToClipboard(context, inviteCode) }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("Копировать код", color = Primary, fontWeight = FontWeight.Bold)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(Radius.md))
+                            .background(Primary)
+                            .clickable {
+                                val shareText = buildString {
+                                    append("Присоединяйся к семье «${displayName ?: "наша семья"}» в Мой (Наш) Бюджет!\n")
+                                    append("Код: $inviteCode\n")
+                                    append("Ссылка: $link")
+                                }
+                                context.startActivity(
+                                    Intent.createChooser(
+                                        Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, shareText)
+                                        },
+                                        "Поделиться приглашением",
+                                    ),
+                                )
+                            }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("Поделиться", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else if (!inviteLoading) {
+                Button(onClick = onRefreshInvite, modifier = Modifier.fillMaxWidth()) {
+                    Text("Создать ссылку приглашения")
+                }
+            }
         }
     }
+}
+
+private fun copyToClipboard(context: Context, text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("invite", text))
 }
 
 @Composable

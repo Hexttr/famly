@@ -205,9 +205,9 @@ fun FamlyBottomNav(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .background(PrimaryDark)
             .windowInsetsPadding(WindowInsets.navigationBars)
             .famlyBottomNavShadow()
-            .background(PrimaryDark)
             .padding(vertical = 4.dp),
     ) {
         tabs.forEach { (route, icon, label) ->

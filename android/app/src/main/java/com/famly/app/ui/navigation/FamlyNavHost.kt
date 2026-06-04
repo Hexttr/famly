@@ -48,7 +48,6 @@ import com.famly.app.ui.screens.OperationsScreen
 import com.famly.app.ui.screens.PremiumPaywallScreen
 import com.famly.app.ui.screens.NotificationsSheet
 import com.famly.app.ui.screens.QuickAddSheet
-import com.famly.app.ui.screens.InviteSheet
 import com.famly.app.ui.screens.RecurringScreen
 import com.famly.app.ui.screens.ReportsScreen
 import com.famly.app.ui.screens.SettingsScreen
@@ -78,7 +77,6 @@ fun FamlyNavHost(
     val inviteCode by viewModel.inviteCode.collectAsState()
     val inviteLoading by viewModel.inviteLoading.collectAsState()
     val inviteError by viewModel.inviteError.collectAsState()
-    var inviteVisible by rememberSaveable { mutableStateOf(false) }
     var notificationsVisible by rememberSaveable { mutableStateOf(false) }
     var quickAddInitialType by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsJoinCode by rememberSaveable { mutableStateOf("") }
@@ -268,11 +266,17 @@ fun FamlyNavHost(
             }
             composable(Routes.FAMILY) {
                 FamilyScreen(
-                    state,
-                    { navController.popBackStack() },
-                    { navigateToPremium() },
-                    { navController.navigate(Routes.familyMember(it)) },
-                    { inviteVisible = true },
+                    state = state,
+                    onBack = { navController.popBackStack() },
+                    onUpgrade = { navigateToPremium() },
+                    onOpenMember = { navController.navigate(Routes.familyMember(it)) },
+                    onSetupFamily = { viewModel.setupFamily(it) },
+                    onRefreshInvite = { viewModel.generateInvite() },
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    inviteCode = inviteCode,
+                    inviteUrl = viewModel.inviteUrl(),
+                    inviteLoading = inviteLoading,
+                    inviteError = inviteError,
                 )
             }
             composable(
@@ -357,19 +361,6 @@ fun FamlyNavHost(
             }
         }
     }
-
-    InviteSheet(
-        visible = inviteVisible,
-        inviteCode = inviteCode,
-        inviteUrl = viewModel.inviteUrl(),
-        loading = inviteLoading,
-        error = inviteError,
-        onDismiss = {
-            inviteVisible = false
-            viewModel.clearInvite()
-        },
-        onGenerate = { viewModel.generateInvite() },
-    )
 
     NotificationsSheet(
         state = state,

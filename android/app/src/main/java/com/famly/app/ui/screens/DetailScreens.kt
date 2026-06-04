@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -26,6 +27,14 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
@@ -273,10 +282,32 @@ fun SettingsScreen(
     var displayName by remember { mutableStateOf("") }
     var householdName by remember { mutableStateOf("Наша семья") }
     var inviteCode by remember(initialInviteCode) { mutableStateOf(initialInviteCode) }
+    var startDayInput by remember(state.settings.budgetPeriod.startDay) {
+        mutableStateOf(state.settings.budgetPeriod.startDay.toString())
+    }
     val context = LocalContext.current
 
     ScreenScaffold(onBack = onBack) {
-        SectionHeading("☁️", "Семья и синхронизация")
+        Row(
+            modifier = Modifier.padding(bottom = Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Primary.copy(alpha = 0.08f))
+                    .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+            ) {
+                Icon(Icons.Default.CloudSync, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+            }
+            Text(
+                "Семья и синхронизация",
+                modifier = Modifier.padding(start = Spacing.sm),
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+            )
+        }
         FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), padding = 14.dp) {
             Text(
                 when {
@@ -289,9 +320,31 @@ fun SettingsScreen(
                 modifier = Modifier.padding(bottom = 12.dp),
             )
             if (!state.settings.isAuthenticated) {
-                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Пароль") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                OutlinedTextField(value = displayName, onValueChange = { displayName = it }, label = { Text("Имя") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Пароль") },
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = displayName,
+                    onValueChange = { displayName = it },
+                    label = { Text("Имя") },
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    singleLine = true,
+                )
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { onLogin(email, password) }, modifier = Modifier.weight(1f)) { Text("Войти") }
                     Button(onClick = { onRegister(email, password, displayName) }, modifier = Modifier.weight(1f)) { Text("Регистрация") }
@@ -305,7 +358,7 @@ fun SettingsScreen(
                 Button(onClick = onSyncNow, modifier = Modifier.fillMaxWidth()) { Text("Синхронизировать сейчас") }
             }
             syncStatus?.let {
-                Text(it, fontSize = 12.sp, color = Primary, modifier = Modifier.padding(top = 10.dp))
+                Text(it, fontSize = 12.sp, color = if (it.contains("Hostname") || it.contains("error", true) || it.contains("Ошибка")) Expense else Primary, modifier = Modifier.padding(top = 10.dp))
             }
         }
         SectionHeading("📊", "Бюджет")
@@ -313,17 +366,20 @@ fun SettingsScreen(
             SettingRow(
                 icon = "📅",
                 label = "Начало периода",
-                hint = "День месяца, с которого начинается бюджет",
+                hint = "День месяца (1–28), с которого начинается бюджет",
             ) {
-                Text(
-                    "${state.settings.budgetPeriod.startDay}",
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(Radius.sm))
-                        .background(Primary.copy(alpha = 0.08f))
-                        .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.sm))
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    fontWeight = FontWeight.Bold,
-                    color = Primary,
+                OutlinedTextField(
+                    value = startDayInput,
+                    onValueChange = { raw ->
+                        val digits = raw.filter { it.isDigit() }.take(2)
+                        startDayInput = digits
+                        digits.toIntOrNull()?.coerceIn(1, 28)?.let { onStartDayChange(it) }
+                    },
+                    modifier = Modifier.width(72.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
                 )
             }
             HorizontalDivider(color = Primary.copy(alpha = 0.12f), thickness = 1.dp)
@@ -345,16 +401,6 @@ fun SettingsScreen(
                 )
             }
         }
-        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            (1..28 step 7).forEach { day ->
-                FamlyFilterChip(
-                    label = "$day",
-                    selected = state.settings.budgetPeriod.startDay == day,
-                    onClick = { onStartDayChange(day) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
         Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("RUB", "USD", "EUR").forEach { code ->
                 FamlyFilterChip(
@@ -366,7 +412,7 @@ fun SettingsScreen(
             }
         }
         SectionHeading("🎨", "Оформление")
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FamlyFilterChip(
                 label = "☀️ Светлая",
                 selected = state.settings.theme == "light",
@@ -380,34 +426,25 @@ fun SettingsScreen(
                 modifier = Modifier.weight(1f),
             )
         }
-        SectionHeading("📄", "Документы")
-        FamlyCard(modifier = Modifier.fillMaxWidth().padding(top = Spacing.md)) {
-            Text(
-                "Политика конфиденциальности",
-                color = Primary,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("${BuildConfig.API_BASE_URL}/legal/privacy")),
-                        )
-                    }
-                    .padding(vertical = 8.dp),
-            )
-            Text(
-                "Пользовательское соглашение",
-                color = Primary,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("${BuildConfig.API_BASE_URL}/legal/terms")),
-                        )
-                    }
-                    .padding(vertical = 8.dp),
-            )
+        SectionHeading("📄", "Документы", modifier = Modifier.padding(top = Spacing.md))
+        Column(modifier = Modifier.padding(start = 4.dp, bottom = Spacing.lg)) {
+            listOf(
+                "Политика конфиденциальности" to "${BuildConfig.API_BASE_URL}/legal/privacy",
+                "Пользовательское соглашение" to "${BuildConfig.API_BASE_URL}/legal/terms",
+            ).forEach { (label, url) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        }
+                        .padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("•", color = Primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 10.dp))
+                    Text(label, color = Primary, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                }
+            }
         }
     }
 }

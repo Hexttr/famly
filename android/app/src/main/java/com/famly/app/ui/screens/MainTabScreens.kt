@@ -94,6 +94,7 @@ fun HomeScreen(
     val hasMore = visibleRecent < state.transactions.size
     val remaining = maxOf(0, state.safeToSpendKopecks)
     val net = state.incomeKopecks - state.spentKopecks
+    val budgetConfigured = state.budgetTotalKopecks > 0
 
     val topIds = getTopExpenseCategoryIds(state.transactions)
     val quickFromTop = topIds.mapNotNull { id -> state.categories.find { it.id == id } }.take(4)
@@ -137,32 +138,67 @@ fun HomeScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("Можно тратить", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                Text(
-                    MoneyFormatter.formatKopecks(remaining),
-                    color = Color.White,
-                    fontSize = 38.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.5).sp,
-                    lineHeight = 42.sp,
-                )
-                Text(
-                    "около ${MoneyFormatter.formatKopecks(state.dailySafeSpendKopecks)} / день · ${state.daysLeft} дн.",
-                    color = HeroHint,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 14.dp, top = 4.dp),
-                )
-                BudgetProgressBar(
-                    spent = state.spentKopecks,
-                    limit = state.budgetTotalKopecks,
-                    color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.22f),
-                    height = 6.dp,
-                    showLabel = true,
-                    label = "Потрачено ${MoneyFormatter.formatKopecks(state.spentKopecks)} из ${MoneyFormatter.formatKopecks(state.budgetTotalKopecks)}",
-                    labelColor = Color.White.copy(alpha = 0.85f),
-                )
+                if (budgetConfigured) {
+                    Text("Можно тратить", color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Text(
+                        MoneyFormatter.formatKopecks(remaining),
+                        color = Color.White,
+                        fontSize = 38.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.5).sp,
+                        lineHeight = 42.sp,
+                    )
+                    Text(
+                        "около ${MoneyFormatter.formatKopecks(state.dailySafeSpendKopecks)} / день · ${state.daysLeft} дн.",
+                        color = HeroHint,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 14.dp, top = 4.dp),
+                    )
+                    BudgetProgressBar(
+                        spent = state.spentKopecks,
+                        limit = state.budgetTotalKopecks,
+                        color = Color.White,
+                        trackColor = Color.White.copy(alpha = 0.22f),
+                        height = 6.dp,
+                        showLabel = true,
+                        label = "Потрачено ${MoneyFormatter.formatKopecks(state.spentKopecks)} из ${MoneyFormatter.formatKopecks(state.budgetTotalKopecks)}",
+                        labelColor = Color.White.copy(alpha = 0.85f),
+                    )
+                } else {
+                    Text(
+                        if (state.spentKopecks > 0) "Потрачено за период" else "Начните с учёта",
+                        color = Color.White.copy(alpha = 0.88f),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    if (state.spentKopecks > 0) {
+                        Text(
+                            MoneyFormatter.formatKopecks(state.spentKopecks),
+                            color = Color.White,
+                            fontSize = 38.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.5).sp,
+                            lineHeight = 42.sp,
+                        )
+                    } else {
+                        Text(
+                            "Добавьте операцию\nили настройте бюджет",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 28.sp,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+                        )
+                    }
+                    Text(
+                        "Настроить бюджет →",
+                        color = HeroHint,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
+                    )
+                }
             }
         }
 
@@ -185,24 +221,26 @@ fun HomeScreen(
             }
         }
 
-        AccentCard(
-            modifier = Modifier
-                .padding(horizontal = Spacing.md)
-                .padding(bottom = 12.dp),
-        ) {
-            Text("Текущая экономия", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Primary)
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    "${if (net >= 0) "+" else "−"}${MoneyFormatter.formatKopecks(kotlin.math.abs(net))}",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (net >= 0) Income else Expense,
-                )
-                Text(
-                    "${MoneyFormatter.formatKopecks(state.incomeKopecks)} − ${MoneyFormatter.formatKopecks(state.spentKopecks)}",
-                    fontSize = 11.sp,
-                    color = TextMuted,
-                )
+        if (budgetConfigured) {
+            AccentCard(
+                modifier = Modifier
+                    .padding(horizontal = Spacing.md)
+                    .padding(bottom = 12.dp),
+            ) {
+                Text("Текущая экономия", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Primary)
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        "${if (net >= 0) "+" else "−"}${MoneyFormatter.formatKopecks(kotlin.math.abs(net))}",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (net >= 0) Income else Expense,
+                    )
+                    Text(
+                        "${MoneyFormatter.formatKopecks(state.incomeKopecks)} − ${MoneyFormatter.formatKopecks(state.spentKopecks)}",
+                        fontSize = 11.sp,
+                        color = TextMuted,
+                    )
+                }
             }
         }
 

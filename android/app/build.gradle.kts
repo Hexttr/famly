@@ -13,8 +13,8 @@ android {
         applicationId = "com.famly.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
         buildConfigField("String", "API_BASE_URL", "\"https://api.jazz68.ru\"")
         buildConfigField("boolean", "MONETIZATION_ENABLED", "false")
     }
@@ -98,6 +98,7 @@ dependencies {
 
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.zxing:core:3.5.3")
     implementation("org.apache.poi:poi-ooxml:5.2.5") {
         exclude(group = "org.apache.logging.log4j")
         exclude(group = "commons-logging")

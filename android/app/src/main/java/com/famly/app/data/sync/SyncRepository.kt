@@ -52,6 +52,7 @@ class SyncRepository(
             val token = requireAuthToken()
             val household = api.createHousehold(token, name)
             preferences.setHouseholdId(household.id)
+            preferences.setHouseholdName(name)
             syncHouseholdMembers(token, household.id)
             SyncStatus(success = true)
         }.getOrElse { SyncStatus(success = false, error = it.message) }
@@ -114,6 +115,7 @@ class SyncRepository(
         if (!updated.householdId.isNullOrBlank()) return
         val household = api.createHousehold(token, "Наша семья")
         preferences.setHouseholdId(household.id)
+        preferences.setHouseholdName("Наша семья")
         syncHouseholdMembers(token, household.id)
     }
 

@@ -16,6 +16,7 @@ data class AppSettings(
     val authToken: String? = null,
     val userId: String? = null,
     val householdId: String? = null,
+    val householdName: String? = null,
     val lastSyncToken: Long? = null,
     val lastRolloverPeriodStart: Long? = null,
     val dismissedNotificationIds: Set<String> = emptySet(),
