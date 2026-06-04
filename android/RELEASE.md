@@ -2,8 +2,8 @@
 
 ## Version
 
-- `versionName`: 1.0.0
-- `versionCode`: 1
+- `versionName`: 1.0.3
+- `versionCode`: 4
 - Monetization: **disabled** (`MONETIZATION_ENABLED=false`)
 
 ## Build AAB

@@ -172,9 +172,30 @@ class FamlyViewModel(
     }
 
     fun joinHousehold(inviteCode: String) = viewModelScope.launch {
-        val status = syncRepository.joinHousehold(inviteCode)
-        _syncStatus.value = status
-        if (status.success) autoSyncAfterAuth()
+        val trimmed = inviteCode.trim()
+        if (trimmed.isBlank()) {
+            _inviteError.value = "Введите код приглашения"
+            return@launch
+        }
+        if (!uiState.value.settings.isAuthenticated) {
+            _inviteError.value = "Войдите в аккаунт в Настройках, чтобы присоединиться к семье"
+            return@launch
+        }
+        _inviteLoading.value = true
+        _inviteError.value = null
+        val status = syncRepository.joinHousehold(trimmed)
+        if (!status.success) {
+            _inviteError.value = when {
+                status.error?.contains("Not authenticated", true) == true ->
+                    "Войдите в аккаунт в Настройках, чтобы присоединиться к семье"
+                status.error?.contains("404", true) == true || status.error?.contains("not found", true) == true ->
+                    "Код не найден. Попросите отправителя войти в аккаунт и создать ссылку заново"
+                else -> status.error ?: "Не удалось присоединиться к семье"
+            }
+        } else {
+            autoSyncAfterAuth()
+        }
+        _inviteLoading.value = false
     }
 
     fun addTransaction(

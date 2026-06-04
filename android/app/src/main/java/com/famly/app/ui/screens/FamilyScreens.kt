@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -104,12 +105,14 @@ fun FamilyScreen(
     val nameFieldEnabled = !familyCreated || !state.settings.isSynced
     val nameDirty = familyName.trim() != (state.settings.householdName ?: "").trim()
 
+    LaunchedEffect(initialJoinCode) {
+        if (initialJoinCode.isNotBlank()) joinCode = initialJoinCode
+    }
+
     LaunchedEffect(familyCreated, state.settings.isAuthenticated, state.settings.isSynced, inviteCode, inviteLoading) {
         if (!familyCreated || inviteCode != null || inviteLoading) return@LaunchedEffect
         if (state.settings.isSynced) {
             onRefreshInvite()
-        } else if (!state.settings.isAuthenticated) {
-            onRestoreLocalInvite()
         }
     }
 
@@ -160,28 +163,62 @@ fun FamilyScreen(
             }
         }
 
-        if (!familyCreated && state.settings.isAuthenticated) {
+        if (!familyCreated) {
+            Text(
+                "Присоединиться к семье",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
+            Text(
+                "Отсканируйте QR-код из приглашения или введите код вручную",
+                fontSize = 13.sp,
+                color = TextMuted,
+                modifier = Modifier.padding(bottom = Spacing.sm),
+            )
             OutlinedTextField(
                 value = joinCode,
-                onValueChange = { joinCode = it },
+                onValueChange = { joinCode = it.uppercase().filter { ch -> ch.isLetterOrDigit() }.take(12) },
                 label = { Text("Код приглашения") },
+                placeholder = { Text("Например, 4GLGTYUF") },
+                leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
                 singleLine = true,
             )
-            Button(
-                onClick = { onJoinHousehold(joinCode.trim()) },
+            if (!state.settings.isAuthenticated) {
+                Button(
+                    onClick = onOpenSettings,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = Spacing.md),
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Войти, чтобы присоединиться", modifier = Modifier.padding(start = 8.dp))
+                }
+            } else {
+                Button(
+                    onClick = { onJoinHousehold(joinCode.trim()) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = Spacing.md),
+                    enabled = joinCode.isNotBlank() && !inviteLoading,
+                ) {
+                    Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Присоединиться к семье", modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+
+            Text(
+                "или создайте новую",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = Spacing.md),
-                enabled = joinCode.isNotBlank() && !inviteLoading,
-            ) {
-                Text("Присоединиться к семье")
-            }
-        }
-
-        if (!familyCreated) {
+                    .padding(bottom = Spacing.sm),
+                textAlign = TextAlign.Center,
+                fontSize = 13.sp,
+                color = TextMuted,
+            )
             Button(
                 onClick = { onSetupFamily(familyName) },
                 modifier = Modifier
@@ -267,11 +304,137 @@ fun FamilyScreen(
                 }
             }
 
+            if (inviteLoading && inviteCode == null) {
+                Text("Генерация ссылки…", color = TextMuted, fontSize = 14.sp, modifier = Modifier.padding(top = Spacing.sm))
+            } else if (inviteCode != null) {
+                val link = inviteUrl ?: "famly://join?code=$inviteCode"
+                FamlyCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Spacing.sm, bottom = Spacing.sm),
+                    padding = 16.dp,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        QrCodeImage(
+                            content = link,
+                            modifier = Modifier
+                                .size(180.dp)
+                                .padding(bottom = 12.dp),
+                            sizePx = 512,
+                        )
+                        Text("Код: $inviteCode", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        if (!state.settings.isAuthenticated) {
+                            Text(
+                                "Для приглашения с другого телефона войдите в аккаунт — иначе код действует только на этом устройстве.",
+                                fontSize = 12.sp,
+                                color = Warning,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 10.dp, bottom = 12.dp),
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(Radius.md))
+                                .background(Primary.copy(alpha = 0.06f))
+                                .border(1.dp, Primary.copy(alpha = 0.2f), RoundedCornerShape(Radius.md))
+                                .clickable { copyToClipboard(context, link) }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Ссылка для приглашения", fontSize = 12.sp, color = TextMuted)
+                                Text(
+                                    link,
+                                    fontSize = 13.sp,
+                                    color = Primary,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 2,
+                                )
+                            }
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Копировать", tint = Primary)
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(Radius.md))
+                                    .background(Primary.copy(alpha = 0.08f))
+                                    .border(2.dp, Primary, RoundedCornerShape(Radius.md))
+                                    .clickable { copyToClipboard(context, inviteCode) }
+                                    .padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+                                    Text("Копировать код", color = Primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(Radius.md))
+                                    .background(Primary)
+                                    .clickable {
+                                        val shareText = buildString {
+                                            append("Присоединяйся к семье «${displayName ?: "наша семья"}» в Мой (Наш) Бюджет!\n")
+                                            append("Код: $inviteCode\n")
+                                            append("Ссылка: $link")
+                                        }
+                                        context.startActivity(
+                                            Intent.createChooser(
+                                                Intent(Intent.ACTION_SEND).apply {
+                                                    type = "text/plain"
+                                                    putExtra(Intent.EXTRA_TEXT, shareText)
+                                                },
+                                                "Поделиться приглашением",
+                                            ),
+                                        )
+                                    }
+                                    .padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Icon(Icons.Default.Share, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                    Text("Поделиться", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (!inviteLoading) {
+                Button(
+                    onClick = onRefreshInvite,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Spacing.sm, bottom = Spacing.md),
+                ) {
+                    Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Создать ссылку приглашения", modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+
             if (!state.settings.isAuthenticated) {
                 FamlyCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = Spacing.md)
+                        .padding(top = Spacing.sm, bottom = Spacing.md)
                         .clickable { onOpenSettings() },
                     padding = 14.dp,
                 ) {
@@ -294,90 +457,7 @@ fun FamilyScreen(
             }
         }
 
-        if (familyCreated) {
-            if (inviteLoading && inviteCode == null) {
-                Text("Генерация ссылки…", color = TextMuted, fontSize = 14.sp, modifier = Modifier.padding(top = Spacing.sm))
-            } else if (inviteCode != null) {
-                val link = inviteUrl ?: "famly://join?code=$inviteCode"
-                FamlyCard(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm, bottom = Spacing.sm), padding = 16.dp) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                        QrCodeImage(
-                            content = link,
-                            modifier = Modifier
-                                .size(180.dp)
-                                .padding(bottom = 12.dp),
-                            sizePx = 512,
-                        )
-                        Text("Код: $inviteCode", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    }
-                }
-                FamlyCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = Spacing.sm)
-                        .clickable { copyToClipboard(context, link) },
-                    padding = 14.dp,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Ссылка для приглашения", fontSize = 12.sp, color = TextMuted)
-                            Text(link, fontSize = 13.sp, color = Primary, fontWeight = FontWeight.Medium)
-                        }
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Копировать", tint = Primary)
-                    }
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(Radius.md))
-                            .background(Primary.copy(alpha = 0.08f))
-                            .border(2.dp, Primary, RoundedCornerShape(Radius.md))
-                            .clickable { copyToClipboard(context, inviteCode) }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("Копировать код", color = Primary, fontWeight = FontWeight.Bold)
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(Radius.md))
-                            .background(Primary)
-                            .clickable {
-                                val shareText = buildString {
-                                    append("Присоединяйся к семье «${displayName ?: "наша семья"}» в Мой (Наш) Бюджет!\n")
-                                    append("Код: $inviteCode\n")
-                                    append("Ссылка: $link")
-                                }
-                                context.startActivity(
-                                    Intent.createChooser(
-                                        Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(Intent.EXTRA_TEXT, shareText)
-                                        },
-                                        "Поделиться приглашением",
-                                    ),
-                                )
-                            }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("Поделиться", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                }
-            } else if (!inviteLoading) {
-                Button(
-                    onClick = onRefreshInvite,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = Spacing.sm, bottom = Spacing.md),
-                ) {
-                    Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text("Создать ссылку приглашения", modifier = Modifier.padding(start = 8.dp))
-                }
-            }
-        }
+        Spacer(modifier = Modifier.height(72.dp))
     }
 }
 
