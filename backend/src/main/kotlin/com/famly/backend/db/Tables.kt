@@ -22,6 +22,7 @@ object HouseholdMembers : Table("household_members") {
     val id = varchar("id", 36)
     val householdId = varchar("household_id", 36)
     val userId = varchar("user_id", 36)
+    val displayName = varchar("display_name", 100)
     val role = varchar("role", 20)
     val visibility = varchar("visibility", 20)
     override val primaryKey = PrimaryKey(id)
@@ -43,6 +44,6 @@ object Subscriptions : Table("subscriptions") {
     val userId = varchar("user_id", 36)
     val isActive = bool("is_active")
     val expiresAt = long("expires_at").nullable()
-    val source = varchar("source", 20)
+    val paymentProvider = varchar("source", 20)
     override val primaryKey = PrimaryKey(userId)
 }

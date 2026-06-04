@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.famly.app.domain.FamlyAccess
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.ui.FamlyUiState
 import com.famly.app.ui.components.FamlyCard
@@ -52,7 +53,7 @@ fun FamilyScreen(
     onOpenMember: (String) -> Unit,
     onInvite: () -> Unit,
 ) {
-    if (!state.settings.hasPremiumAccess()) {
+    if (!FamlyAccess.hasPremium(state.settings)) {
         ScreenScaffold(onBack = onBack) {
             PremiumGateScreen("Семейный бюджет", onUpgrade)
         }
@@ -196,7 +197,7 @@ fun BalancesScreen(
     onUpgrade: () -> Unit,
     onSettle: (fromId: String, toId: String) -> Unit,
 ) {
-    if (!state.settings.hasPremiumAccess()) {
+    if (!FamlyAccess.hasPremium(state.settings)) {
         ScreenScaffold(onBack = onBack) {
             PremiumGateScreen("Балансы IOU", onUpgrade)
         }
@@ -301,7 +302,7 @@ fun SplitExpenseScreen(
     onUpgrade: () -> Unit,
     onSave: (List<String>) -> Unit,
 ) {
-    if (!state.settings.hasPremiumAccess()) {
+    if (!FamlyAccess.hasPremium(state.settings)) {
         ScreenScaffold(onBack = onBack) {
             PremiumGateScreen("Split расходов", onUpgrade)
         }

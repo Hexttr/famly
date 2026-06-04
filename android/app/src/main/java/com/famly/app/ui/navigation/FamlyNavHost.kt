@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +25,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.famly.app.domain.FamlyAccess
 import com.famly.app.ui.FamlyViewModel
 import com.famly.app.ui.components.AppHeader
 import com.famly.app.ui.components.FamlyBottomNav
@@ -62,7 +64,12 @@ private val tabs = listOf(
 )
 
 @Composable
-fun FamlyNavHost(viewModel: FamlyViewModel) {
+fun FamlyNavHost(
+    viewModel: FamlyViewModel,
+    pendingQuickAddType: String? = null,
+    pendingJoinCode: String? = null,
+    onIntentHandled: () -> Unit = {},
+) {
     val navController = rememberNavController()
     val state by viewModel.uiState.collectAsState()
     var quickAddVisible by rememberSaveable { mutableStateOf(false) }
@@ -70,8 +77,27 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
     val syncStatus by viewModel.syncStatus.collectAsState()
     val inviteCode by viewModel.inviteCode.collectAsState()
     val inviteLoading by viewModel.inviteLoading.collectAsState()
+    val inviteError by viewModel.inviteError.collectAsState()
     var inviteVisible by rememberSaveable { mutableStateOf(false) }
     var notificationsVisible by rememberSaveable { mutableStateOf(false) }
+    var quickAddInitialType by rememberSaveable { mutableStateOf<String?>(null) }
+    var settingsJoinCode by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(pendingQuickAddType) {
+        if (!pendingQuickAddType.isNullOrBlank()) {
+            quickAddInitialType = pendingQuickAddType
+            quickAddVisible = true
+            onIntentHandled()
+        }
+    }
+
+    LaunchedEffect(pendingJoinCode) {
+        if (!pendingJoinCode.isNullOrBlank()) {
+            settingsJoinCode = pendingJoinCode
+            navController.navigate(Routes.SETTINGS)
+            onIntentHandled()
+        }
+    }
 
     val syncMessage = syncStatus?.let {
         when {
@@ -202,6 +228,7 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
                     { viewModel.createHousehold(it) },
                     { viewModel.joinHousehold(it) },
                     { viewModel.syncNow() },
+                    initialInviteCode = settingsJoinCode,
                 )
             }
             composable(Routes.RECURRING) {
@@ -290,7 +317,7 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
                         navController.popBackStack()
                     },
                     {
-                        if (state.settings.hasPremiumAccess()) {
+                        if (FamlyAccess.hasPremium(state.settings)) {
                             navController.navigate(Routes.split(txId))
                         } else {
                             navigateToPremium()
@@ -324,9 +351,9 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
                     state,
                     catId,
                     { navController.popBackStack() },
-                ) {
-                    viewModel.updateCategoryBudget(catId, it)
-                }
+                    { viewModel.updateCategoryBudget(catId, it) },
+                    { viewModel.updateCategoryRollover(catId, it) },
+                )
             }
         }
     }
@@ -336,6 +363,7 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
         inviteCode = inviteCode,
         inviteUrl = viewModel.inviteUrl(),
         loading = inviteLoading,
+        error = inviteError,
         onDismiss = {
             inviteVisible = false
             viewModel.clearInvite()
@@ -347,15 +375,18 @@ fun FamlyNavHost(viewModel: FamlyViewModel) {
         state = state,
         visible = notificationsVisible,
         onDismiss = { notificationsVisible = false },
+        onDismissNotice = { viewModel.dismissNotification(it) },
     )
 
     QuickAddSheet(
         state = state,
         visible = quickAddVisible,
         initialCategoryId = quickAddCategoryId,
+        initialType = quickAddInitialType,
         onDismiss = {
             quickAddVisible = false
             quickAddCategoryId = null
+            quickAddInitialType = null
         },
         onSave = { amount, type, cat, acc, note, rec ->
             viewModel.addTransaction(amount, type, cat, acc, note, rec)

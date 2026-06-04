@@ -1,5 +1,9 @@
 package com.famly.app.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +17,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,10 +34,12 @@ fun InviteSheet(
     inviteCode: String?,
     inviteUrl: String?,
     loading: Boolean,
+    error: String? = null,
     onDismiss: () -> Unit,
     onGenerate: () -> Unit,
 ) {
     if (!visible) return
+    val context = LocalContext.current
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -45,6 +52,14 @@ fun InviteSheet(
                 color = TextMuted,
                 style = MaterialTheme.typography.bodySmall,
             )
+            error?.let {
+                Text(
+                    it,
+                    color = Expense,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = Spacing.sm),
+                )
+            }
             if (inviteCode != null) {
                 FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
                     Text("Код приглашения", fontWeight = FontWeight.SemiBold, color = TextMuted, fontSize = 12.sp)
@@ -52,6 +67,39 @@ fun InviteSheet(
                     inviteUrl?.let {
                         Text("Ссылка", fontWeight = FontWeight.SemiBold, color = TextMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
                         Text(it, fontSize = 13.sp, color = Primary)
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
+                    FamlyCard(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 6.dp)
+                            .clickable { copyToClipboard(context, inviteCode) },
+                    ) {
+                        Text("Копировать код", fontWeight = FontWeight.Bold, color = Primary)
+                    }
+                    FamlyCard(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 6.dp)
+                            .clickable {
+                                val shareText = buildString {
+                                    append("Присоединяйся к семье в Мой (Наш) Бюджет!\n")
+                                    append("Код: $inviteCode\n")
+                                    inviteUrl?.let { append("Ссылка: $it") }
+                                }
+                                context.startActivity(
+                                    Intent.createChooser(
+                                        Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, shareText)
+                                        },
+                                        "Поделиться приглашением",
+                                    ),
+                                )
+                            },
+                    ) {
+                        Text("Поделиться", fontWeight = FontWeight.Bold, color = Primary)
                     }
                 }
             }
@@ -73,4 +121,9 @@ fun InviteSheet(
             }
         }
     }
+}
+
+private fun copyToClipboard(context: Context, text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("invite_code", text))
 }

@@ -28,6 +28,13 @@ fun Application.configureRouting() {
             call.respond(mapOf("status" to "ok", "service" to "famly-backend"))
         }
 
+        get("/legal/privacy") {
+            call.respondText(loadLegalResource("privacy-policy.html"), ContentType.Text.Html)
+        }
+        get("/legal/terms") {
+            call.respondText(loadLegalResource("terms-of-service.html"), ContentType.Text.Html)
+        }
+
         route("/auth") {
             post("/register") {
                 val body = call.receive<RegisterRequest>()
@@ -62,7 +69,8 @@ fun Application.configureRouting() {
                 post {
                     val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
                     val body = call.receive<CreateHouseholdRequest>()
-                    val h = householdService.create(body.name, userId, "User")
+                    val displayName = authService.displayName(userId)
+                    val h = householdService.create(body.name, userId, displayName)
                     call.respond(HouseholdResponse(h.id, h.name, h.ownerId, householdService.members(h.id).map {
                         HouseholdMemberDto(it.id, it.userId, it.displayName, it.role, it.visibility)
                     }))
@@ -70,7 +78,8 @@ fun Application.configureRouting() {
                 post("/join") {
                     val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
                     val body = call.receive<JoinHouseholdRequest>()
-                    val h = householdService.join(body.inviteCode, userId, "User")
+                    val displayName = authService.displayName(userId)
+                    val h = householdService.join(body.inviteCode, userId, displayName)
                     call.respond(HouseholdResponse(h.id, h.name, h.ownerId, householdService.members(h.id).map {
                         HouseholdMemberDto(it.id, it.userId, it.displayName, it.role, it.visibility)
                     }))
@@ -129,4 +138,10 @@ fun Application.configureRouting() {
             call.respond(HttpStatusCode.OK)
         }
     }
+}
+
+private fun loadLegalResource(name: String): String {
+    val stream = object {}.javaClass.classLoader.getResourceAsStream("legal/$name")
+        ?: return "<html><body><h1>Document not found</h1></body></html>"
+    return stream.bufferedReader().use { it.readText() }
 }

@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.famly.app.domain.FamlyAccess
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.domain.analytics.REPORT_PERIOD_LABELS
 import com.famly.app.domain.analytics.ReportPeriod
@@ -254,7 +255,7 @@ private fun DonutChartWithCenter(
 
 @Composable
 fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Unit) {
-    if (!state.settings.hasPremiumAccess()) {
+    if (!FamlyAccess.hasPremium(state.settings)) {
         ScreenScaffold(onBack = onBack) {
             PremiumGateContent("Расширенная аналитика", onUpgrade, modifier = Modifier.fillMaxWidth())
         }

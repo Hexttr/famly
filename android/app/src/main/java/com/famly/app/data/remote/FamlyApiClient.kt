@@ -1,5 +1,6 @@
 package com.famly.app.data.remote
 
+import com.famly.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -16,6 +17,21 @@ data class HouseholdResult(
     val id: String,
     val name: String,
     val ownerId: String,
+)
+
+data class HouseholdMemberDto(
+    val id: String,
+    val userId: String,
+    val displayName: String,
+    val role: String,
+    val visibility: String,
+)
+
+data class HouseholdFullResult(
+    val id: String,
+    val name: String,
+    val ownerId: String,
+    val members: List<HouseholdMemberDto>,
 )
 
 data class SyncEntityDto(
@@ -36,7 +52,7 @@ data class SyncPullResult(
  * HTTP client for auth, household management, and sync.
  * Base URL configurable; defaults to Android emulator host alias.
  */
-class FamlyApiClient(private val baseUrl: String = "http://10.0.2.2:8080") {
+class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
 
     suspend fun register(email: String, password: String, displayName: String): AuthResult =
         withContext(Dispatchers.IO) {
@@ -85,6 +101,33 @@ class FamlyApiClient(private val baseUrl: String = "http://10.0.2.2:8080") {
         withContext(Dispatchers.IO) {
             val response = postJson("/households/$householdId/invite", JSONObject(), authToken = token)
             response.getString("inviteCode")
+        }
+
+    suspend fun getHousehold(token: String): HouseholdFullResult? =
+        withContext(Dispatchers.IO) {
+            try {
+                val response = getJson("/households/mine", authToken = token)
+                val members = response.getJSONArray("members").let { arr ->
+                    List(arr.length()) { i ->
+                        val obj = arr.getJSONObject(i)
+                        HouseholdMemberDto(
+                            id = obj.getString("id"),
+                            userId = obj.getString("userId"),
+                            displayName = obj.getString("displayName"),
+                            role = obj.getString("role"),
+                            visibility = obj.getString("visibility"),
+                        )
+                    }
+                }
+                HouseholdFullResult(
+                    id = response.getString("id"),
+                    name = response.getString("name"),
+                    ownerId = response.getString("ownerId"),
+                    members = members,
+                )
+            } catch (_: Exception) {
+                null
+            }
         }
 
     suspend fun push(token: String, entities: List<SyncEntityDto>): Boolean =

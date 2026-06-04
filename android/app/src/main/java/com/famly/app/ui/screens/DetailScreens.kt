@@ -1,5 +1,9 @@
 package com.famly.app.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
+import com.famly.app.BuildConfig
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,7 +20,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -51,6 +58,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.famly.app.domain.FamlyAccess
+import com.famly.app.domain.budget.BudgetRolloverProcessor
 import com.famly.app.domain.DEFAULT_EXPENSE_ICON
 import com.famly.app.domain.DEFAULT_INCOME_ICON
 import com.famly.app.domain.DEFAULT_ACCOUNT_ICON
@@ -155,7 +164,7 @@ fun OperationDetailScreen(
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
-        if (tx.type == "expense" && state.settings.hasPremiumAccess()) {
+        if (tx.type == "expense" && FamlyAccess.hasPremium(state.settings)) {
             Button(onClick = onSplit, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Text("Разделить с семьёй")
             }
@@ -183,12 +192,30 @@ private fun DetailRow(label: String, value: String) {
 }
 
 @Composable
-fun CategoryBudgetScreen(state: FamlyUiState, categoryId: String, onBack: () -> Unit, onSaveLimit: (Long) -> Unit) {
+fun CategoryBudgetScreen(
+    state: FamlyUiState,
+    categoryId: String,
+    onBack: () -> Unit,
+    onSaveLimit: (Long) -> Unit,
+    onToggleRollover: (Boolean) -> Unit,
+) {
     val cat = state.categories.find { it.id == categoryId } ?: return
     var limit by remember(cat) { mutableStateOf(((cat.budgetLimitKopecks ?: 0) / 100).toString()) }
+    val effectiveLimit = BudgetRolloverProcessor.effectiveLimit(cat)
 
     ScreenScaffold(onBack = onBack) {
-        Text(cat.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = Spacing.sm))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = Spacing.sm),
+        ) {
+            CategoryEmojiIcon(emoji = cat.icon, size = 40.dp, accent = categoryAccentColor(cat.color))
+            Text(
+                cat.name,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
         Column(modifier = Modifier.padding(16.dp)) {
             OutlinedTextField(
                 value = limit,
@@ -196,12 +223,31 @@ fun CategoryBudgetScreen(state: FamlyUiState, categoryId: String, onBack: () -> 
                 label = { Text("Лимит бюджета (₽)") },
                 modifier = Modifier.fillMaxWidth(),
             )
-            FamlyCard(modifier = Modifier.padding(top = 16.dp), borderColor = Premium.copy(alpha = 0.4f)) {
+            if (cat.rolloverKopecks > 0) {
                 Text(
-                    "Премиум: перенос неиспользованного бюджета",
-                    color = Premium,
+                    "Перенос с прошлого периода: ${MoneyFormatter.formatKopecks(cat.rolloverKopecks)}",
                     style = MaterialTheme.typography.bodySmall,
+                    color = Primary,
+                    modifier = Modifier.padding(top = 8.dp),
                 )
+            }
+            Text(
+                "Эффективный лимит: ${MoneyFormatter.formatKopecks(effectiveLimit)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(
+                    checked = cat.rolloverEnabled,
+                    onCheckedChange = onToggleRollover,
+                )
+                Text("Переносить неиспользованный остаток", modifier = Modifier.padding(start = 8.dp))
             }
         }
     }
@@ -220,12 +266,14 @@ fun SettingsScreen(
     onCreateHousehold: (String) -> Unit,
     onJoinHousehold: (String) -> Unit,
     onSyncNow: () -> Unit,
+    initialInviteCode: String = "",
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
     var householdName by remember { mutableStateOf("Наша семья") }
-    var inviteCode by remember { mutableStateOf("") }
+    var inviteCode by remember(initialInviteCode) { mutableStateOf(initialInviteCode) }
+    val context = LocalContext.current
 
     ScreenScaffold(onBack = onBack) {
         SectionHeading("☁️", "Семья и синхронизация")
@@ -330,6 +378,35 @@ fun SettingsScreen(
                 selected = state.settings.theme == "dark",
                 onClick = { onThemeChange("dark") },
                 modifier = Modifier.weight(1f),
+            )
+        }
+        SectionHeading("📄", "Документы")
+        FamlyCard(modifier = Modifier.fillMaxWidth().padding(top = Spacing.md)) {
+            Text(
+                "Политика конфиденциальности",
+                color = Primary,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("${BuildConfig.API_BASE_URL}/legal/privacy")),
+                        )
+                    }
+                    .padding(vertical = 8.dp),
+            )
+            Text(
+                "Пользовательское соглашение",
+                color = Primary,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("${BuildConfig.API_BASE_URL}/legal/terms")),
+                        )
+                    }
+                    .padding(vertical = 8.dp),
             )
         }
     }
@@ -516,16 +593,19 @@ fun QuickAddSheet(
     state: FamlyUiState,
     visible: Boolean,
     initialCategoryId: String? = null,
+    initialType: String? = null,
     onDismiss: () -> Unit,
     onSave: (amount: String, type: String, categoryId: String, accountId: String, note: String, recurring: Boolean) -> Unit,
 ) {
     if (!visible) return
     var amount by remember { mutableStateOf("") }
-    var type by remember(initialCategoryId) { mutableStateOf(if (initialCategoryId != null) "expense" else "expense") }
-    var categoryId by remember(initialCategoryId, state.categories) {
+    var type by remember(initialCategoryId, initialType) {
+        mutableStateOf(initialType ?: if (initialCategoryId != null) "expense" else "expense")
+    }
+    var categoryId by remember(initialCategoryId, initialType, state.categories) {
         mutableStateOf(
             initialCategoryId
-                ?: state.categories.firstOrNull { it.type == "expense" }?.id
+                ?: state.categories.firstOrNull { it.type == (initialType ?: "expense") }?.id
                 ?: "",
         )
     }
@@ -538,7 +618,15 @@ fun QuickAddSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text("Новая операция", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = Primary)
+                Text(
+                    "Новая операция",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -550,20 +638,22 @@ fun QuickAddSheet(
                     selected = type == "expense",
                     onClick = {
                         type = "expense"
-                        categoryId = state.categories.first { it.type == "expense" }.id
+                        categoryId = state.categories.firstOrNull { it.type == "expense" }?.id ?: categoryId
                     },
                     modifier = Modifier.weight(1f),
                     accent = Expense,
+                    leading = { Icon(Icons.Default.Remove, contentDescription = null, tint = if (type == "expense") Color.White else Expense, modifier = Modifier.size(18.dp)) },
                 )
                 FamlyFilterChip(
                     label = "Доход",
                     selected = type == "income",
                     onClick = {
                         type = "income"
-                        categoryId = state.categories.first { it.type == "income" }.id
+                        categoryId = state.categories.firstOrNull { it.type == "income" }?.id ?: categoryId
                     },
                     modifier = Modifier.weight(1f),
                     accent = Income,
+                    leading = { Icon(Icons.Default.TrendingUp, contentDescription = null, tint = if (type == "income") Color.White else Income, modifier = Modifier.size(18.dp)) },
                 )
             }
             OutlinedTextField(
@@ -612,7 +702,8 @@ fun QuickAddSheet(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Primary),
             ) {
-                Text("Сохранить")
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Сохранить", modifier = Modifier.padding(start = 8.dp))
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -759,7 +850,7 @@ fun BackupScreen(
     var exporting by remember { mutableStateOf(false) }
 
     val periodDescription = remember(period) { getReportPeriodDescription(period) }
-    val isPremium = state.settings.hasPremiumAccess()
+    val isPremium = FamlyAccess.hasPremium(state.settings)
 
     ScreenScaffold(onBack = onBack) {
         Column(modifier = Modifier.padding(16.dp)) {

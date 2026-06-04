@@ -14,6 +14,7 @@ import com.famly.app.data.repository.FamlyRepository
 import com.famly.app.data.sync.SyncRepository
 import com.famly.app.data.sync.SyncStatus
 import com.famly.app.domain.BudgetCalculator
+import com.famly.app.domain.budget.BudgetRolloverProcessor
 import com.famly.app.domain.DEFAULT_ACCOUNT_ICON
 import com.famly.app.domain.DEFAULT_EXPENSE_ICON
 import com.famly.app.domain.DEFAULT_INCOME_ICON
@@ -67,8 +68,15 @@ class FamlyViewModel(
     private val _inviteCode = MutableStateFlow<String?>(null)
     val inviteCode: StateFlow<String?> = _inviteCode.asStateFlow()
 
+    private val _inviteError = MutableStateFlow<String?>(null)
+    val inviteError: StateFlow<String?> = _inviteError.asStateFlow()
+
     private val _inviteLoading = MutableStateFlow(false)
     val inviteLoading: StateFlow<Boolean> = _inviteLoading.asStateFlow()
+
+    fun dismissNotification(id: String) = viewModelScope.launch {
+        repository.dismissNotification(id)
+    }
 
     val uiState: StateFlow<FamlyUiState> = combine(
         combine(
@@ -100,7 +108,7 @@ class FamlyViewModel(
         val periodTx = transactions.filter { it.dateEpochDay in startDay..endDay }
         val spent = periodTx.filter { it.type == "expense" }.sumOf { it.amountKopecks }
         val income = periodTx.filter { it.type == "income" }.sumOf { it.amountKopecks }
-        val budgetTotal = categories.filter { it.type == "expense" }.sumOf { it.budgetLimitKopecks ?: 0L }
+        val budgetTotal = categories.filter { it.type == "expense" }.sumOf { BudgetRolloverProcessor.effectiveLimit(it) }
         val remaining = BudgetCalculator.safeToSpend(budgetTotal, spent)
         val daysLeft = BudgetCalculator.daysLeftInPeriod(period.end)
 
@@ -141,20 +149,32 @@ class FamlyViewModel(
         _syncStatus.value = syncRepository.sync()
     }
 
+    private fun autoSyncAfterAuth() = viewModelScope.launch {
+        _syncStatus.value = syncRepository.sync()
+    }
+
     fun register(email: String, password: String, displayName: String) = viewModelScope.launch {
-        _syncStatus.value = syncRepository.register(email, password, displayName)
+        val status = syncRepository.register(email, password, displayName)
+        _syncStatus.value = status
+        if (status.success) autoSyncAfterAuth()
     }
 
     fun login(email: String, password: String) = viewModelScope.launch {
-        _syncStatus.value = syncRepository.login(email, password)
+        val status = syncRepository.login(email, password)
+        _syncStatus.value = status
+        if (status.success) autoSyncAfterAuth()
     }
 
     fun createHousehold(name: String) = viewModelScope.launch {
-        _syncStatus.value = syncRepository.createHousehold(name)
+        val status = syncRepository.createHousehold(name)
+        _syncStatus.value = status
+        if (status.success) autoSyncAfterAuth()
     }
 
     fun joinHousehold(inviteCode: String) = viewModelScope.launch {
-        _syncStatus.value = syncRepository.joinHousehold(inviteCode)
+        val status = syncRepository.joinHousehold(inviteCode)
+        _syncStatus.value = status
+        if (status.success) autoSyncAfterAuth()
     }
 
     fun addTransaction(
@@ -189,15 +209,19 @@ class FamlyViewModel(
 
     fun generateInvite() = viewModelScope.launch {
         _inviteLoading.value = true
-        _inviteCode.value = syncRepository.generateInviteCode()
+        _inviteError.value = null
+        _inviteCode.value = runCatching { syncRepository.generateInviteCode() }
+            .onFailure { _inviteError.value = it.message ?: "Не удалось создать код" }
+            .getOrNull()
         _inviteLoading.value = false
     }
 
     fun clearInvite() {
         _inviteCode.value = null
+        _inviteError.value = null
     }
 
-    fun inviteUrl(): String? = _inviteCode.value?.let { "https://famly.app/join/$it" }
+    fun inviteUrl(): String? = _inviteCode.value?.let { "famly://join?code=$it" }
 
     fun saveSplit(transactionId: String, memberIds: List<String>) =
         viewModelScope.launch { repository.saveSplit(transactionId, memberIds) }
@@ -230,6 +254,10 @@ class FamlyViewModel(
     fun updateCategoryBudget(categoryId: String, limitRubles: Long) = viewModelScope.launch {
         val cat = uiState.value.categories.find { it.id == categoryId } ?: return@launch
         repository.upsertCategory(cat.copy(budgetLimitKopecks = limitRubles * 100))
+    }
+
+    fun updateCategoryRollover(categoryId: String, enabled: Boolean) = viewModelScope.launch {
+        repository.updateCategoryRollover(categoryId, enabled)
     }
 
     fun addCategory(

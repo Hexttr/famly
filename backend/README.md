@@ -34,4 +34,13 @@ Server: http://localhost:8080
 
 ## Database
 
-H2 file database for development. Replace with PostgreSQL for production.
+Persistent storage via Exposed ORM (H2 file by default, PostgreSQL via `DATABASE_URL`).
+
+Legal pages: `GET /legal/privacy`, `GET /legal/terms`
+
+## Docker
+
+```bash
+cd backend && gradle installDist
+docker compose up -d backend
+```

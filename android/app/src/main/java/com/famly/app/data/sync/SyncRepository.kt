@@ -5,8 +5,10 @@ import com.famly.app.data.local.UserPreferences
 import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.CategoryEntity
 import com.famly.app.data.local.entity.FamilyMemberEntity
+import com.famly.app.data.local.entity.IouBalanceEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.data.remote.FamlyApiClient
+import com.famly.app.data.remote.HouseholdMemberDto
 import com.famly.app.data.remote.SyncEntityDto
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
@@ -33,6 +35,7 @@ class SyncRepository(
         runCatching {
             val result = api.register(email, password, displayName)
             preferences.setAuthSession(result.token, result.userId)
+            restoreHouseholdFromServer(result.token)
             SyncStatus(success = true)
         }.getOrElse { SyncStatus(success = false, error = it.message) }
 
@@ -40,6 +43,7 @@ class SyncRepository(
         runCatching {
             val result = api.login(email, password)
             preferences.setAuthSession(result.token, result.userId)
+            restoreHouseholdFromServer(result.token)
             SyncStatus(success = true)
         }.getOrElse { SyncStatus(success = false, error = it.message) }
 
@@ -48,6 +52,7 @@ class SyncRepository(
             val token = requireAuthToken()
             val household = api.createHousehold(token, name)
             preferences.setHouseholdId(household.id)
+            syncHouseholdMembers(token, household.id)
             SyncStatus(success = true)
         }.getOrElse { SyncStatus(success = false, error = it.message) }
 
@@ -56,6 +61,7 @@ class SyncRepository(
             val token = requireAuthToken()
             val household = api.joinHousehold(token, inviteCode)
             preferences.setHouseholdId(household.id)
+            syncHouseholdMembers(token, household.id)
             SyncStatus(success = true)
         }.getOrElse { SyncStatus(success = false, error = it.message) }
 
@@ -76,6 +82,9 @@ class SyncRepository(
     fun enqueueFamilyMember(member: FamilyMemberEntity) =
         enqueue(member.toSyncEntity(System.currentTimeMillis()))
 
+    fun enqueueIouBalance(balance: IouBalanceEntity) =
+        enqueue(balance.toSyncEntity(System.currentTimeMillis()))
+
     fun enqueueDeleted(type: String, id: String) =
         enqueue(
             SyncEntityDto(
@@ -89,12 +98,31 @@ class SyncRepository(
         )
 
     suspend fun generateInviteCode(): String {
-        val token = preferences.settings.first().authToken
-        val householdId = preferences.settings.first().householdId
-        if (!token.isNullOrBlank() && !householdId.isNullOrBlank()) {
-            runCatching { api.generateInvite(token, householdId) }.getOrNull()?.let { return it }
-        }
-        return "FAMLY-${UUID.randomUUID().toString().take(6).uppercase()}"
+        ensureHouseholdLinked()
+        val settings = preferences.settings.first()
+        val token = settings.authToken ?: error("Войдите в аккаунт в Настройках")
+        val householdId = settings.householdId ?: error("Не удалось создать семью")
+        return api.generateInvite(token, householdId)
+    }
+
+    suspend fun ensureHouseholdLinked() {
+        val settings = preferences.settings.first()
+        val token = settings.authToken ?: error("Войдите в аккаунт в Настройках")
+        if (!settings.householdId.isNullOrBlank()) return
+        restoreHouseholdFromServer(token)
+        val updated = preferences.settings.first()
+        if (!updated.householdId.isNullOrBlank()) return
+        val household = api.createHousehold(token, "Наша семья")
+        preferences.setHouseholdId(household.id)
+        syncHouseholdMembers(token, household.id)
+    }
+
+    private suspend fun restoreHouseholdFromServer(token: String) {
+        val settings = preferences.settings.first()
+        if (!settings.householdId.isNullOrBlank()) return
+        val household = api.getHousehold(token) ?: return
+        preferences.setHouseholdId(household.id)
+        syncHouseholdMembers(token, household.id)
     }
 
     suspend fun sync(): SyncStatus {
@@ -102,13 +130,17 @@ class SyncRepository(
             ?: return SyncStatus(success = false, error = "Not authenticated")
 
         return runCatching {
-            val since = preferences.settings.first().lastSyncToken ?: 0L
+            val currentSettings = preferences.settings.first()
+            val since = currentSettings.lastSyncToken ?: 0L
             val toPush = buildPushPayload() + pendingQueue.toList()
             val pushed = if (toPush.isNotEmpty()) api.push(token, toPush) else true
             if (!pushed) return SyncStatus(success = false, error = "Push failed")
 
             val pull = api.pull(token, since)
             applyRemoteEntities(pull.entities)
+            restoreHouseholdFromServer(token)
+            val householdId = preferences.settings.first().householdId
+            householdId?.let { syncHouseholdMembers(token, it) }
             preferences.setLastSyncToken(pull.syncToken)
             pendingQueue.clear()
 
@@ -132,7 +164,37 @@ class SyncRepository(
         val categories = db.categoryDao().observeAll().first().map { it.toSyncEntity(now) }
         val transactions = db.transactionDao().observeAll().first().map { it.toSyncEntity(now) }
         val members = db.familyMemberDao().observeAll().first().map { it.toSyncEntity(now) }
-        return accounts + categories + transactions + members
+        val iouBalances = db.iouBalanceDao().observeOpen().first().map { it.toSyncEntity(now) }
+        return accounts + categories + transactions + members + iouBalances
+    }
+
+    private suspend fun syncHouseholdMembers(token: String, householdId: String?) {
+        if (householdId.isNullOrBlank()) return
+        val household = api.getHousehold(token) ?: return
+        val now = System.currentTimeMillis()
+        household.members.forEach { dto ->
+            val member = dto.toFamilyMemberEntity(householdId, now)
+            db.familyMemberDao().upsert(member)
+        }
+    }
+
+    private fun HouseholdMemberDto.toFamilyMemberEntity(householdId: String, now: Long) =
+        FamilyMemberEntity(
+            id = id,
+            householdId = householdId,
+            userId = userId,
+            name = displayName,
+            role = role,
+            visibility = visibility,
+            avatar = memberAvatar(displayName),
+            syncVersion = 0,
+            createdAt = now,
+            updatedAt = now,
+        )
+
+    private fun memberAvatar(name: String): String {
+        val emojis = listOf("👨", "👩", "👦", "👧", "👴", "👵", "🧑")
+        return emojis[name.hashCode().mod(emojis.size).let { if (it < 0) it + emojis.size else it }]
     }
 
     private suspend fun applyRemoteEntities(entities: List<SyncEntityDto>) {
@@ -143,6 +205,7 @@ class SyncRepository(
                     "category" -> db.categoryDao().delete(entity.id)
                     "transaction" -> db.transactionDao().delete(entity.id)
                     "family_member" -> db.familyMemberDao().delete(entity.id)
+                    "iou_balance" -> db.iouBalanceDao().delete(entity.id)
                 }
                 return@forEach
             }
@@ -152,6 +215,7 @@ class SyncRepository(
                 "category" -> db.categoryDao().upsert(payload.toCategory())
                 "transaction" -> db.transactionDao().upsert(payload.toTransaction())
                 "family_member" -> db.familyMemberDao().upsert(payload.toFamilyMember())
+                "iou_balance" -> db.iouBalanceDao().upsert(payload.toIouBalance())
             }
         }
     }
@@ -184,6 +248,7 @@ class SyncRepository(
             put("color", color)
             put("budgetLimitKopecks", budgetLimitKopecks)
             put("rolloverKopecks", rolloverKopecks)
+            put("rolloverEnabled", rolloverEnabled)
             put("sortOrder", sortOrder)
             put("createdAt", createdAt)
             put("updatedAt", updatedAt)
@@ -221,6 +286,7 @@ class SyncRepository(
         payload = JSONObject().apply {
             put("id", id)
             put("householdId", householdId)
+            put("userId", userId)
             put("name", name)
             put("role", role)
             put("visibility", visibility)
@@ -231,6 +297,23 @@ class SyncRepository(
         }.toString(),
         syncVersion = syncVersion.toInt(),
         updatedAt = now,
+    )
+
+    private fun IouBalanceEntity.toSyncEntity(now: Long) = SyncEntityDto(
+        type = "iou_balance",
+        id = id,
+        payload = JSONObject().apply {
+            put("id", id)
+            put("fromMemberId", fromMemberId)
+            put("toMemberId", toMemberId)
+            put("amountKopecks", amountKopecks)
+            put("settledAt", settledAt)
+            put("createdAt", createdAt)
+            put("updatedAt", updatedAt)
+        }.toString(),
+        syncVersion = 1,
+        updatedAt = now,
+        deleted = settledAt != null,
     )
 
     private fun JSONObject.toAccount() = AccountEntity(
@@ -254,6 +337,7 @@ class SyncRepository(
             getLong("budgetLimitKopecks")
         } else null,
         rolloverKopecks = optLong("rolloverKopecks", 0),
+        rolloverEnabled = optBoolean("rolloverEnabled", false),
         sortOrder = optInt("sortOrder", 0),
         createdAt = getLong("createdAt"),
         updatedAt = getLong("updatedAt"),
@@ -283,11 +367,22 @@ class SyncRepository(
     private fun JSONObject.toFamilyMember() = FamilyMemberEntity(
         id = getString("id"),
         householdId = getString("householdId"),
+        userId = if (has("userId") && !isNull("userId")) getString("userId") else null,
         name = getString("name"),
         role = getString("role"),
         visibility = getString("visibility"),
         avatar = getString("avatar"),
         syncVersion = optLong("syncVersion", 0),
+        createdAt = getLong("createdAt"),
+        updatedAt = getLong("updatedAt"),
+    )
+
+    private fun JSONObject.toIouBalance() = IouBalanceEntity(
+        id = getString("id"),
+        fromMemberId = getString("fromMemberId"),
+        toMemberId = getString("toMemberId"),
+        amountKopecks = getLong("amountKopecks"),
+        settledAt = if (has("settledAt") && !isNull("settledAt")) getLong("settledAt") else null,
         createdAt = getLong("createdAt"),
         updatedAt = getLong("updatedAt"),
     )

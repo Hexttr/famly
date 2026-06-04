@@ -12,9 +12,11 @@ import com.famly.app.domain.nextAccountIcon
 import com.famly.app.domain.nextCategoryIcon
 import com.famly.app.data.sync.SyncRepository
 import com.famly.app.data.export.BackupExporter
+import com.famly.app.domain.budget.BudgetRolloverProcessor
 import com.famly.app.domain.recurring.RecurringProcessor
 import com.famly.app.data.export.CsvExporter
 import com.famly.app.data.export.ExcelExporter
+import com.famly.app.domain.FamlyAccess
 import com.famly.app.domain.analytics.ReportPeriod
 import com.famly.app.domain.analytics.filterTransactionsByPeriod
 import com.famly.app.domain.analytics.getReportPeriodDescription
@@ -52,19 +54,53 @@ class FamlyRepository(
         db.familyMemberDao().observeById(id)
 
     suspend fun ensureSeeded() {
-        if (db.accountDao().observeAll().first().isNotEmpty()) return
+        purgeLegacyDemoDataIfNeeded()
         val now = System.currentTimeMillis()
+        if (db.categoryDao().observeAll().first().isEmpty()) {
+            FamlySeedData.categories(now).forEach { db.categoryDao().upsert(it) }
+        }
+        if (db.accountDao().observeAll().first().isEmpty()) {
+            db.accountDao().upsert(FamlySeedData.defaultAccount(now))
+        }
+        if (FamlyAccess.monetizationEnabled()) {
+            preferences.initTrialIfNeeded()
+        }
+        processBudgetRollover()
+    }
 
-        FamlySeedData.accounts(now).forEach { db.accountDao().upsert(it) }
-        FamlySeedData.categories(now).forEach { db.categoryDao().upsert(it) }
-        FamlySeedData.transactions(now).forEach { db.transactionDao().upsert(it) }
-        FamlySeedData.familyMembers(now).forEach { db.familyMemberDao().upsert(it) }
-        FamlySeedData.iouBalances(now).forEach { db.iouBalanceDao().upsert(it) }
+    private suspend fun purgeLegacyDemoDataIfNeeded() {
+        if (preferences.isLegacyDemoPurged()) return
+        FamlySeedData.LEGACY_DEMO_TX_IDS.forEach { db.transactionDao().delete(it) }
+        FamlySeedData.LEGACY_DEMO_ACCOUNT_IDS.forEach { db.accountDao().delete(it) }
+        if (db.accountDao().observeAll().first().isEmpty()) {
+            db.accountDao().upsert(FamlySeedData.defaultAccount(System.currentTimeMillis()))
+        }
+        preferences.setLegacyDemoPurged()
+    }
 
-        preferences.initTrialIfNeeded()
+    suspend fun processBudgetRollover() {
+        val settings = preferences.settings.first()
+        val categories = db.categoryDao().observeAll().first()
+        val transactions = db.transactionDao().observeAll().first()
+        val (updates, periodStart) = BudgetRolloverProcessor.process(
+            settings,
+            categories,
+            transactions,
+            settings.lastRolloverPeriodStart,
+        )
+        if (updates.isEmpty() && settings.lastRolloverPeriodStart == periodStart) return
+        val now = System.currentTimeMillis()
+        updates.forEach { update ->
+            val cat = categories.find { it.id == update.categoryId } ?: return@forEach
+            val updated = cat.copy(rolloverKopecks = update.rolloverKopecks, updatedAt = now)
+            db.categoryDao().upsert(updated)
+            syncRepository?.enqueueCategory(updated)
+        }
+        preferences.setLastRolloverPeriodStart(periodStart)
     }
 
     suspend fun completeOnboarding() = preferences.setOnboardingComplete()
+    suspend fun dismissNotification(id: String) = preferences.dismissNotification(id)
     suspend fun setTheme(theme: String) = preferences.setTheme(theme)
     suspend fun setBudgetStartDay(day: Int) = preferences.setBudgetStartDay(day)
     suspend fun setCurrency(currency: String) = preferences.setCurrency(currency)
@@ -210,10 +246,40 @@ class FamlyRepository(
             ),
         )
         syncRepository?.enqueueTransaction(tx.copy(splitMemberIds = memberIds.joinToString(","), updatedAt = now))
+        updateIouFromSplit(tx, memberIds, now)
+    }
+
+    private suspend fun updateIouFromSplit(
+        tx: TransactionEntity,
+        memberIds: List<String>,
+        now: Long,
+    ) {
+        val settings = preferences.settings.first()
+        val members = db.familyMemberDao().observeAll().first()
+        val payer = members.find { it.userId == settings.userId }
+            ?: members.firstOrNull { it.role == "admin" }
+            ?: return
+        val share = tx.amountKopecks / memberIds.size
+        memberIds.filter { it != payer.id }.forEach { memberId ->
+            val iouId = "iou_${tx.id}_$memberId"
+            val balance = IouBalanceEntity(
+                id = iouId,
+                fromMemberId = memberId,
+                toMemberId = payer.id,
+                amountKopecks = share,
+                settledAt = null,
+                createdAt = now,
+                updatedAt = now,
+            )
+            db.iouBalanceDao().upsert(balance)
+            syncRepository?.enqueueIouBalance(balance)
+        }
     }
 
     suspend fun settleIou(iouId: String) {
-        db.iouBalanceDao().settle(iouId, System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        db.iouBalanceDao().settle(iouId, now)
+        db.iouBalanceDao().getById(iouId)?.let { syncRepository?.enqueueIouBalance(it.copy(settledAt = now, updatedAt = now)) }
     }
 
     suspend fun settleIouBetween(fromMemberId: String, toMemberId: String) {
@@ -223,7 +289,17 @@ class FamlyRepository(
                 (it.fromMemberId == fromMemberId && it.toMemberId == toMemberId) ||
                     (it.fromMemberId == toMemberId && it.toMemberId == fromMemberId)
             }
-            .forEach { db.iouBalanceDao().settle(it.id, now) }
+            .forEach {
+                db.iouBalanceDao().settle(it.id, now)
+                syncRepository?.enqueueIouBalance(it.copy(settledAt = now, updatedAt = now))
+            }
+    }
+
+    suspend fun updateCategoryRollover(categoryId: String, enabled: Boolean) {
+        val cat = db.categoryDao().getById(categoryId) ?: return
+        val updated = cat.copy(rolloverEnabled = enabled, updatedAt = System.currentTimeMillis())
+        db.categoryDao().upsert(updated)
+        syncRepository?.enqueueCategory(updated)
     }
 
     suspend fun updateFamilyMember(member: FamilyMemberEntity) {
@@ -321,21 +397,19 @@ class FamlyRepository(
         settings: AppSettings,
         requestedDaysLimit: Int?,
     ): List<TransactionEntity> {
-        if (settings.hasPremiumAccess()) {
+        if (FamlyAccess.hasPremium(settings)) {
             return filterTransactionsByPeriod(transactions, period)
         }
-        val daysLimit = resolveExportDaysLimit(settings, requestedDaysLimit) ?: FREE_TIER_EXPORT_DAYS
+        val daysLimit = FamlyAccess.exportDaysLimit(settings, requestedDaysLimit) ?: FamlyAccess.FREE_TIER_EXPORT_DAYS
         val cutoff = LocalDate.now().minusDays(daysLimit.toLong()).toEpochDay()
         return transactions.filter { it.dateEpochDay >= cutoff }
     }
 
-    /** Free tier exports are limited to the last 30 days. */
-    private fun resolveExportDaysLimit(settings: AppSettings, requested: Int?): Int? {
-        if (settings.hasPremiumAccess()) return requested
-        return requested?.coerceAtMost(FREE_TIER_EXPORT_DAYS) ?: FREE_TIER_EXPORT_DAYS
-    }
+    /** Free tier exports are limited to the last 30 days when monetization is enabled. */
+    private fun resolveExportDaysLimit(settings: AppSettings, requested: Int?): Int? =
+        FamlyAccess.exportDaysLimit(settings, requested)
 
     companion object {
-        private const val FREE_TIER_EXPORT_DAYS = 30
+        private const val FREE_TIER_EXPORT_DAYS = FamlyAccess.FREE_TIER_EXPORT_DAYS
     }
 }

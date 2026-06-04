@@ -1,0 +1,12 @@
+FROM gradle:8.11.1-jdk17 AS build
+WORKDIR /src
+COPY backend/ /src/
+RUN gradle installDist --no-daemon
+
+FROM eclipse-temurin:17-jre-jammy
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+ENV PORT=8080
+EXPOSE 8080
+COPY --from=build /src/build/install/famly-backend/ /app/
+ENTRYPOINT ["/app/bin/famly-backend"]

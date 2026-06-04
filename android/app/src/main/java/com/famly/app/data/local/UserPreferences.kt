@@ -8,10 +8,12 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.famly.app.domain.model.AppSettings
 import com.famly.app.domain.model.BudgetPeriod
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "famly_settings")
@@ -33,6 +35,8 @@ class UserPreferences(private val context: Context) {
             userId = prefs[KEY_USER_ID],
             householdId = prefs[KEY_HOUSEHOLD_ID],
             lastSyncToken = prefs[KEY_LAST_SYNC_TOKEN]?.takeIf { it > 0 },
+            lastRolloverPeriodStart = prefs[KEY_LAST_ROLLOVER_PERIOD]?.takeIf { it != 0L },
+            dismissedNotificationIds = prefs[KEY_DISMISSED_NOTIFICATIONS] ?: emptySet(),
         )
     }
 
@@ -75,6 +79,26 @@ class UserPreferences(private val context: Context) {
         it[KEY_LAST_SYNC_TOKEN] = token
     }
 
+    suspend fun setLastRolloverPeriodStart(epochDay: Long) = context.dataStore.edit {
+        it[KEY_LAST_ROLLOVER_PERIOD] = epochDay
+    }
+
+    suspend fun isLegacyDemoPurged(): Boolean =
+        context.dataStore.data.first()[KEY_LEGACY_DEMO_PURGED] == true
+
+    suspend fun setLegacyDemoPurged() = context.dataStore.edit {
+        it[KEY_LEGACY_DEMO_PURGED] = true
+    }
+
+    suspend fun dismissNotification(id: String) = context.dataStore.edit { prefs ->
+        val current = prefs[KEY_DISMISSED_NOTIFICATIONS] ?: emptySet()
+        prefs[KEY_DISMISSED_NOTIFICATIONS] = current + id
+    }
+
+    suspend fun clearDismissedNotifications() = context.dataStore.edit {
+        it.remove(KEY_DISMISSED_NOTIFICATIONS)
+    }
+
     companion object {
         private val KEY_THEME = stringPreferencesKey("theme")
         private val KEY_START_DAY = intPreferencesKey("start_day")
@@ -88,6 +112,9 @@ class UserPreferences(private val context: Context) {
         private val KEY_USER_ID = stringPreferencesKey("user_id")
         private val KEY_HOUSEHOLD_ID = stringPreferencesKey("household_id")
         private val KEY_LAST_SYNC_TOKEN = longPreferencesKey("last_sync_token")
+        private val KEY_LAST_ROLLOVER_PERIOD = longPreferencesKey("last_rollover_period_start")
+        private val KEY_LEGACY_DEMO_PURGED = booleanPreferencesKey("legacy_demo_purged_v1")
+        private val KEY_DISMISSED_NOTIFICATIONS = stringSetPreferencesKey("dismissed_notifications")
         private const val TRIAL_MS = 7L * 24 * 60 * 60 * 1000
     }
 }

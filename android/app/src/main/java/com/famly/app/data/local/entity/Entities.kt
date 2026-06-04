@@ -24,6 +24,7 @@ data class CategoryEntity(
     val color: String,
     val budgetLimitKopecks: Long?,
     val rolloverKopecks: Long = 0,
+    val rolloverEnabled: Boolean = false,
     val sortOrder: Int = 0,
     val createdAt: Long,
     val updatedAt: Long,
@@ -51,6 +52,7 @@ data class TransactionEntity(
 data class FamilyMemberEntity(
     @PrimaryKey val id: String,
     val householdId: String,
+    val userId: String? = null,
     val name: String,
     val role: String,
     val visibility: String,

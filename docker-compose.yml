@@ -1,8 +1,24 @@
 services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    ports:
+      - "8080:8080"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      DATABASE_URL: jdbc:h2:/data/famly;DB_CLOSE_DELAY=-1
+    volumes:
+      - famly_data:/data
+    restart: unless-stopped
+
   prototype:
     build:
       context: ..
       dockerfile: docker/Dockerfile
     ports:
-      - "8080:8080"
+      - "3000:8080"
     restart: unless-stopped
+
+volumes:
+  famly_data:

@@ -88,6 +88,12 @@ interface IouBalanceDao {
 
     @Query("UPDATE iou_balances SET settledAt = :settledAt, updatedAt = :settledAt WHERE id = :id")
     suspend fun settle(id: String, settledAt: Long)
+
+    @Query("DELETE FROM iou_balances WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("SELECT * FROM iou_balances WHERE id = :id")
+    suspend fun getById(id: String): IouBalanceEntity?
 }
 
 @Dao

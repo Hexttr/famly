@@ -20,7 +20,16 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +52,8 @@ import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.domain.analytics.getCategorySpent
 import com.famly.app.domain.analytics.getTopExpenseCategoryIds
+import com.famly.app.domain.FamlyAccess
+import com.famly.app.domain.budget.BudgetRolloverProcessor
 import com.famly.app.ui.FamlyUiState
 import com.famly.app.ui.components.AccentCard
 import com.famly.app.ui.components.AccentCardColumn
@@ -455,7 +466,7 @@ fun BudgetScreen(
         Spacer(modifier = Modifier.height(Spacing.md))
         state.categories.filter { it.type == "expense" && it.budgetLimitKopecks != null }.forEach { cat ->
             val spent = getCategorySpent(cat.id, state.transactions)
-            val limit = cat.budgetLimitKopecks ?: 0L
+            val limit = BudgetRolloverProcessor.effectiveLimit(cat)
             val catPct = if (limit > 0) (spent * 100 / limit).toInt() else 0
             FamlyCard(
                 modifier = Modifier
@@ -492,30 +503,37 @@ fun MoreScreen(
     onNavigate: (String) -> Unit,
     onOpenPremium: () -> Unit,
 ) {
-    val items = listOf(
-        Triple("🔄", "Периодические", "recurring"),
-        Triple("💳", "Счета", "accounts"),
-        Triple("📈", "Отчёты", "reports"),
-        Triple("⚙️", "Настройки", "settings"),
-        Triple("💾", "Backup и экспорт", "backup"),
-        Triple("👪", "Семья", "family"),
-        Triple("🤝", "Балансы (IOU)", "balances"),
-        Triple("📉", "Аналитика", "analytics"),
-        Triple("⭐", "Premium", "premium"),
-    )
-    Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
-        TrialBanner(
-            trialDaysLeft = state.settings.trialDaysLeft(),
-            isPremium = state.settings.isPremium,
-            onUpgrade = onOpenPremium,
-        )
-        items.forEach { (icon, label, route) ->
-            val premiumOnly = route in listOf("family", "balances", "analytics")
+    val showMonetization = FamlyAccess.showPaywall()
+    val items = buildList {
+        add(MoreMenuItem(Icons.Default.Autorenew, "Периодические", "recurring"))
+        add(MoreMenuItem(Icons.Default.CreditCard, "Счета", "accounts"))
+        add(MoreMenuItem(Icons.AutoMirrored.Filled.ShowChart, "Отчёты", "reports"))
+        add(MoreMenuItem(Icons.Default.Settings, "Настройки", "settings"))
+        add(MoreMenuItem(Icons.Default.Save, "Backup и экспорт", "backup"))
+        add(MoreMenuItem(Icons.Default.Group, "Семья", "family"))
+        add(MoreMenuItem(Icons.Default.Handshake, "Балансы (IOU)", "balances"))
+        add(MoreMenuItem(Icons.Default.BarChart, "Аналитика", "analytics"))
+        if (showMonetization) add(MoreMenuItem(Icons.Default.Star, "Premium", "premium"))
+    }
+    Column(
+        modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+    ) {
+        if (showMonetization) {
+            TrialBanner(
+                trialDaysLeft = state.settings.trialDaysLeft(),
+                isPremium = state.settings.isPremium,
+                onUpgrade = onOpenPremium,
+            )
+        }
+        items.forEach { item ->
+            val premiumOnly = showMonetization && item.route in listOf("family", "balances", "analytics")
             FamlyCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 10.dp)
-                    .clickable { onNavigate(route) },
+                    .clickable { onNavigate(item.route) },
                 cornerRadius = Radius.md,
                 padding = 0.dp,
             ) {
@@ -529,9 +547,9 @@ fun MoreScreen(
                         modifier = Modifier.size(40.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(icon, fontSize = 24.sp, textAlign = TextAlign.Center)
+                        Icon(item.icon, contentDescription = null, tint = Primary, modifier = Modifier.size(24.dp))
                     }
-                    Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Text(item.label, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                     if (premiumOnly) {
                         Text("Premium", color = Premium, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
@@ -540,7 +558,7 @@ fun MoreScreen(
             }
         }
         Text(
-            "Мой (Наш) Бюджет v0.1.0 · Сделано в России",
+            "Мой (Наш) Бюджет v1.0.1 · Сделано в России",
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.md, bottom = Spacing.md),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.labelSmall,
@@ -548,3 +566,9 @@ fun MoreScreen(
         )
     }
 }
+
+private data class MoreMenuItem(
+    val icon: ImageVector,
+    val label: String,
+    val route: String,
+)

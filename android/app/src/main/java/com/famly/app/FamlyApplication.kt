@@ -7,7 +7,9 @@ import com.famly.app.data.local.UserPreferences
 import com.famly.app.data.remote.FamlyApiClient
 import com.famly.app.data.repository.FamlyRepository
 import com.famly.app.data.sync.SyncRepository
+import com.famly.app.data.work.BudgetRolloverWorkScheduler
 import com.famly.app.data.work.RecurringWorkScheduler
+import com.famly.app.data.work.SyncWorkScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,9 +35,12 @@ class FamlyApplication : Application() {
         repository = FamlyRepository(db, preferences, syncRepository)
         billingManager = RuStoreBillingManager(onPremiumActivated = { repository.activatePremium() })
         RecurringWorkScheduler.schedule(this)
+        SyncWorkScheduler.schedulePeriodic(this)
+        BudgetRolloverWorkScheduler.schedule(this)
         appScope.launch {
             repository.ensureSeeded()
             repository.processDueRecurring()
+            repository.processBudgetRollover()
         }
     }
 }

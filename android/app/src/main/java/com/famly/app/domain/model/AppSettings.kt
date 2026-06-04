@@ -17,6 +17,8 @@ data class AppSettings(
     val userId: String? = null,
     val householdId: String? = null,
     val lastSyncToken: Long? = null,
+    val lastRolloverPeriodStart: Long? = null,
+    val dismissedNotificationIds: Set<String> = emptySet(),
 ) {
     val isAuthenticated: Boolean get() = !authToken.isNullOrBlank() && !userId.isNullOrBlank()
 
