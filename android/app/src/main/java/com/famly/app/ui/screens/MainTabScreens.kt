@@ -227,7 +227,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Default.List, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
                     Text(
                         "Показать ещё",
                         modifier = Modifier.padding(horizontal = 8.dp),
