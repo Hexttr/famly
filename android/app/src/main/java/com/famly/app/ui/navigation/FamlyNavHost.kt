@@ -192,24 +192,26 @@ fun FamlyNavHost(
             }
         },
         bottomBar = {
-            FamlyBottomNav(
-                selectedRoute = bottomNavRoute,
-                onTabSelected = { route ->
-                    if (route == Routes.HOME) {
-                        navigateToHome()
-                    } else {
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+            if (isMainTab) {
+                FamlyBottomNav(
+                    selectedRoute = bottomNavRoute,
+                    onTabSelected = { route ->
+                        if (route == Routes.HOME) {
+                            navigateToHome()
+                        } else {
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            launchSingleTop = true
-                            restoreState = true
                         }
-                    }
-                },
-                onQuickAdd = { openQuickAdd() },
-                tabs = tabs.map { Triple(it.route, it.icon, it.label) },
-            )
+                    },
+                    onQuickAdd = { openQuickAdd() },
+                    tabs = tabs.map { Triple(it.route, it.icon, it.label) },
+                )
+            }
         },
     ) { padding ->
         NavHost(

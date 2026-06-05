@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -95,118 +94,121 @@ fun ReportsScreen(state: FamlyUiState, onBack: () -> Unit) {
     }
 
     ScreenScaffold(onBack = onBack) {
-        Column {
-            ReportPeriodRow(selected = period, onSelect = { period = it })
-            Spacer(modifier = Modifier.height(Spacing.md))
-            ReportHeroCard(
-                periodDescription = periodDescription,
-                amount = MoneyFormatter.formatKopecks(totalSpent),
-                modifier = Modifier.fillMaxWidth(),
-                icon = { ChartBarIcon(Modifier.size(22.dp)) },
-            )
-            Spacer(modifier = Modifier.height(Spacing.md))
-            if (totalSpent > 0 && top5.isNotEmpty()) {
-                FamlyCard(
+        ReportPeriodRow(selected = period, onSelect = { period = it })
+        Spacer(modifier = Modifier.height(Spacing.md))
+        ReportHeroCard(
+            periodDescription = periodDescription,
+            amount = MoneyFormatter.formatKopecks(totalSpent),
+            modifier = Modifier.fillMaxWidth(),
+            icon = { ChartBarIcon(Modifier.size(22.dp)) },
+        )
+        Spacer(modifier = Modifier.height(Spacing.md))
+        if (totalSpent > 0 && top5.isNotEmpty()) {
+            FamlyCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 320.dp),
+                        .padding(Spacing.md),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        DonutChartWithCenter(
-                            slices = top5.map { parseHexColor(it.first.color) to it.second },
-                            total = totalSpent,
-                            centerTitle = top5.first().first.name,
-                            centerPercent = topShare,
-                            modifier = Modifier.size(220.dp),
-                        )
+                    DonutChartWithCenter(
+                        slices = top5.map { parseHexColor(it.first.color) to it.second },
+                        total = totalSpent,
+                        centerTitle = top5.first().first.name,
+                        centerPercent = topShare,
+                        modifier = Modifier.size(200.dp),
+                    )
+                    Spacer(modifier = Modifier.height(Spacing.md))
+                    top5.forEach { (cat, amount) ->
+                        val pct = if (totalSpent > 0) (amount * 100 / totalSpent).toInt() else 0
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 16.dp, start = 8.dp, end = 8.dp),
-                            horizontalArrangement = Arrangement.Center,
+                                .padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                        top5.forEach { (cat, _) ->
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(parseHexColor(cat.color)),
-                                )
-                                Text(
-                                    cat.name,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextSecondary,
-                                    modifier = Modifier.padding(start = 4.dp),
-                                )
-                            }
-                        }
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(parseHexColor(cat.color)),
+                            )
+                            Text(
+                                cat.name,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 10.dp),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                MoneyFormatter.formatKopecks(amount),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                "$pct%",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextSecondary,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
                         }
                     }
                 }
             }
-            SectionHeading("📊", "Топ-5 категорий", modifier = Modifier.padding(top = Spacing.sm))
-            if (top5.isEmpty()) {
-                FamlyCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        "Нет расходов за выбранный период",
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                        textAlign = TextAlign.Center,
-                        color = TextMuted,
-                    )
-                }
-            } else {
-                GroupedListCard(modifier = Modifier.fillMaxWidth()) {
-                    top5.forEachIndexed { index, (cat, spent) ->
-                        val pct = if (totalSpent > 0) (spent * 100 / totalSpent).toInt() else 0
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CategoryEmojiIcon(emoji = cat.icon, size = 36.dp, accent = parseHexColor(cat.color))
-                                Text(
-                                    cat.name,
-                                    modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 15.sp,
-                                )
-                                Text(MoneyFormatter.formatKopecks(spent), fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                                Text(
-                                    "$pct%",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = TextSecondary,
-                                    modifier = Modifier.padding(start = 8.dp),
-                                )
-                            }
+        }
+        SectionHeading("📊", "Топ-5 категорий", modifier = Modifier.padding(top = Spacing.md))
+        if (top5.isEmpty()) {
+            FamlyCard(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "Нет расходов за выбранный период",
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    textAlign = TextAlign.Center,
+                    color = TextMuted,
+                )
+            }
+        } else {
+            GroupedListCard(modifier = Modifier.fillMaxWidth()) {
+                top5.forEachIndexed { index, (cat, spent) ->
+                    val pct = if (totalSpent > 0) (spent * 100 / totalSpent).toInt() else 0
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CategoryEmojiIcon(emoji = cat.icon, size = 36.dp, accent = parseHexColor(cat.color))
+                            Text(
+                                cat.name,
+                                modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
+                            )
+                            Text(MoneyFormatter.formatKopecks(spent), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(
+                                "$pct%",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = TextSecondary,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                        ) {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp)
-                                    .height(6.dp)
+                                    .fillMaxWidth(pct / 100f)
+                                    .fillMaxHeight()
                                     .clip(RoundedCornerShape(3.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(pct / 100f)
-                                        .fillMaxHeight()
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(parseHexColor(cat.color)),
-                                )
-                            }
+                                    .background(parseHexColor(cat.color)),
+                            )
                         }
-                        if (index < top5.lastIndex) {
-                            HorizontalDivider(color = Primary.copy(alpha = 0.12f))
-                        }
+                    }
+                    if (index < top5.lastIndex) {
+                        HorizontalDivider(color = Primary.copy(alpha = 0.12f))
                     }
                 }
             }

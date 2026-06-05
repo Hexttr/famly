@@ -33,8 +33,8 @@ object LayoutInsets {
     val bottomNavBarBody = 104.dp
     val bottomNavHeight = fabOverhang + bottomNavBarBody
     val scrollBottomClearance = 32.dp
-    /** Extra scroll padding on main tabs (NavHost already reserves bottomBar height). */
-    val mainTabScrollBottom = scrollBottomClearance
-    /** Nested screens (ScreenScaffold): FAB can overlap content if slot height is underestimated. */
-    val stackedScreenScrollBottom = fabOverhang + scrollBottomClearance + 16.dp
+    /** Main tabs: FAB overlaps the content area above the reserved bottom-bar slot. */
+    val mainTabScrollBottom = fabOverhang + scrollBottomClearance
+    /** Secondary screens use full height (bottom nav hidden). */
+    val screenScrollBottom = Spacing.xl
 }
