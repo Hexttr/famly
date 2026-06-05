@@ -8,15 +8,20 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
@@ -757,6 +762,134 @@ fun PremiumGateScreen(feature: String, onUpgrade: () -> Unit) {
 }
 
 @Composable
+private fun QuickAddAmountField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val scheme = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(Radius.lg)
+    val borderColor = if (isFocused) Primary else Primary.copy(alpha = 0.4f)
+    val showPlaceholder = !isFocused && value.isEmpty()
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .border(2.dp, borderColor, shape)
+            .background(scheme.surfaceVariant.copy(alpha = if (isFocused) 0.24f else 0.1f))
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = { raw ->
+                onValueChange(raw.filter { it.isDigit() || it == '.' || it == ',' })
+            },
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = TextStyle(
+                fontSize = 44.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                color = scheme.onSurface,
+            ),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            interactionSource = interactionSource,
+            cursorBrush = SolidColor(Primary),
+            decorationBox = { innerTextField ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier.defaultMinSize(minWidth = 72.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        AnimatedVisibility(
+                            visible = showPlaceholder,
+                            enter = fadeIn(),
+                            exit = fadeOut(),
+                        ) {
+                            Text(
+                                "0",
+                                fontSize = 44.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = TextMuted.copy(alpha = 0.38f),
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                        innerTextField()
+                    }
+                    Icon(
+                        Icons.Default.CurrencyRuble,
+                        contentDescription = "Рубли",
+                        tint = if (isFocused || value.isNotEmpty()) Primary else Primary.copy(alpha = 0.45f),
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .size(30.dp),
+                    )
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun QuickAddNoteField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val scheme = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(Radius.md)
+    val borderColor = if (isFocused) Primary else Primary.copy(alpha = 0.4f)
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            "Заметка",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isFocused) Primary else TextSecondary,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .border(2.dp, borderColor, shape)
+                .background(scheme.surfaceVariant.copy(alpha = if (isFocused) 0.2f else 0.08f))
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = scheme.onSurface),
+                interactionSource = interactionSource,
+                cursorBrush = SolidColor(Primary),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (value.isEmpty() && !isFocused) {
+                            Text(
+                                "Комментарий к операции",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = TextMuted.copy(alpha = 0.55f),
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
 private fun QuickAddSectionLabel(
     icon: ImageVector,
     text: String,
@@ -831,7 +964,7 @@ fun QuickAddSheet(
     var sheetEntered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { sheetEntered = true }
     val amountScale by animateFloatAsState(
-        targetValue = if (amount.isNotBlank() && amount != "0") 1.04f else 1f,
+        targetValue = if (amount.isNotBlank()) 1.02f else 1f,
         animationSpec = spring(dampingRatio = 0.45f, stiffness = 420f),
         label = "amountScale",
     )
@@ -892,104 +1025,105 @@ fun QuickAddSheet(
                         leading = { Icon(Icons.Default.TrendingUp, contentDescription = null, tint = if (type == "income") Color.White else Income, modifier = Modifier.size(18.dp)) },
                     )
                 }
-                OutlinedTextField(
+                QuickAddAmountField(
                     value = amount,
                     onValueChange = { amount = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .scale(amountScale),
-                    placeholder = { Text("0", textAlign = TextAlign.Center) },
-                    textStyle = MaterialTheme.typography.displaySmall.copy(textAlign = TextAlign.Center),
+                    modifier = Modifier.scale(amountScale),
                 )
-            QuickAddSectionLabel(
-                icon = Icons.Default.CalendarToday,
-                text = "Дата",
-                modifier = Modifier.padding(top = 12.dp),
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                FamlyCard(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { showDatePicker = true },
-                    padding = 12.dp,
-                    cornerRadius = Radius.md,
+                QuickAddSectionLabel(
+                    icon = Icons.Default.CalendarToday,
+                    text = "Дата",
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
-                        Column(modifier = Modifier.padding(start = 10.dp)) {
-                            Text(
-                                MoneyFormatter.formatTransactionDate(effectiveDate.toEpochDay(), today),
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp,
-                            )
-                            Text(
-                                if (customDate == null) "По умолчанию — сегодня" else MoneyFormatter.formatHumanDate(effectiveDate),
-                                fontSize = 12.sp,
-                                color = TextMuted,
-                            )
+                    FamlyCard(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { showDatePicker = true },
+                        padding = 12.dp,
+                        cornerRadius = Radius.md,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+                            Column(modifier = Modifier.padding(start = 10.dp)) {
+                                Text(
+                                    MoneyFormatter.formatTransactionDate(effectiveDate.toEpochDay(), today),
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 15.sp,
+                                )
+                                Text(
+                                    if (customDate == null) "По умолчанию — сегодня" else MoneyFormatter.formatHumanDate(effectiveDate),
+                                    fontSize = 12.sp,
+                                    color = TextMuted,
+                                )
+                            }
+                        }
+                    }
+                    if (customDate != null) {
+                        TextButton(onClick = { customDate = null }) {
+                            Text("Сегодня")
                         }
                     }
                 }
-                if (customDate != null) {
-                    TextButton(onClick = { customDate = null }) {
-                        Text("Сегодня")
+                QuickAddSectionLabel(
+                    icon = Icons.Default.Category,
+                    text = "Категория",
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(state.categories.filter { it.type == type }) { cat ->
+                        FamlyCategoryChip(
+                            label = "${cat.icon} ${cat.name}",
+                            selected = categoryId == cat.id,
+                            onClick = { categoryId = cat.id },
+                            accent = categoryAccentColor(cat.color),
+                        )
                     }
                 }
-            }
-            QuickAddSectionLabel(
-                icon = Icons.Default.Category,
-                text = "Категория",
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.categories.filter { it.type == type }) { cat ->
-                    FamlyCategoryChip(
-                        label = "${cat.icon} ${cat.name}",
-                        selected = categoryId == cat.id,
-                        onClick = { categoryId = cat.id },
-                        accent = categoryAccentColor(cat.color),
-                    )
+                QuickAddSectionLabel(
+                    icon = Icons.Default.AccountBalanceWallet,
+                    text = "Счёт",
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(state.accounts) { acc ->
+                        FamlyCategoryChip(
+                            label = "${acc.icon} ${acc.name}",
+                            selected = accountId == acc.id,
+                            onClick = { accountId = acc.id },
+                        )
+                    }
                 }
-            }
-            QuickAddSectionLabel(
-                icon = Icons.Default.AccountBalanceWallet,
-                text = "Счёт",
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.accounts) { acc ->
-                    FamlyCategoryChip(
-                        label = "${acc.icon} ${acc.name}",
-                        selected = accountId == acc.id,
-                        onClick = { accountId = acc.id },
-                    )
+                QuickAddNoteField(
+                    value = note,
+                    onValueChange = { note = it },
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    Checkbox(checked = recurring, onCheckedChange = { recurring = it })
+                    Text("Повторять каждый месяц", style = MaterialTheme.typography.bodyMedium)
                 }
-            }
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                label = { Text("Заметка") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = recurring, onCheckedChange = { recurring = it })
-                Text("Повторять каждый месяц")
-            }
-            Button(
-                onClick = {
-                    onSave(amount, type, categoryId, accountId, note, recurring, effectiveDate.toEpochDay())
-                    onDismiss()
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Primary),
-            ) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("Сохранить", modifier = Modifier.padding(start = 8.dp))
-            }
+                Button(
+                    onClick = {
+                        onSave(amount, type, categoryId, accountId, note, recurring, effectiveDate.toEpochDay())
+                        onDismiss()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    shape = RoundedCornerShape(Radius.lg),
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Сохранить", modifier = Modifier.padding(start = 8.dp))
+                }
             }
         }
     }

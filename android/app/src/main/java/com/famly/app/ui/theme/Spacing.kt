@@ -26,9 +26,9 @@ object HeaderLayout {
     val height = 112.dp
 }
 
-/** Space for floating bottom bar + raised FAB. */
+/** Space for floating bottom bar + raised FAB + grounding gradient. */
 object LayoutInsets {
-    val bottomNavHeight = 88.dp
+    val bottomNavHeight = 96.dp
     val scrollBottomClearance = 32.dp
     val mainTabScrollBottom = bottomNavHeight + scrollBottomClearance
 }

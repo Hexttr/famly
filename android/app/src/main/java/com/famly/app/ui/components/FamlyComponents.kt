@@ -1,8 +1,8 @@
 package com.famly.app.ui.components
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.animateFloatAsState
@@ -219,6 +219,7 @@ fun FamlyBottomNav(
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
+    val scheme = MaterialTheme.colorScheme
     val leftTabs = tabs.take(2)
     val rightTabs = tabs.drop(2)
     val capsuleShape = RoundedCornerShape(28.dp)
@@ -231,11 +232,31 @@ fun FamlyBottomNav(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(start = 16.dp, end = 16.dp, bottom = 10.dp, top = 4.dp)
-            .height(72.dp),
-        contentAlignment = Alignment.BottomCenter,
+            .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(104.dp)
+                .align(Alignment.BottomCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0f to Color.Transparent,
+                            0.45f to scheme.surfaceVariant.copy(alpha = 0.55f),
+                            1f to scheme.surfaceVariant,
+                        ),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(start = 16.dp, end = 16.dp, bottom = 10.dp, top = 4.dp)
+                .height(72.dp),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -243,6 +264,7 @@ fun FamlyBottomNav(
                 .famlyFloatingNavShadow(capsuleShape)
                 .clip(capsuleShape)
                 .background(BottomNavBackground)
+                .border(1.5.dp, PrimaryLight.copy(alpha = 0.35f), capsuleShape)
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -297,6 +319,7 @@ fun FamlyBottomNav(
                 tint = Color.White,
                 modifier = Modifier.size(28.dp),
             )
+        }
         }
     }
 }

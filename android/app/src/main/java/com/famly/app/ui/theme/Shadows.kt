@@ -51,10 +51,10 @@ fun Modifier.famlyBottomNavShadow(): Modifier =
 
 fun Modifier.famlyFloatingNavShadow(shape: Shape = RoundedCornerShape(28.dp)): Modifier =
     shadow(
-        elevation = 16.dp,
+        elevation = 24.dp,
         shape = shape,
-        ambientColor = Color(0x661B4332),
-        spotColor = Color(0x802D6A4F),
+        ambientColor = Color(0x66000000),
+        spotColor = Color(0x901B4332),
     )
 
 fun Modifier.famlyFabShadow(): Modifier =
