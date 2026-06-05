@@ -1,5 +1,6 @@
 package com.famly.app.ui.screens
 
+import com.famly.app.ui.theme.FamlyColor
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
@@ -84,6 +85,9 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -123,13 +127,8 @@ import com.famly.app.ui.components.HeroCard
 import com.famly.app.ui.components.PremiumGateContent
 import com.famly.app.ui.components.SectionHeading
 import com.famly.app.ui.components.categoryAccentColor
-import com.famly.app.ui.theme.Accent
 import com.famly.app.ui.theme.Expense
-import com.famly.app.ui.theme.Income
 import com.famly.app.ui.theme.Premium
-import com.famly.app.ui.theme.Primary
-import com.famly.app.ui.theme.PrimaryDark
-import com.famly.app.ui.theme.PrimaryLight
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
@@ -165,7 +164,7 @@ fun OperationDetailScreen(
                 "${if (tx.type == "expense") "−" else "+"}${MoneyFormatter.formatKopecks(tx.amountKopecks)}",
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
-                color = if (tx.type == "expense") Expense else Income,
+                color = if (tx.type == "expense") Expense else FamlyColor.income,
             )
             Text(cat?.name ?: "—", style = MaterialTheme.typography.titleMedium)
             if (!tx.note.isNullOrBlank()) {
@@ -268,7 +267,7 @@ fun CategoryBudgetScreen(
                 Text(
                     "Перенос с прошлого периода: ${MoneyFormatter.formatKopecks(cat.rolloverKopecks)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Primary,
+                    color = FamlyColor.primary,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -330,11 +329,11 @@ fun SettingsScreen(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Primary.copy(alpha = 0.08f))
-                    .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(16.dp))
+                    .background(FamlyColor.primary.copy(alpha = 0.08f))
+                    .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), RoundedCornerShape(16.dp))
                     .padding(horizontal = 8.dp, vertical = 6.dp),
             ) {
-                Icon(Icons.Default.CloudSync, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.CloudSync, contentDescription = null, tint = FamlyColor.primary, modifier = Modifier.size(20.dp))
             }
             Text(
                 "Семья и синхронизация",
@@ -426,7 +425,7 @@ fun SettingsScreen(
                 }
             }
             syncStatus?.let {
-                Text(it, fontSize = 12.sp, color = if (it.contains("Hostname") || it.contains("error", true) || it.contains("Ошибка")) Expense else Primary, modifier = Modifier.padding(top = 10.dp))
+                Text(it, fontSize = 12.sp, color = if (it.contains("Hostname") || it.contains("error", true) || it.contains("Ошибка")) Expense else FamlyColor.primary, modifier = Modifier.padding(top = 10.dp))
             }
         }
 
@@ -507,7 +506,7 @@ fun SettingsScreen(
                     ),
                 )
             }
-            HorizontalDivider(color = Primary.copy(alpha = 0.12f), thickness = 1.dp)
+            HorizontalDivider(color = FamlyColor.primary.copy(alpha = 0.12f), thickness = 1.dp)
             SettingRow(
                 icon = "₽",
                 label = "Валюта",
@@ -518,11 +517,11 @@ fun SettingsScreen(
                     state.settings.currency,
                     modifier = Modifier
                         .clip(RoundedCornerShape(Radius.sm))
-                        .background(Primary.copy(alpha = 0.08f))
-                        .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.sm))
+                        .background(FamlyColor.primary.copy(alpha = 0.08f))
+                        .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.sm))
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                     fontWeight = FontWeight.Bold,
-                    color = Primary,
+                    color = FamlyColor.primary,
                 )
             }
         }
@@ -589,8 +588,8 @@ fun SettingsScreen(
                         .padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("•", color = Primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 10.dp))
-                    Text(label, color = Primary, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Text("•", color = FamlyColor.primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 10.dp))
+                    Text(label, color = FamlyColor.primary, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 }
             }
         }
@@ -616,8 +615,8 @@ private fun SettingRow(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(RoundedCornerShape(Radius.sm))
-                    .background(Primary.copy(alpha = 0.06f))
-                    .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.sm)),
+                    .background(FamlyColor.primary.copy(alpha = 0.06f))
+                    .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.sm)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(icon, fontSize = 16.sp)
@@ -631,7 +630,7 @@ private fun SettingRow(
             trailing()
         }
         if (!isLast) {
-            HorizontalDivider(color = Primary.copy(alpha = 0.12f), thickness = 1.dp)
+            HorizontalDivider(color = FamlyColor.primary.copy(alpha = 0.12f), thickness = 1.dp)
         }
     }
 }
@@ -749,7 +748,7 @@ fun PremiumPaywallScreen(state: FamlyUiState, onBack: () -> Unit, onSubscribe: (
 private fun TierCard(icon: String, title: String, features: List<String>, premium: Boolean, modifier: Modifier = Modifier) {
     FamlyCard(
         modifier = modifier,
-        borderColor = if (premium) Premium.copy(alpha = 0.33f) else Primary.copy(alpha = 0.27f),
+        borderColor = if (premium) Premium.copy(alpha = 0.33f) else FamlyColor.primary.copy(alpha = 0.27f),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
             Text(icon, fontSize = 20.sp)
@@ -782,7 +781,7 @@ private fun QuickAddAmountField(
     val isFocused by interactionSource.collectIsFocusedAsState()
     val scheme = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(Radius.lg)
-    val borderColor = if (isFocused) Primary else Primary.copy(alpha = 0.4f)
+    val borderColor = if (isFocused) FamlyColor.primary else FamlyColor.primary.copy(alpha = 0.4f)
     val showPlaceholder = !isFocused && value.isEmpty()
 
     Box(
@@ -808,7 +807,7 @@ private fun QuickAddAmountField(
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             interactionSource = interactionSource,
-            cursorBrush = SolidColor(Primary),
+            cursorBrush = SolidColor(FamlyColor.primary),
             decorationBox = { innerTextField ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -834,7 +833,7 @@ private fun QuickAddAmountField(
                         text = "₽",
                         fontSize = 30.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isFocused || value.isNotEmpty()) Primary else Primary.copy(alpha = 0.45f),
+                        color = if (isFocused || value.isNotEmpty()) FamlyColor.primary else FamlyColor.primary.copy(alpha = 0.45f),
                         modifier = Modifier.padding(start = 6.dp),
                     )
                 }
@@ -853,14 +852,14 @@ private fun QuickAddNoteField(
     val isFocused by interactionSource.collectIsFocusedAsState()
     val scheme = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(Radius.md)
-    val borderColor = if (isFocused) Primary else Primary.copy(alpha = 0.4f)
+    val borderColor = if (isFocused) FamlyColor.primary else FamlyColor.primary.copy(alpha = 0.4f)
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             "Заметка",
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            color = if (isFocused) Primary else TextSecondary,
+            color = if (isFocused) FamlyColor.primary else TextSecondary,
             modifier = Modifier.padding(bottom = 6.dp),
         )
         Box(
@@ -877,7 +876,7 @@ private fun QuickAddNoteField(
                 modifier = Modifier.fillMaxWidth(),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = scheme.onSurface),
                 interactionSource = interactionSource,
-                cursorBrush = SolidColor(Primary),
+                cursorBrush = SolidColor(FamlyColor.primary),
                 decorationBox = { innerTextField ->
                     Box {
                         if (value.isEmpty() && !isFocused) {
@@ -905,7 +904,7 @@ private fun QuickAddSectionLabel(
         modifier = modifier.padding(bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+        Icon(icon, contentDescription = null, tint = FamlyColor.primary, modifier = Modifier.size(18.dp))
         Text(
             text,
             style = MaterialTheme.typography.labelMedium,
@@ -923,7 +922,7 @@ fun QuickAddSheet(
     initialCategoryId: String? = null,
     initialType: String? = null,
     onDismiss: () -> Unit,
-    onSave: (amount: String, type: String, categoryId: String, accountId: String, note: String, recurring: Boolean, dateEpochDay: Long?) -> Unit,
+    onSave: (amount: String, type: String, categoryId: String, accountId: String, note: String, recurring: Boolean, dateEpochDay: Long?, spendFromGoalKopecks: Long) -> Unit,
 ) {
     if (!visible) return
     var amount by remember { mutableStateOf("") }
@@ -942,6 +941,23 @@ fun QuickAddSheet(
     var recurring by remember { mutableStateOf(false) }
     var customDate by remember { mutableStateOf<LocalDate?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var spendFromGoalEnabled by remember { mutableStateOf(false) }
+    var spendFromGoalPercent by remember { mutableIntStateOf(100) }
+    val savingsGoal = state.savingsGoal
+    val canSpendFromGoal = type == "expense" &&
+        savingsGoal?.isActive == true &&
+        (savingsGoal.savedKopecks > 0)
+    val amountKopecks = remember(amount) {
+        ((amount.replace(',', '.').toDoubleOrNull() ?: 0.0) * 100).toLong()
+    }
+    val spendFromGoalKopecks = remember(amountKopecks, spendFromGoalEnabled, spendFromGoalPercent, savingsGoal) {
+        if (!canSpendFromGoal || !spendFromGoalEnabled || amountKopecks <= 0) 0L
+        else {
+            val fromPercent = amountKopecks * spendFromGoalPercent / 100
+            minOf(fromPercent, savingsGoal?.savedKopecks ?: 0L)
+        }
+    }
+    val fromAccountKopecks = (amountKopecks - spendFromGoalKopecks).coerceAtLeast(0)
     val today = remember { LocalDate.now() }
     val effectiveDate = customDate ?: today
 
@@ -951,6 +967,8 @@ fun QuickAddSheet(
         note = ""
         recurring = false
         customDate = null
+        spendFromGoalEnabled = false
+        spendFromGoalPercent = 100
         type = initialType ?: "expense"
         categoryId = initialCategoryId
             ?: state.categories.firstOrNull { it.type == type }?.id
@@ -1001,7 +1019,7 @@ fun QuickAddSheet(
                     .navigationBarsPadding(),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = Primary)
+                    Icon(Icons.Default.Add, contentDescription = null, tint = FamlyColor.primary)
                     Text(
                         "Новая операция",
                         fontWeight = FontWeight.Bold,
@@ -1034,8 +1052,8 @@ fun QuickAddSheet(
                             categoryId = state.categories.firstOrNull { it.type == "income" }?.id ?: categoryId
                         },
                         modifier = Modifier.weight(1f),
-                        accent = Income,
-                        leading = { Icon(Icons.Default.TrendingUp, contentDescription = null, tint = if (type == "income") Color.White else Income, modifier = Modifier.size(18.dp)) },
+                        accent = FamlyColor.income,
+                        leading = { Icon(Icons.Default.TrendingUp, contentDescription = null, tint = if (type == "income") Color.White else FamlyColor.income, modifier = Modifier.size(18.dp)) },
                     )
                 }
                 QuickAddAmountField(
@@ -1043,6 +1061,64 @@ fun QuickAddSheet(
                     onValueChange = { amount = it },
                     modifier = Modifier.scale(amountScale),
                 )
+                if (canSpendFromGoal) {
+                    val goalName = com.famly.app.domain.savings.savingsGoalDisplayName(
+                        savingsGoal!!.goalType,
+                        savingsGoal.customName,
+                    )
+                    FamlyCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        padding = 12.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                "Списать с цели «$goalName»",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp,
+                                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                            )
+                            Switch(
+                                checked = spendFromGoalEnabled,
+                                onCheckedChange = { spendFromGoalEnabled = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = FamlyColor.primary,
+                                ),
+                            )
+                        }
+                        if (spendFromGoalEnabled) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                listOf(0, 25, 50, 100).forEach { pct ->
+                                    FamlyFilterChip(
+                                        label = if (pct == 0) "0%" else "$pct%",
+                                        selected = spendFromGoalPercent == pct,
+                                        onClick = { spendFromGoalPercent = pct },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                            }
+                            if (amountKopecks > 0) {
+                                Text(
+                                    "С цели: ${MoneyFormatter.formatKopecks(spendFromGoalKopecks)} · со счёта: ${MoneyFormatter.formatKopecks(fromAccountKopecks)}",
+                                    color = TextMuted,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        }
+                    }
+                }
                 QuickAddSectionLabel(
                     icon = Icons.Default.CalendarToday,
                     text = "Дата",
@@ -1061,7 +1137,7 @@ fun QuickAddSheet(
                         cornerRadius = Radius.md,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = FamlyColor.primary, modifier = Modifier.size(20.dp))
                             Column(modifier = Modifier.padding(start = 10.dp)) {
                                 Text(
                                     MoneyFormatter.formatTransactionDate(effectiveDate.toEpochDay(), today),
@@ -1123,14 +1199,14 @@ fun QuickAddSheet(
                 )
                 Button(
                     onClick = {
-                        onSave(amount, type, categoryId, accountId, note, recurring, effectiveDate.toEpochDay())
+                        onSave(amount, type, categoryId, accountId, note, recurring, effectiveDate.toEpochDay(), spendFromGoalKopecks)
                         onDismiss()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp),
                     shape = RoundedCornerShape(Radius.lg),
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                    colors = ButtonDefaults.buttonColors(containerColor = FamlyColor.primary),
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text("Сохранить", modifier = Modifier.padding(start = 8.dp))
@@ -1149,7 +1225,7 @@ private fun QuickAddSheetDecor() {
                 .height(4.dp)
                 .background(
                     Brush.horizontalGradient(
-                        colors = listOf(PrimaryDark, Primary, PrimaryLight, Accent),
+                        colors = listOf(FamlyColor.primaryDark, FamlyColor.primary, FamlyColor.primaryLight, FamlyColor.accent),
                     ),
                 ),
         )
@@ -1219,8 +1295,8 @@ fun AccountsScreen(
                         modifier = Modifier
                             .size(44.dp)
                             .clip(RoundedCornerShape(Radius.sm))
-                            .background(Primary.copy(alpha = 0.06f))
-                            .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.sm))
+                            .background(FamlyColor.primary.copy(alpha = 0.06f))
+                            .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.sm))
                             .clickable { onCycleIcon(acc.id) },
                         contentAlignment = Alignment.Center,
                     ) {
@@ -1251,7 +1327,7 @@ fun AccountsScreen(
                     .famlySmShadow(RoundedCornerShape(Radius.md))
                     .clip(RoundedCornerShape(Radius.md))
                     .background(MaterialTheme.colorScheme.surface)
-                    .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.md))
+                    .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.md))
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -1267,7 +1343,7 @@ fun AccountsScreen(
                     onValueChange = { newName = it },
                     modifier = Modifier.weight(1f).padding(vertical = 12.dp),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                    cursorBrush = SolidColor(Primary),
+                    cursorBrush = SolidColor(FamlyColor.primary),
                     singleLine = true,
                     decorationBox = { inner ->
                         if (newName.isEmpty()) Text("Новый счёт...", color = TextMuted)
@@ -1280,7 +1356,7 @@ fun AccountsScreen(
                     .padding(start = 8.dp)
                     .size(48.dp)
                     .clip(RoundedCornerShape(Radius.md))
-                    .background(Primary)
+                    .background(FamlyColor.primary)
                     .clickable {
                         if (newName.isNotBlank()) {
                             onAdd(newName.trim(), newIcon)
@@ -1475,7 +1551,7 @@ fun CategoriesScreen(
                     selectedIcon = DEFAULT_INCOME_ICON
                     selectedColor = "#2D6A4F"
                 },
-                accent = Income,
+                accent = FamlyColor.income,
                 modifier = Modifier.weight(1f),
                 leading = {
                     Icon(
@@ -1519,12 +1595,12 @@ fun CategoriesScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .clip(RoundedCornerShape(Radius.md))
-                    .border(2.dp, Primary, RoundedCornerShape(Radius.md))
+                    .border(2.dp, FamlyColor.primary, RoundedCornerShape(Radius.md))
                     .clickable { showForm = true }
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("+ Добавить категорию", color = Primary, fontWeight = FontWeight.SemiBold)
+                Text("+ Добавить категорию", color = FamlyColor.primary, fontWeight = FontWeight.SemiBold)
             }
         } else {
             FamlyCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -1533,8 +1609,8 @@ fun CategoriesScreen(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Primary.copy(alpha = 0.08f))
-                            .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(16.dp)),
+                            .background(FamlyColor.primary.copy(alpha = 0.08f))
+                            .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), RoundedCornerShape(16.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
                         CategoryListIcon(Modifier.size(18.dp))
@@ -1545,7 +1621,7 @@ fun CategoriesScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(Radius.md))
-                        .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.md))
+                        .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.md))
                         .padding(horizontal = 14.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -1555,7 +1631,7 @@ fun CategoriesScreen(
                         onValueChange = { newName = it },
                         modifier = Modifier.weight(1f).padding(vertical = 12.dp),
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                        cursorBrush = SolidColor(Primary),
+                        cursorBrush = SolidColor(FamlyColor.primary),
                         singleLine = true,
                         decorationBox = { inner ->
                             if (newName.isEmpty()) Text("Название...", color = TextMuted)
@@ -1582,10 +1658,10 @@ fun CategoriesScreen(
                                     .weight(1f)
                                     .size(48.dp)
                                     .clip(RoundedCornerShape(Radius.sm))
-                                    .background(if (selected) Primary.copy(alpha = 0.12f) else Color.Transparent)
+                                    .background(if (selected) FamlyColor.primary.copy(alpha = 0.12f) else Color.Transparent)
                                     .border(
                                         2.dp,
-                                        if (selected) Primary else Primary.copy(alpha = 0.2f),
+                                        if (selected) FamlyColor.primary else FamlyColor.primary.copy(alpha = 0.2f),
                                         RoundedCornerShape(Radius.sm),
                                     )
                                     .clickable {
@@ -1607,7 +1683,7 @@ fun CategoriesScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(Radius.md))
-                            .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.md))
+                            .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), RoundedCornerShape(Radius.md))
                             .clickable {
                                 showForm = false
                                 newName = ""
@@ -1624,7 +1700,7 @@ fun CategoriesScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(Radius.md))
-                            .background(Primary)
+                            .background(FamlyColor.primary)
                             .clickable {
                                 if (newName.isNotBlank()) {
                                     onAdd(newName.trim(), tab, selectedIcon, selectedColor)

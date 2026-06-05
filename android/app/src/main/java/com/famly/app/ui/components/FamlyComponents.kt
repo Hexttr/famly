@@ -1,5 +1,6 @@
 package com.famly.app.ui.components
 
+import com.famly.app.ui.theme.FamlyColor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
@@ -62,17 +63,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.famly.app.R
-import com.famly.app.ui.theme.Accent
 import com.famly.app.ui.theme.Border
 import com.famly.app.ui.theme.Expense
 import com.famly.app.ui.theme.HeaderLayout
 import com.famly.app.ui.theme.LayoutInsets
 import com.famly.app.ui.theme.Premium
 import com.famly.app.ui.theme.PremiumBg
-import com.famly.app.ui.theme.Primary
-import com.famly.app.ui.theme.BottomNavBackground
-import com.famly.app.ui.theme.PrimaryDark
-import com.famly.app.ui.theme.PrimaryLight
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
@@ -132,7 +128,7 @@ fun AppHeader(
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Назад",
                     onClick = onBack,
-                    tint = PrimaryDark,
+                    tint = FamlyColor.primaryDark,
                 )
                 leftSlot == HeaderLeftSlot.Notifications -> HeaderNotificationButton(onClick = onNotifications)
             }
@@ -149,19 +145,19 @@ fun AppHeader(
                     icon = Icons.Default.Add,
                     contentDescription = "Добавить операцию",
                     onClick = onQuickAdd,
-                    tint = PrimaryDark,
+                    tint = FamlyColor.primaryDark,
                 )
                 HeaderRightSlot.Settings -> HeaderCircleButton(
                     icon = Icons.Default.Settings,
                     contentDescription = "Настройки",
                     onClick = onSettings,
-                    tint = PrimaryDark,
+                    tint = FamlyColor.primaryDark,
                 )
                 HeaderRightSlot.Add -> HeaderCircleButton(
                     icon = Icons.Default.Add,
                     contentDescription = "Добавить",
                     onClick = onAdd,
-                    tint = PrimaryDark,
+                    tint = FamlyColor.primaryDark,
                 )
                 HeaderRightSlot.None -> Unit
             }
@@ -182,10 +178,10 @@ private fun HeaderCircleButton(
             .size(HeaderLayout.buttonSize)
             .famlyHeaderButtonShadow(primary = primary)
             .clip(CircleShape)
-            .background(if (primary) Primary else MaterialTheme.colorScheme.surface)
+            .background(if (primary) FamlyColor.primary else MaterialTheme.colorScheme.surface)
             .then(
                 if (!primary) {
-                    Modifier.border(2.dp, Primary.copy(alpha = 0.31f), CircleShape)
+                    Modifier.border(2.dp, FamlyColor.primary.copy(alpha = 0.31f), CircleShape)
                 } else {
                     Modifier
                 },
@@ -227,7 +223,7 @@ fun FamlyBottomNav(
     val rightTabs = tabs.drop(2)
     val capsuleShape = RoundedCornerShape(28.dp)
     val fabGradient = Brush.linearGradient(
-        colors = listOf(PrimaryLight, Primary, PrimaryDark),
+        colors = listOf(FamlyColor.primaryLight, FamlyColor.primary, FamlyColor.primaryDark),
         start = Offset(0f, 0f),
         end = Offset(120f, 120f),
     )
@@ -267,8 +263,8 @@ fun FamlyBottomNav(
                 .height(56.dp)
                 .famlyFloatingNavShadow(capsuleShape)
                 .clip(capsuleShape)
-                .background(BottomNavBackground)
-                .border(1.5.dp, PrimaryLight.copy(alpha = 0.35f), capsuleShape)
+                .background(FamlyColor.bottomNav)
+                .border(1.5.dp, FamlyColor.primaryLight.copy(alpha = 0.35f), capsuleShape)
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -372,7 +368,7 @@ private fun FloatingNavTab(
                     .padding(top = 2.dp)
                     .size(4.dp)
                     .clip(CircleShape)
-                    .background(Accent),
+                    .background(FamlyColor.accent),
             )
         }
     }
@@ -381,19 +377,20 @@ private fun FloatingNavTab(
 @Composable
 fun FamlyCard(
     modifier: Modifier = Modifier,
-    borderColor: Color = Primary.copy(alpha = 0.27f),
+    borderColor: Color? = null,
     cornerRadius: Dp = Radius.lg,
     padding: Dp = Spacing.md,
     withShadow: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val resolvedBorder = borderColor ?: FamlyColor.primary.copy(alpha = 0.27f)
     val shape = RoundedCornerShape(cornerRadius)
     Column(
         modifier = modifier
             .then(if (withShadow) Modifier.famlyCardShadow(shape) else Modifier)
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(2.dp, borderColor, shape)
+            .border(2.dp, resolvedBorder, shape)
             .padding(padding),
         content = content,
     )
@@ -411,8 +408,8 @@ fun AccentCard(
             .fillMaxWidth()
             .famlyCardShadow(shape)
             .clip(shape)
-            .background(Primary.copy(alpha = 0.08f))
-            .border(2.dp, Primary.copy(alpha = 0.27f), shape)
+            .background(FamlyColor.primary.copy(alpha = 0.08f))
+            .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -420,7 +417,7 @@ fun AccentCard(
             modifier = Modifier
                 .width(4.dp)
                 .height(52.dp)
-                .background(Primary),
+                .background(FamlyColor.primary),
         )
         Row(
             modifier = Modifier
@@ -445,8 +442,8 @@ fun AccentCardColumn(
             .fillMaxWidth()
             .famlyCardShadow(shape)
             .clip(shape)
-            .background(Primary.copy(alpha = 0.08f))
-            .border(2.dp, Primary.copy(alpha = 0.27f), shape)
+            .background(FamlyColor.primary.copy(alpha = 0.08f))
+            .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -454,7 +451,7 @@ fun AccentCardColumn(
             modifier = Modifier
                 .width(4.dp)
                 .height(52.dp)
-                .background(Primary),
+                .background(FamlyColor.primary),
         )
         Column(
             modifier = Modifier
@@ -469,18 +466,20 @@ fun AccentCardColumn(
 @Composable
 fun HeroCard(
     modifier: Modifier = Modifier,
-    gradientStart: Color = Primary,
-    gradientEnd: Color = PrimaryDark,
+    gradientStart: Color? = null,
+    gradientEnd: Color? = null,
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val start = gradientStart ?: FamlyColor.primary
+    val end = gradientEnd ?: FamlyColor.primaryDark
     val shape = RoundedCornerShape(Radius.xl)
     Box(
         modifier = modifier
             .fillMaxWidth()
             .famlyHeroShadow(shape)
             .clip(shape)
-            .background(Brush.linearGradient(listOf(gradientStart, gradientEnd)))
+            .background(Brush.linearGradient(listOf(start, end)))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
@@ -502,16 +501,17 @@ fun FamlyFilterChip(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    accent: Color = Primary,
+    accent: Color? = null,
     leading: (@Composable () -> Unit)? = null,
 ) {
+    val chipAccent = accent ?: FamlyColor.primary
     val shape = RoundedCornerShape(50)
     Row(
         modifier = modifier
             .clip(shape)
             .then(if (!selected) Modifier.famlySmShadow(shape) else Modifier)
-            .background(if (selected) accent else MaterialTheme.colorScheme.surface)
-            .border(2.dp, if (selected) accent else Primary.copy(alpha = 0.27f), shape)
+            .background(if (selected) chipAccent else MaterialTheme.colorScheme.surface)
+            .border(2.dp, if (selected) chipAccent else FamlyColor.primary.copy(alpha = 0.27f), shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.Center,
@@ -547,7 +547,7 @@ fun FamlyRecurringToggle(
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.md))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-            .border(1.dp, Primary.copy(alpha = 0.18f), RoundedCornerShape(Radius.md))
+            .border(1.dp, FamlyColor.primary.copy(alpha = 0.18f), RoundedCornerShape(Radius.md))
             .clickable { onCheckedChange(!checked) }
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -567,7 +567,7 @@ fun FamlyRecurringToggle(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Primary,
+                checkedTrackColor = FamlyColor.primary,
                 uncheckedThumbColor = Color.White,
                 uncheckedTrackColor = TextMuted.copy(alpha = 0.35f),
                 uncheckedBorderColor = TextMuted.copy(alpha = 0.25f),
@@ -581,16 +581,17 @@ fun FamlyCategoryChip(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
-    accent: Color = Primary,
+    accent: Color? = null,
     modifier: Modifier = Modifier,
 ) {
+    val chipAccent = accent ?: FamlyColor.primary
     val shape = RoundedCornerShape(50)
     Row(
         modifier = modifier
             .clip(shape)
             .then(if (!selected) Modifier.famlySmShadow(shape) else Modifier)
-            .background(if (selected) accent.copy(alpha = 0.09f) else MaterialTheme.colorScheme.surface)
-            .border(2.dp, if (selected) accent else Primary.copy(alpha = 0.27f), shape)
+            .background(if (selected) chipAccent.copy(alpha = 0.09f) else MaterialTheme.colorScheme.surface)
+            .border(2.dp, if (selected) chipAccent else FamlyColor.primary.copy(alpha = 0.27f), shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -604,14 +605,15 @@ fun CategoryEmojiIcon(
     emoji: String,
     modifier: Modifier = Modifier,
     size: Dp = 38.dp,
-    accent: Color = Primary,
+    accent: Color? = null,
 ) {
+    val chipAccent = accent ?: FamlyColor.primary
     Box(
         modifier = modifier
             .size(size)
             .clip(CircleShape)
-            .background(accent.copy(alpha = 0.09f))
-            .border(2.dp, accent.copy(alpha = 0.33f), CircleShape),
+            .background(chipAccent.copy(alpha = 0.09f))
+            .border(2.dp, chipAccent.copy(alpha = 0.33f), CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(emoji, fontSize = (size.value * 0.45).sp)
@@ -632,7 +634,7 @@ fun FamlySearchBar(
             .famlyCardShadow(shape)
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(2.dp, Primary.copy(alpha = 0.27f), shape)
+            .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), shape)
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -644,7 +646,7 @@ fun FamlySearchBar(
                 .weight(1f)
                 .padding(vertical = 12.dp),
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-            cursorBrush = androidx.compose.ui.graphics.SolidColor(Primary),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(FamlyColor.primary),
             singleLine = true,
             decorationBox = { inner ->
                 if (value.isEmpty()) {
@@ -713,8 +715,8 @@ fun SectionHeading(icon: String, title: String, modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
-                .background(Primary.copy(alpha = 0.08f))
-                .border(2.dp, Primary.copy(alpha = 0.27f), RoundedCornerShape(16.dp))
+                .background(FamlyColor.primary.copy(alpha = 0.08f))
+                .border(2.dp, FamlyColor.primary.copy(alpha = 0.27f), RoundedCornerShape(16.dp))
                 .padding(horizontal = 8.dp, vertical = 6.dp),
         ) {
             Text(icon, fontSize = 18.sp)

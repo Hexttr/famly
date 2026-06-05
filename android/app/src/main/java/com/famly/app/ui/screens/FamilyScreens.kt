@@ -1,5 +1,6 @@
 package com.famly.app.ui.screens
 
+import com.famly.app.ui.theme.FamlyColor
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -68,7 +69,6 @@ import com.famly.app.ui.components.FamlyFilterChip
 import com.famly.app.ui.components.HeroCard
 import com.famly.app.ui.components.QrCodeImage
 import com.famly.app.ui.theme.Expense
-import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
@@ -142,10 +142,10 @@ fun FamilyScreen(
                 enabled = nameFieldEnabled,
                 colors = if (!nameFieldEnabled) {
                     OutlinedTextFieldDefaults.colors(
-                        disabledBorderColor = Primary.copy(alpha = 0.58f),
+                        disabledBorderColor = FamlyColor.primary.copy(alpha = 0.58f),
                         disabledTextColor = MaterialTheme.colorScheme.onSurface,
                         disabledLabelColor = TextMuted,
-                        disabledLeadingIconColor = Primary.copy(alpha = 0.7f),
+                        disabledLeadingIconColor = FamlyColor.primary.copy(alpha = 0.7f),
                     )
                 } else {
                     OutlinedTextFieldDefaults.colors()
@@ -164,7 +164,7 @@ fun FamilyScreen(
                     Icon(
                         Icons.Default.Check,
                         contentDescription = "Сохранить",
-                        tint = if (familyName.isNotBlank() && nameDirty && !inviteLoading) Primary else TextMuted.copy(alpha = 0.45f),
+                        tint = if (familyName.isNotBlank() && nameDirty && !inviteLoading) FamlyColor.primary else TextMuted.copy(alpha = 0.45f),
                         modifier = Modifier.size(28.dp),
                     )
                 }
@@ -350,8 +350,8 @@ fun FamilyScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(Radius.md))
-                                .background(Primary.copy(alpha = 0.06f))
-                                .border(1.dp, Primary.copy(alpha = 0.2f), RoundedCornerShape(Radius.md))
+                                .background(FamlyColor.primary.copy(alpha = 0.06f))
+                                .border(1.dp, FamlyColor.primary.copy(alpha = 0.2f), RoundedCornerShape(Radius.md))
                                 .clickable { copyToClipboard(context, link) }
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -361,12 +361,12 @@ fun FamilyScreen(
                                 Text(
                                     link,
                                     fontSize = 13.sp,
-                                    color = Primary,
+                                    color = FamlyColor.primary,
                                     fontWeight = FontWeight.Medium,
                                     maxLines = 2,
                                 )
                             }
-                            Icon(Icons.Default.ContentCopy, contentDescription = "Копировать", tint = Primary)
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Копировать", tint = FamlyColor.primary)
                         }
                         Row(
                             modifier = Modifier
@@ -378,8 +378,8 @@ fun FamilyScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(Radius.md))
-                                    .background(Primary.copy(alpha = 0.08f))
-                                    .border(2.dp, Primary, RoundedCornerShape(Radius.md))
+                                    .background(FamlyColor.primary.copy(alpha = 0.08f))
+                                    .border(2.dp, FamlyColor.primary, RoundedCornerShape(Radius.md))
                                     .clickable { copyToClipboard(context, inviteCode) }
                                     .padding(vertical = 12.dp),
                                 contentAlignment = Alignment.Center,
@@ -388,15 +388,15 @@ fun FamilyScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    Icon(Icons.Default.ContentCopy, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
-                                    Text("Копировать код", color = Primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, tint = FamlyColor.primary, modifier = Modifier.size(18.dp))
+                                    Text("Копировать код", color = FamlyColor.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
                             }
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(Radius.md))
-                                    .background(Primary)
+                                    .background(FamlyColor.primary)
                                     .clickable {
                                         val shareText = InviteLinks.shareText(
                                             code = inviteCode,
@@ -457,7 +457,7 @@ fun FamilyScreen(
                     )
                     Text(
                         "Перейти в Настройки →",
-                        color = Primary,
+                        color = FamlyColor.primary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         modifier = Modifier.padding(top = 8.dp),
@@ -525,7 +525,7 @@ private fun MemberAvatar(emoji: String, size: Int = 44) {
             .size(size.dp)
             .clip(CircleShape)
             .background(Color.White)
-            .border(2.dp, Primary.copy(alpha = 0.28f), CircleShape)
+            .border(2.dp, FamlyColor.primary.copy(alpha = 0.28f), CircleShape)
             .famlySmShadow(CircleShape),
         contentAlignment = Alignment.Center,
     ) {
@@ -568,7 +568,7 @@ fun FamilyMemberScreen(
                             .offset(x = 4.dp, y = 4.dp)
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(Primary)
+                            .background(FamlyColor.primary)
                             .border(2.dp, Color.White, CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -591,7 +591,7 @@ fun FamilyMemberScreen(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = FamlyColor.primary, modifier = Modifier.size(20.dp))
                 Text("Роль", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
             }
             if (canEditRole) {
@@ -615,7 +615,7 @@ fun FamilyMemberScreen(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                Icon(Icons.Default.Shield, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Shield, contentDescription = null, tint = FamlyColor.primary, modifier = Modifier.size(20.dp))
                 Text("Видимость", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
             }
             if (canEditVisibility) {

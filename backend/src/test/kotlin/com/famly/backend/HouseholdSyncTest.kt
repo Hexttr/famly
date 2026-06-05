@@ -11,6 +11,7 @@ import io.ktor.server.testing.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import java.util.UUID
 
 class HouseholdSyncTest {
@@ -210,5 +211,75 @@ class HouseholdSyncTest {
             pullBody.contains("avatar") && (pullBody.contains("🦊") || pullBody.contains("avatar")),
             "Avatar field must appear in pull snapshot",
         )
+    }
+
+    @Test
+    fun leaveLastAdminPromotesRemainingMembersToAdmin() = testApplication {
+        environment {
+            config = MapApplicationConfig(
+                "database.url" to "jdbc:h2:mem:famly_leave_${UUID.randomUUID()};DB_CLOSE_DELAY=-1",
+            )
+        }
+        application {
+            configureDatabase()
+            configureAuth()
+            configureRouting()
+        }
+
+        fun register(email: String, name: String): String = runBlocking {
+            client.post("/auth/register") {
+                contentType(ContentType.Application.Json)
+                setBody("""{"email":"$email","password":"secret1","displayName":"$name"}""")
+            }
+            val login = client.post("/auth/login") {
+                contentType(ContentType.Application.Json)
+                setBody("""{"email":"$email","password":"secret1"}""")
+            }.bodyAsText()
+            Regex(""""token":"([^"]+)"""").find(login)!!.groupValues[1]
+        }
+
+        val ownerToken = register("owner-leave@famly.app", "Owner")
+        val member1Token = register("member1-leave@famly.app", "Member1")
+        val member2Token = register("member2-leave@famly.app", "Member2")
+
+        client.post("/households") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.Authorization, "Bearer $ownerToken")
+            setBody("""{"name":"Leave Test"}""")
+        }
+        val household = client.get("/households/mine") {
+            header(HttpHeaders.Authorization, "Bearer $ownerToken")
+        }.bodyAsText()
+        val householdId = Regex(""""id":"([^"]+)"""").find(household)!!.groupValues[1]
+        val invite = Regex(""""inviteCode":"([^"]+)"""").find(
+            client.post("/households/$householdId/invite") {
+                header(HttpHeaders.Authorization, "Bearer $ownerToken")
+            }.bodyAsText(),
+        )!!.groupValues[1]
+
+        client.post("/households/join") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.Authorization, "Bearer $member1Token")
+            setBody("""{"inviteCode":"$invite"}""")
+        }
+        client.post("/households/join") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.Authorization, "Bearer $member2Token")
+            setBody("""{"inviteCode":"$invite"}""")
+        }
+
+        client.post("/households/leave") {
+            header(HttpHeaders.Authorization, "Bearer $ownerToken")
+        }
+
+        client.post("/households/leave") {
+            header(HttpHeaders.Authorization, "Bearer $member1Token")
+        }
+
+        val survivorHousehold = client.get("/households/mine") {
+            header(HttpHeaders.Authorization, "Bearer $member2Token")
+        }.bodyAsText()
+        assertTrue(survivorHousehold.contains("\"role\":\"admin\""), survivorHousehold)
+        assertEquals(1, Regex(""""role":"admin"""").findAll(survivorHousehold).count())
     }
 }

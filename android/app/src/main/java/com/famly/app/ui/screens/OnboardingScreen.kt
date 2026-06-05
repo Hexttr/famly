@@ -1,5 +1,6 @@
 package com.famly.app.ui.screens
 
+import com.famly.app.ui.theme.FamlyColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,8 +33,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.famly.app.ui.theme.Primary
-
 private data class OnboardingSlide(val icon: String, val title: String, val text: String)
 
 private val slides = listOf(
@@ -68,7 +67,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                         .height(8.dp)
                         .then(if (i == step) Modifier.fillMaxWidth(0.15f) else Modifier.size(8.dp))
                         .clip(CircleShape)
-                        .background(if (i == step) Primary else Color(0xFFE2E8E5)),
+                        .background(if (i == step) FamlyColor.primary else Color(0xFFE2E8E5)),
                 )
             }
         }
@@ -77,7 +76,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         Button(
             onClick = { if (step < slides.lastIndex) step++ else onComplete() },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Primary),
+            colors = ButtonDefaults.buttonColors(containerColor = FamlyColor.primary),
         ) {
             Text(if (step < slides.lastIndex) "Далее" else "Начать")
         }

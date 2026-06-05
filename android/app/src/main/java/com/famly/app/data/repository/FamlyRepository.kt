@@ -5,6 +5,8 @@ import com.famly.app.data.local.UserPreferences
 import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.CategoryEntity
 import com.famly.app.data.local.entity.FamilyMemberEntity
+import com.famly.app.data.local.entity.SavingsGoalEntity
+import com.famly.app.data.local.entity.SavingsLedgerEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.domain.nextAccountIcon
 import com.famly.app.domain.nextCategoryIcon
@@ -13,6 +15,8 @@ import com.famly.app.data.sync.SyncRepository
 import com.famly.app.data.export.BackupExporter
 import com.famly.app.domain.budget.BudgetRolloverProcessor
 import com.famly.app.domain.recurring.RecurringProcessor
+import com.famly.app.domain.savings.SavingsGoalProcessor
+import com.famly.app.domain.savings.savingsGoalId
 import com.famly.app.data.export.CsvExporter
 import com.famly.app.data.export.ExcelExporter
 import com.famly.app.domain.FamlyAccess
@@ -21,6 +25,9 @@ import com.famly.app.domain.analytics.filterTransactionsByPeriod
 import com.famly.app.domain.analytics.getReportPeriodDescription
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import com.famly.app.domain.model.AppSettings
 import java.time.LocalDate
 import java.util.UUID
@@ -35,6 +42,27 @@ class FamlyRepository(
     val categories: Flow<List<CategoryEntity>> = db.categoryDao().observeAll()
     val transactions: Flow<List<TransactionEntity>> = db.transactionDao().observeAll()
     val familyMembers: Flow<List<FamilyMemberEntity>> = db.familyMemberDao().observeAll()
+
+    val savingsGoal: Flow<SavingsGoalEntity?> = settings.flatMapLatest { s ->
+        val householdId = s.householdId
+        if (householdId.isNullOrBlank()) {
+            flowOf(null)
+        } else {
+            db.savingsGoalDao().observeByHousehold(householdId)
+        }
+    }
+
+    fun savingsLedger(goalId: String): Flow<List<SavingsLedgerEntity>> =
+        db.savingsLedgerDao().observeByGoal(goalId)
+
+    val savingsState: Flow<Pair<SavingsGoalEntity?, List<SavingsLedgerEntity>>> =
+        savingsGoal.flatMapLatest { goal ->
+            if (goal == null) {
+                flowOf(null to emptyList())
+            } else {
+                savingsLedger(goal.id).map { goal to it }
+            }
+        }
 
     val recurringTransactions: Flow<List<TransactionEntity>> = db.transactionDao().observeRecurringTemplates()
 
@@ -185,6 +213,7 @@ class FamlyRepository(
         dateEpochDay: Long,
         note: String?,
         isRecurring: Boolean,
+        spendFromGoalKopecks: Long = 0,
     ) {
         val now = System.currentTimeMillis()
         val recurringDay = if (isRecurring) RecurringProcessor.effectiveRecurringDay(null, dateEpochDay) else null
@@ -204,7 +233,133 @@ class FamlyRepository(
         )
         db.transactionDao().upsert(entity)
         applyBalanceDelta(accountId, type, amountKopecks)
+        if (type == "income") {
+            applyIncomeToSavings(entity)
+        }
+        if (type == "expense" && spendFromGoalKopecks > 0) {
+            spendFromGoal(spendFromGoalKopecks, entity.id, dateEpochDay)
+        }
         syncRepository?.enqueueTransaction(entity)
+    }
+
+    suspend fun upsertSavingsGoal(
+        goalType: String,
+        customName: String?,
+        targetKopecks: Long,
+        incomePercent: Int?,
+        monthlyPlanKopecks: Long?,
+        activate: Boolean = true,
+    ) {
+        val settings = preferences.settings.first()
+        val householdId = settings.householdId ?: return
+        val now = System.currentTimeMillis()
+        val id = savingsGoalId(householdId)
+        val existing = db.savingsGoalDao().getById(id)
+        val goal = SavingsGoalEntity(
+            id = id,
+            householdId = householdId,
+            goalType = goalType,
+            customName = customName?.trim()?.takeIf { it.isNotBlank() },
+            targetKopecks = targetKopecks.coerceAtLeast(0),
+            savedKopecks = existing?.savedKopecks ?: 0,
+            incomePercent = incomePercent?.coerceIn(0, 100),
+            monthlyPlanKopecks = monthlyPlanKopecks?.coerceAtLeast(0),
+            isActive = activate,
+            createdAt = existing?.createdAt ?: now,
+            updatedAt = now,
+        )
+        db.savingsGoalDao().upsert(goal)
+        syncRepository?.enqueueSavingsGoal(goal)
+    }
+
+    suspend fun pauseSavingsGoal() {
+        val goal = getActiveSavingsGoal() ?: return
+        val now = System.currentTimeMillis()
+        val ledger = db.savingsLedgerDao().getAllForGoal(goal.id)
+        if (goal.savedKopecks > 0) {
+            val incomeAutoAccounts = ledger
+                .filter { it.entryType == "income_auto" && it.transactionId != null }
+                .associate { entry ->
+                    entry.id to entry.transactionId!!.let { txId ->
+                        db.transactionDao().observeById(txId).first()?.accountId
+                    }
+                }
+            val returns = SavingsGoalProcessor.releaseAmountsByAccount(
+                savedKopecks = goal.savedKopecks,
+                ledger = ledger,
+                resolveIncomeAutoAccount = { entry -> incomeAutoAccounts[entry.id] },
+            )
+            val defaultAccountId = db.accountDao().observeAll().first().firstOrNull()?.id
+            if (returns.isEmpty() && defaultAccountId != null) {
+                applyBalanceDelta(defaultAccountId, "income", goal.savedKopecks)
+            } else {
+                returns.forEach { (accountId, amount) ->
+                    applyBalanceDelta(accountId, "income", amount)
+                }
+            }
+            SavingsGoalProcessor.createPauseReleaseEntry(goal, goal.savedKopecks)?.let { release ->
+                db.savingsLedgerDao().upsert(release)
+                syncRepository?.enqueueSavingsEntry(release)
+            }
+        }
+        val updated = goal.copy(
+            isActive = false,
+            savedKopecks = 0,
+            updatedAt = now,
+        )
+        db.savingsGoalDao().upsert(updated)
+        syncRepository?.enqueueSavingsGoal(updated)
+    }
+
+    suspend fun manualAddToSavings(amountKopecks: Long, note: String? = null) {
+        val goal = getActiveSavingsGoal() ?: return
+        val accountId = db.accountDao().observeAll().first().firstOrNull()?.id ?: return
+        applyBalanceDelta(accountId, "expense", amountKopecks)
+        val entryNote = SavingsGoalProcessor.manualEntryNote(accountId, note)
+        val entry = SavingsGoalProcessor.createManualAddEntry(goal, amountKopecks, entryNote) ?: return
+        persistLedgerEntry(goal, entry)
+    }
+
+    private suspend fun getActiveSavingsGoal(): SavingsGoalEntity? {
+        val settings = preferences.settings.first()
+        val householdId = settings.householdId ?: return null
+        val goal = db.savingsGoalDao().getById(savingsGoalId(householdId)) ?: return null
+        return goal.takeIf { it.isActive }
+    }
+
+    private suspend fun applyIncomeToSavings(transaction: TransactionEntity) {
+        val goal = getActiveSavingsGoal() ?: return
+        val percent = goal.incomePercent ?: return
+        if (percent <= 0) return
+        if (db.savingsLedgerDao().findByTransactionAndType(transaction.id, "income_auto") != null) return
+        val allocation = SavingsGoalProcessor.incomeAllocationKopecks(transaction.amountKopecks, percent)
+        val entry = SavingsGoalProcessor.createIncomeAutoEntry(goal, transaction, allocation) ?: return
+        applyBalanceDelta(transaction.accountId, "expense", allocation)
+        persistLedgerEntry(goal, entry)
+    }
+
+    suspend fun spendFromGoal(amountKopecks: Long, transactionId: String, dateEpochDay: Long) {
+        val goal = getActiveSavingsGoal() ?: return
+        val spendAmount = SavingsGoalProcessor.spendFromGoalAmount(amountKopecks, goal.savedKopecks)
+        if (spendAmount <= 0) return
+        val entry = SavingsGoalProcessor.createSpendFromGoalEntry(
+            goal,
+            spendAmount,
+            transactionId,
+            dateEpochDay,
+        ) ?: return
+        persistLedgerEntry(goal, entry)
+    }
+
+    private suspend fun persistLedgerEntry(goal: SavingsGoalEntity, entry: SavingsLedgerEntity) {
+        db.savingsLedgerDao().upsert(entry)
+        val updatedGoal = goal.copy(
+            savedKopecks = (goal.savedKopecks + entry.amountKopecks).coerceAtLeast(0),
+            updatedAt = System.currentTimeMillis(),
+        )
+        db.savingsGoalDao().upsert(updatedGoal)
+        syncRepository?.enqueueSavingsEntry(entry)
+        syncRepository?.enqueueSavingsGoal(updatedGoal)
     }
 
     suspend fun updateTransaction(transaction: TransactionEntity) {

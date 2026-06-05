@@ -1,15 +1,20 @@
 package com.famly.app.ui.theme
 
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 
 private val LightColors = lightColorScheme(
     primary = Primary,
@@ -49,34 +54,34 @@ private val DarkColors = darkColorScheme(
     outline = Color(0xFF3A4540),
 )
 
-private val PinkColors = lightColorScheme(
-    primary = PinkPrimary,
+private val PurpleColors = lightColorScheme(
+    primary = PurplePrimary,
     onPrimary = Color.White,
-    primaryContainer = PinkPrimary.copy(alpha = 0.12f),
-    onPrimaryContainer = PinkPrimary,
-    secondary = PinkAccent,
-    onSecondary = Color.White,
-    secondaryContainer = PinkAccent.copy(alpha = 0.15f),
-    onSecondaryContainer = PinkPrimary,
+    primaryContainer = PurplePrimary.copy(alpha = 0.14f),
+    onPrimaryContainer = PurpleDark,
+    secondary = PurpleAccent,
+    onSecondary = PurpleDark,
+    secondaryContainer = PurpleSurfaceAlt,
+    onSecondaryContainer = PurpleDark,
     tertiary = Premium,
-    background = PinkBackground,
-    surface = PinkSurface,
-    surfaceVariant = PinkSurfaceAlt,
+    background = PurpleBackground,
+    surface = PurpleSurface,
+    surfaceVariant = PurpleSurfaceAlt,
     onBackground = TextPrimary,
     onSurface = TextPrimary,
     onSurfaceVariant = TextSecondary,
-    outline = PinkAccent.copy(alpha = 0.35f),
+    outline = PurpleAccent.copy(alpha = 0.45f),
 )
 
 private val BlueColors = lightColorScheme(
     primary = BluePrimary,
     onPrimary = Color.White,
-    primaryContainer = BluePrimary.copy(alpha = 0.12f),
-    onPrimaryContainer = BluePrimary,
+    primaryContainer = BluePrimary.copy(alpha = 0.14f),
+    onPrimaryContainer = BlueDark,
     secondary = BlueAccent,
-    onSecondary = Color.White,
-    secondaryContainer = BlueAccent.copy(alpha = 0.15f),
-    onSecondaryContainer = BluePrimary,
+    onSecondary = BlueDark,
+    secondaryContainer = BlueSurfaceAlt,
+    onSecondaryContainer = BlueDark,
     tertiary = Premium,
     background = BlueBackground,
     surface = BlueSurface,
@@ -84,7 +89,7 @@ private val BlueColors = lightColorScheme(
     onBackground = TextPrimary,
     onSurface = TextPrimary,
     onSurfaceVariant = TextSecondary,
-    outline = BlueAccent.copy(alpha = 0.35f),
+    outline = BlueAccent.copy(alpha = 0.45f),
 )
 
 private val FamlyTypography = Typography(
@@ -108,14 +113,25 @@ fun FamlyTheme(
 ) {
     val colorScheme = when (theme) {
         "dark" -> DarkColors
-        "pink" -> PinkColors
+        "pink" -> PurpleColors
         "blue" -> BlueColors
         "light" -> LightColors
         else -> if (darkTheme) DarkColors else LightColors
     }
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = FamlyTypography,
-        content = content,
-    )
+    ProvideFamlyPalette(theme = theme) {
+        val view = LocalView.current
+        val bottomNav = FamlyColor.bottomNav
+        if (!view.isInEditMode) {
+            SideEffect {
+                val window = (view.context as Activity).window
+                window.navigationBarColor = bottomNav.toArgb()
+                WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = theme != "dark"
+            }
+        }
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = FamlyTypography,
+            content = content,
+        )
+    }
 }

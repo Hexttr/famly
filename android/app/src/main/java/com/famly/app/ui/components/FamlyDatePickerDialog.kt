@@ -1,5 +1,6 @@
 package com.famly.app.ui.components
 
+import com.famly.app.ui.theme.FamlyColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,8 +44,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.famly.app.domain.MoneyFormatter
-import com.famly.app.ui.theme.Primary
-import com.famly.app.ui.theme.PrimaryLight
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.TextMuted
 import java.time.DayOfWeek
@@ -78,7 +77,7 @@ fun FamlyDatePickerDialog(
                 Icon(
                     Icons.Default.CalendarToday,
                     contentDescription = null,
-                    tint = Primary,
+                    tint = FamlyColor.primary,
                     modifier = Modifier.size(22.dp),
                 )
                 Text(
@@ -104,7 +103,7 @@ fun FamlyDatePickerDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     IconButton(onClick = { displayedMonth = displayedMonth.minusMonths(1) }) {
-                        Icon(Icons.Default.ChevronLeft, contentDescription = "Предыдущий месяц", tint = Primary)
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Предыдущий месяц", tint = FamlyColor.primary)
                     }
                     Text(
                         "${MONTHS_NOMINATIVE[displayedMonth.monthValue - 1]} ${displayedMonth.year}",
@@ -112,7 +111,7 @@ fun FamlyDatePickerDialog(
                         fontSize = 16.sp,
                     )
                     IconButton(onClick = { displayedMonth = displayedMonth.plusMonths(1) }) {
-                        Icon(Icons.Default.ChevronRight, contentDescription = "Следующий месяц", tint = Primary)
+                        Icon(Icons.Default.ChevronRight, contentDescription = "Следующий месяц", tint = FamlyColor.primary)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -152,7 +151,7 @@ fun FamlyDatePickerDialog(
                     onDismissRequest()
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Primary,
+                    containerColor = FamlyColor.primary,
                     contentColor = Color.White,
                 ),
             ) {
@@ -193,7 +192,7 @@ private fun DayCell(
         if (day == null) return@Box
         val inMonth = day.month == month.month
         val bg = when {
-            selected -> Primary
+            selected -> FamlyColor.primary
             else -> Color.Transparent
         }
         val textColor = when {
@@ -202,7 +201,7 @@ private fun DayCell(
             else -> scheme.onSurface
         }
         val borderModifier = if (isToday && !selected) {
-            Modifier.border(1.5.dp, PrimaryLight, CircleShape)
+            Modifier.border(1.5.dp, FamlyColor.primaryLight, CircleShape)
         } else {
             Modifier
         }

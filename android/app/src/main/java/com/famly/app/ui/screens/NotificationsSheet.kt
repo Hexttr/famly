@@ -1,5 +1,6 @@
 package com.famly.app.ui.screens
 
+import com.famly.app.ui.theme.FamlyColor
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,10 +34,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.famly.app.domain.FamlyAccess
 import com.famly.app.domain.analytics.getBudgetWarnings
+import com.famly.app.domain.savings.SavingsNotifications
 import com.famly.app.ui.FamlyUiState
 import com.famly.app.ui.components.FamlyCard
 import com.famly.app.ui.theme.Expense
-import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
 
@@ -98,6 +99,23 @@ fun NotificationsSheet(
                 ),
             )
         }
+        SavingsNotifications.buildNotifications(
+            goal = state.savingsGoal,
+            ledger = state.savingsLedger,
+            transactions = state.transactions,
+            periodStartEpochDay = state.periodStartEpochDay,
+            periodEndEpochDay = state.periodEndEpochDay,
+            periodLabel = periodKey,
+            dismissedIds = dismissed,
+        ).forEach { notice ->
+            add(
+                NoticeItem(
+                    id = notice.id,
+                    title = notice.title,
+                    subtitle = notice.message,
+                ),
+            )
+        }
     }.filter { it.id !in dismissed }
 
     ModalBottomSheet(
@@ -127,7 +145,7 @@ fun NotificationsSheet(
                 FamlyCard(modifier = Modifier.fillMaxWidth()) {
                     Text("Пока всё спокойно", fontWeight = FontWeight.SemiBold)
                     Text(
-                        "Здесь будут напоминания о бюджете и повторяющихся операциях",
+                        "Здесь будут напоминания о бюджете, целях накопления и периодических платежах",
                         color = TextMuted,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 4.dp),
@@ -137,7 +155,7 @@ fun NotificationsSheet(
                 notices.forEach { notice ->
                     FamlyCard(
                         modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm),
-                        borderColor = if (notice.accent) Expense.copy(alpha = 0.35f) else Primary.copy(alpha = 0.2f),
+                        borderColor = if (notice.accent) Expense.copy(alpha = 0.35f) else FamlyColor.primary.copy(alpha = 0.2f),
                     ) {
                         Row(verticalAlignment = Alignment.Top) {
                             Column(modifier = Modifier.weight(1f)) {

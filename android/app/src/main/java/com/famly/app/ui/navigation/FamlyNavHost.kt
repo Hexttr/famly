@@ -52,6 +52,8 @@ import com.famly.app.ui.screens.OperationsScreen
 import com.famly.app.ui.screens.PremiumPaywallScreen
 import com.famly.app.ui.screens.NotificationsSheet
 import com.famly.app.ui.screens.QuickAddSheet
+import com.famly.app.ui.screens.SavingsScreen
+import com.famly.app.ui.screens.SavingsSetupScreen
 import com.famly.app.ui.screens.RecurringScreen
 import com.famly.app.ui.screens.ReportsScreen
 import com.famly.app.ui.screens.SettingsScreen
@@ -226,7 +228,6 @@ fun FamlyNavHost(
                     onOpenOperations = { navController.navigate(Routes.OPERATIONS) },
                     onOpenTransaction = { navController.navigate(Routes.operationDetail(it)) },
                     onQuickAddCategory = { openQuickAdd(it) },
-                    onUpdatePinnedCategories = { viewModel.setPinnedQuickCategories(it) },
                 )
             }
             composable(Routes.OPERATIONS) {
@@ -248,6 +249,7 @@ fun FamlyNavHost(
                     state = state,
                     onNavigate = { route -> navController.navigate(route) },
                     onOpenPremium = { navigateToPremium() },
+                    onUpdatePinnedCategories = { viewModel.setPinnedQuickCategories(it) },
                 )
             }
             composable(Routes.ACCOUNTS) {
@@ -283,6 +285,29 @@ fun FamlyNavHost(
                     state,
                     { navController.popBackStack() },
                     { viewModel.disableRecurring(it) },
+                )
+            }
+            composable(Routes.SAVINGS) {
+                SavingsScreen(
+                    state = state,
+                    onBack = { navController.popBackStack() },
+                    onEdit = { navController.navigate(Routes.SAVINGS_SETUP) },
+                    onManualAdd = { viewModel.manualAddToSavings(it) },
+                    onPause = {
+                        viewModel.pauseSavingsGoal()
+                        navController.popBackStack()
+                    },
+                )
+            }
+            composable(Routes.SAVINGS_SETUP) {
+                SavingsSetupScreen(
+                    existing = state.savingsGoal,
+                    onBack = { navController.popBackStack() },
+                    onSave = { type, name, target, percent, plan ->
+                        viewModel.upsertSavingsGoal(type, name, target, percent, plan)
+                        navController.popBackStack()
+                        navController.navigate(Routes.SAVINGS)
+                    },
                 )
             }
             composable(Routes.BACKUP) {
@@ -404,8 +429,8 @@ fun FamlyNavHost(
             quickAddCategoryId = null
             quickAddInitialType = null
         },
-        onSave = { amount, type, cat, acc, note, rec, dateEpochDay ->
-            viewModel.addTransaction(amount, type, cat, acc, note, rec, dateEpochDay)
+        onSave = { amount, type, cat, acc, note, rec, dateEpochDay, spendFromGoal ->
+            viewModel.addTransaction(amount, type, cat, acc, note, rec, dateEpochDay, spendFromGoal)
         },
     )
     }

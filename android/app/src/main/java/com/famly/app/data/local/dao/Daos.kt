@@ -9,6 +9,8 @@ import com.famly.app.data.local.entity.CategoryEntity
 import com.famly.app.data.local.entity.FamilyMemberEntity
 import com.famly.app.data.local.entity.IouBalanceEntity
 import com.famly.app.data.local.entity.PendingSyncEntity
+import com.famly.app.data.local.entity.SavingsGoalEntity
+import com.famly.app.data.local.entity.SavingsLedgerEntity
 import com.famly.app.data.local.entity.SplitAllocationEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
@@ -139,5 +141,53 @@ interface PendingSyncDao {
     suspend fun delete(key: String)
 
     @Query("DELETE FROM pending_sync")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface SavingsGoalDao {
+    @Query("SELECT * FROM savings_goals WHERE householdId = :householdId LIMIT 1")
+    fun observeByHousehold(householdId: String): Flow<SavingsGoalEntity?>
+
+    @Query("SELECT * FROM savings_goals WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): SavingsGoalEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(goal: SavingsGoalEntity)
+
+    @Query("DELETE FROM savings_goals WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("DELETE FROM savings_goals")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface SavingsLedgerDao {
+    @Query("SELECT * FROM savings_ledger WHERE goalId = :goalId ORDER BY dateEpochDay DESC, createdAt DESC")
+    fun observeByGoal(goalId: String): Flow<List<SavingsLedgerEntity>>
+
+    @Query("SELECT * FROM savings_ledger WHERE goalId = :goalId ORDER BY dateEpochDay DESC, createdAt DESC LIMIT :limit")
+    suspend fun getRecent(goalId: String, limit: Int = 10): List<SavingsLedgerEntity>
+
+    @Query("SELECT * FROM savings_ledger WHERE goalId = :goalId")
+    suspend fun getAllForGoal(goalId: String): List<SavingsLedgerEntity>
+
+    @Query("SELECT * FROM savings_ledger WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): SavingsLedgerEntity?
+
+    @Query("SELECT * FROM savings_ledger WHERE transactionId = :transactionId AND entryType = :entryType LIMIT 1")
+    suspend fun findByTransactionAndType(transactionId: String, entryType: String): SavingsLedgerEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entry: SavingsLedgerEntity)
+
+    @Query("DELETE FROM savings_ledger WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("DELETE FROM savings_ledger WHERE goalId = :goalId")
+    suspend fun deleteByGoal(goalId: String)
+
+    @Query("DELETE FROM savings_ledger")
     suspend fun deleteAll()
 }

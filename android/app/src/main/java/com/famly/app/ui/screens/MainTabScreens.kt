@@ -1,5 +1,6 @@
 package com.famly.app.ui.screens
 
+import com.famly.app.ui.theme.FamlyColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -81,10 +82,7 @@ import com.famly.app.ui.components.TrialBanner
 import com.famly.app.ui.components.categoryAccentColor
 import com.famly.app.ui.theme.Border
 import com.famly.app.ui.theme.Expense
-import com.famly.app.ui.theme.HeroHint
-import com.famly.app.ui.theme.Income
 import com.famly.app.ui.theme.Premium
-import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.LayoutInsets
 import com.famly.app.ui.theme.Spacing
@@ -95,26 +93,10 @@ private const val INITIAL_RECENT = 5
 private const val LOAD_MORE_STEP = 10
 private val DEFAULT_QUICK_CATEGORY_IDS = listOf("c2", "c1", "c4", "c3")
 
-@Composable
-fun HomeScreen(
-    state: FamlyUiState,
-    onOpenBudget: () -> Unit,
-    onOpenOperations: () -> Unit,
-    onOpenTransaction: (String) -> Unit,
-    onQuickAddCategory: (String) -> Unit,
-    onUpdatePinnedCategories: (List<String>) -> Unit,
-) {
-    var visibleRecent by remember { mutableIntStateOf(INITIAL_RECENT) }
-    var showPinnedPicker by remember { mutableStateOf(false) }
-    val recent = state.transactions.take(visibleRecent)
-    val hasMore = visibleRecent < state.transactions.size
-    val remaining = maxOf(0, state.safeToSpendKopecks)
-    val net = state.incomeKopecks - state.spentKopecks
-    val budgetConfigured = state.budgetTotalKopecks > 0
-
+internal fun resolveQuickCategories(state: FamlyUiState): List<CategoryEntity> {
     val expenseCategories = state.categories.filter { it.type == "expense" }
     val pinnedIds = state.settings.pinnedQuickCategoryIds
-    val quickCategories = when {
+    return when {
         pinnedIds.isNotEmpty() -> pinnedIds.mapNotNull { id -> expenseCategories.find { it.id == id } }.take(4)
         else -> {
             val topIds = getTopExpenseCategoryIds(state.transactions)
@@ -127,6 +109,194 @@ fun HomeScreen(
             }
         }
     }
+}
+
+@Composable
+private fun TopCategoriesPickerDialog(
+    state: FamlyUiState,
+    initialSelection: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (List<String>) -> Unit,
+) {
+    val expenseCategories = state.categories.filter { it.type == "expense" }
+    var draftPinned by remember(initialSelection, expenseCategories) {
+        mutableStateOf(
+            if (initialSelection.isNotEmpty()) initialSelection else resolveQuickCategories(state).map { it.id },
+        )
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Топ категории") },
+        text = {
+            Column {
+                Text(
+                    "Выберите до 4 категорий — они появятся на главном экране для быстрого ввода расходов",
+                    fontSize = 13.sp,
+                    color = TextMuted,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                expenseCategories.forEach { cat ->
+                    val selected = cat.id in draftPinned
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                draftPinned = when {
+                                    selected -> draftPinned.filter { it != cat.id }
+                                    draftPinned.size >= 4 -> draftPinned
+                                    else -> draftPinned + cat.id
+                                }
+                            }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = selected, onCheckedChange = null)
+                        Text("${cat.icon} ${cat.name}", modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(draftPinned.take(4))
+                    onDismiss()
+                },
+            ) {
+                Text("Сохранить", color = FamlyColor.primary, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        },
+    )
+}
+
+@Composable
+fun TopCategoriesSettingsCard(
+    state: FamlyUiState,
+    onUpdatePinnedCategories: (List<String>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    val quickCategories = resolveQuickCategories(state)
+    val pinnedIds = state.settings.pinnedQuickCategoryIds
+
+    FamlyCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 10.dp),
+        cornerRadius = Radius.md,
+        padding = 16.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.Tune, contentDescription = null, tint = FamlyColor.primary, modifier = Modifier.size(24.dp))
+            Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text("Топ категории", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(
+                    if (pinnedIds.isNotEmpty()) "Свой набор из ${quickCategories.size} категорий" else "Быстрый доступ на главной",
+                    fontSize = 12.sp,
+                    color = TextMuted,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+            TextButton(onClick = { showPicker = true }) {
+                Text("Настроить", color = FamlyColor.primary, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (quickCategories.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                quickCategories.forEach { cat ->
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        CategoryEmojiIcon(
+                            emoji = cat.icon,
+                            size = 40.dp,
+                            accent = categoryAccentColor(cat.color),
+                        )
+                        Text(
+                            cat.name,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+            }
+        } else {
+            Text(
+                "Добавьте категории расходов в разделе «Бюджет»",
+                fontSize = 12.sp,
+                color = TextMuted,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+        }
+    }
+
+    if (showPicker) {
+        TopCategoriesPickerDialog(
+            state = state,
+            initialSelection = pinnedIds,
+            onDismiss = { showPicker = false },
+            onSave = onUpdatePinnedCategories,
+        )
+    }
+}
+
+@Composable
+private fun HomeQuickCategoryTiles(
+    quickCategories: List<CategoryEntity>,
+    onQuickAddCategory: (String) -> Unit,
+) {
+    if (quickCategories.isEmpty()) return
+    Row(
+        modifier = Modifier
+            .padding(horizontal = Spacing.md)
+            .padding(bottom = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        quickCategories.forEach { cat ->
+            QuickCategoryTile(
+                emoji = cat.icon,
+                name = cat.name,
+                accent = categoryAccentColor(cat.color),
+                onClick = { onQuickAddCategory(cat.id) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+fun HomeScreen(
+    state: FamlyUiState,
+    onOpenBudget: () -> Unit,
+    onOpenOperations: () -> Unit,
+    onOpenTransaction: (String) -> Unit,
+    onQuickAddCategory: (String) -> Unit,
+) {
+    var visibleRecent by remember { mutableIntStateOf(INITIAL_RECENT) }
+    val recent = state.transactions.take(visibleRecent)
+    val hasMore = visibleRecent < state.transactions.size
+    val remaining = maxOf(0, state.safeToSpendKopecks)
+    val net = state.incomeKopecks - state.spentKopecks
+    val budgetConfigured = state.budgetTotalKopecks > 0
+    val quickCategories = resolveQuickCategories(state)
 
     Column(
         modifier = Modifier
@@ -189,7 +359,7 @@ fun HomeScreen(
                     )
                     Text(
                         "около ${MoneyFormatter.formatKopecks(state.dailySafeSpendKopecks)} / день · ${state.daysLeft} дн.",
-                        color = HeroHint,
+                        color = FamlyColor.heroHint,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 14.dp, top = 4.dp),
@@ -232,7 +402,7 @@ fun HomeScreen(
                     }
                     Text(
                         "Настроить бюджет →",
-                        color = HeroHint,
+                        color = FamlyColor.heroHint,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
@@ -241,97 +411,10 @@ fun HomeScreen(
             }
         }
 
-        if (quickCategories.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Spacing.md)
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Топ категории", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Row(
-                    modifier = Modifier.clickable { showPinnedPicker = true },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Default.Tune, contentDescription = null, tint = Primary, modifier = Modifier.size(16.dp))
-                    Text("Настроить", color = Primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp))
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = Spacing.md)
-                    .padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                quickCategories.forEach { cat ->
-                    QuickCategoryTile(
-                        emoji = cat.icon,
-                        name = cat.name,
-                        accent = categoryAccentColor(cat.color),
-                        onClick = { onQuickAddCategory(cat.id) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-
-        if (showPinnedPicker) {
-            var draftPinned by remember(pinnedIds, expenseCategories) {
-                mutableStateOf(
-                    if (pinnedIds.isNotEmpty()) pinnedIds else quickCategories.map { it.id },
-                )
-            }
-            AlertDialog(
-                onDismissRequest = { showPinnedPicker = false },
-                title = { Text("Топ категории") },
-                text = {
-                    Column {
-                        Text(
-                            "Выберите до 4 категорий для быстрого доступа на главной",
-                            fontSize = 13.sp,
-                            color = TextMuted,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        )
-                        expenseCategories.forEach { cat ->
-                            val selected = cat.id in draftPinned
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        draftPinned = when {
-                                            selected -> draftPinned.filter { it != cat.id }
-                                            draftPinned.size >= 4 -> draftPinned
-                                            else -> draftPinned + cat.id
-                                        }
-                                    }
-                                    .padding(vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Checkbox(checked = selected, onCheckedChange = null)
-                                Text("${cat.icon} ${cat.name}", modifier = Modifier.padding(start = 8.dp))
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            onUpdatePinnedCategories(draftPinned.take(4))
-                            showPinnedPicker = false
-                        },
-                    ) {
-                        Text("Сохранить", color = Primary, fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showPinnedPicker = false }) {
-                        Text("Отмена")
-                    }
-                },
-            )
-        }
+        HomeQuickCategoryTiles(
+            quickCategories = quickCategories,
+            onQuickAddCategory = onQuickAddCategory,
+        )
 
         if (budgetConfigured) {
             AccentCard(
@@ -339,13 +422,13 @@ fun HomeScreen(
                     .padding(horizontal = Spacing.md)
                     .padding(bottom = 12.dp),
             ) {
-                Text("Текущая экономия", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Primary)
+                Text("Текущая экономия", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = FamlyColor.primary)
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         "${if (net >= 0) "+" else "−"}${MoneyFormatter.formatKopecks(kotlin.math.abs(net))}",
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (net >= 0) Income else Expense,
+                        color = if (net >= 0) FamlyColor.income else Expense,
                     )
                     Text(
                         "${MoneyFormatter.formatKopecks(state.incomeKopecks)} − ${MoneyFormatter.formatKopecks(state.spentKopecks)}",
@@ -377,15 +460,15 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, tint = FamlyColor.primary, modifier = Modifier.size(18.dp))
                     Text(
                         "Показать ещё",
                         modifier = Modifier.padding(horizontal = 8.dp),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Primary,
+                        color = FamlyColor.primary,
                     )
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Primary, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = FamlyColor.primary, modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -428,7 +511,7 @@ private fun HomeTransactionRow(
             "${if (tx.type == "expense") "−" else "+"}${MoneyFormatter.formatKopecks(tx.amountKopecks)}",
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
-            color = if (tx.type == "expense") Expense else Income,
+            color = if (tx.type == "expense") Expense else FamlyColor.income,
         )
     }
 }
@@ -471,7 +554,7 @@ fun OperationsScreen(state: FamlyUiState, onOpenTransaction: (String) -> Unit) {
                     selected = filterType == "all",
                     onClick = { filterType = "all" },
                     modifier = Modifier.weight(1f),
-                    accent = Primary,
+                    accent = FamlyColor.primary,
                     leading = { Icon(Icons.AutoMirrored.Filled.List, null, modifier = Modifier.size(16.dp), tint = if (filterType == "all") Color.White else TextSecondary) },
                 )
                 FamlyFilterChip(
@@ -487,7 +570,7 @@ fun OperationsScreen(state: FamlyUiState, onOpenTransaction: (String) -> Unit) {
                     selected = filterType == "income",
                     onClick = { filterType = "income" },
                     modifier = Modifier.weight(1f),
-                    accent = Income,
+                    accent = FamlyColor.income,
                     leading = { Icon(Icons.Default.KeyboardArrowUp, null, modifier = Modifier.size(16.dp), tint = if (filterType == "income") Color.White else TextSecondary) },
                 )
             }
@@ -546,7 +629,7 @@ private fun OperationTransactionCard(
                 "${if (tx.type == "expense") "−" else "+"}${MoneyFormatter.formatKopecks(tx.amountKopecks)}",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (tx.type == "expense") Expense else Income,
+                color = if (tx.type == "expense") Expense else FamlyColor.income,
             )
         }
     }
@@ -716,15 +799,16 @@ fun MoreScreen(
     state: FamlyUiState,
     onNavigate: (String) -> Unit,
     onOpenPremium: () -> Unit,
+    onUpdatePinnedCategories: (List<String>) -> Unit,
 ) {
     val showMonetization = FamlyAccess.showPaywall()
     val items = buildList {
-        add(MoreMenuItem(Icons.Default.Autorenew, "Периодические", "recurring"))
-        add(MoreMenuItem(Icons.Default.CreditCard, "Счета", "accounts"))
+        add(MoreMenuItem(Icons.Default.Autorenew, "Периодические платежи", "recurring"))
+        add(MoreMenuItem(Icons.Default.CreditCard, "Ваши счета", "accounts"))
         add(MoreMenuItem(Icons.AutoMirrored.Filled.ShowChart, "Отчёты", "reports"))
-        add(MoreMenuItem(Icons.Default.Settings, "Настройки", "settings"))
+        add(MoreMenuItem(Icons.Default.Settings, "Настройки и синхронизация", "settings"))
         add(MoreMenuItem(Icons.Default.Save, "Backup и экспорт", "backup"))
-        add(MoreMenuItem(Icons.Default.Group, "Семья", "family"))
+        add(MoreMenuItem(Icons.Default.Group, "Семья и приглашения", "family"))
         add(MoreMenuItem(Icons.Default.BarChart, "Аналитика", "analytics"))
         if (showMonetization) add(MoreMenuItem(Icons.Default.Star, "Premium", "premium"))
     }
@@ -761,7 +845,7 @@ fun MoreScreen(
                         modifier = Modifier.size(40.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(item.icon, contentDescription = null, tint = Primary, modifier = Modifier.size(24.dp))
+                        Icon(item.icon, contentDescription = null, tint = FamlyColor.primary, modifier = Modifier.size(24.dp))
                     }
                     Text(item.label, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                     if (premiumOnly) {
@@ -770,9 +854,20 @@ fun MoreScreen(
                     Text("›", color = TextMuted, fontSize = 18.sp)
                 }
             }
+            if (item.route == "recurring") {
+                TopCategoriesSettingsCard(
+                    state = state,
+                    onUpdatePinnedCategories = onUpdatePinnedCategories,
+                )
+                SavingsPreviewCard(
+                    goal = state.savingsGoal,
+                    onOpen = { onNavigate("savings") },
+                    onCreate = { onNavigate("savings_setup") },
+                )
+            }
         }
         Text(
-            "Мой (Наш) Бюджет v1.0.5 · Сделано в России",
+            "Мой (Наш) Бюджет v1.0.8 · Сделано в России",
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.md, bottom = Spacing.md),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.labelSmall,

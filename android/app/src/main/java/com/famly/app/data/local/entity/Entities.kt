@@ -81,3 +81,31 @@ data class SplitAllocationEntity(
     val shareKopecks: Long,
     val createdAt: Long,
 )
+
+@Entity(tableName = "savings_goals")
+data class SavingsGoalEntity(
+    @PrimaryKey val id: String,
+    val householdId: String,
+    val goalType: String,
+    val customName: String? = null,
+    val targetKopecks: Long,
+    val savedKopecks: Long = 0,
+    val incomePercent: Int? = null,
+    val monthlyPlanKopecks: Long? = null,
+    val isActive: Boolean = false,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
+@Entity(tableName = "savings_ledger")
+data class SavingsLedgerEntity(
+    @PrimaryKey val id: String,
+    val goalId: String,
+    val amountKopecks: Long,
+    val entryType: String,
+    val transactionId: String? = null,
+    val dateEpochDay: Long,
+    val note: String? = null,
+    val createdAt: Long,
+    val updatedAt: Long,
+)

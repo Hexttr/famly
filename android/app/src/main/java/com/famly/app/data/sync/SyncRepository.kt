@@ -6,6 +6,8 @@ import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.CategoryEntity
 import com.famly.app.data.local.entity.FamilyMemberEntity
 import com.famly.app.data.local.entity.PendingSyncEntity
+import com.famly.app.data.local.entity.SavingsGoalEntity
+import com.famly.app.data.local.entity.SavingsLedgerEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.data.remote.FamlyApiClient
 import com.famly.app.data.remote.HouseholdMemberDto
@@ -351,6 +353,11 @@ class SyncRepository(
             db.accountDao().getById(tx.accountId)?.let { enqueueEntity(it.toSyncEntity(now)) }
             enqueueEntity(tx.toSyncEntity(now))
         }
+        val householdId = preferences.settings.first().householdId ?: return
+        db.savingsGoalDao().getById("household:$householdId")?.let { enqueueEntity(it.toSyncEntity(now)) }
+        db.savingsLedgerDao().getAllForGoal("household:$householdId").forEach {
+            enqueueEntity(it.toSyncEntity(now))
+        }
     }
 
     private suspend fun loadPendingEntities(): List<SyncEntityDto> =
@@ -377,6 +384,8 @@ class SyncRepository(
         db.accountDao().deleteAll()
         db.splitAllocationDao().deleteAll()
         db.iouBalanceDao().deleteAll()
+        db.savingsLedgerDao().deleteAll()
+        db.savingsGoalDao().deleteAll()
         db.pendingSyncDao().deleteAll()
     }
 
@@ -441,6 +450,8 @@ class SyncRepository(
                         }
                         db.transactionDao().delete(entity.id)
                     }
+                    "savings_goal" -> db.savingsGoalDao().delete(entity.id)
+                    "savings_entry" -> db.savingsLedgerDao().delete(entity.id)
                     "family_member" -> db.familyMemberDao().delete(entity.id)
                 }
                 return@forEach
@@ -450,6 +461,8 @@ class SyncRepository(
                 "account" -> upsertIfNewer(payload.toAccount())
                 "category" -> upsertIfNewer(payload.toCategory())
                 "transaction" -> upsertIfNewer(payload.toTransaction())
+                "savings_goal" -> upsertIfNewer(payload.toSavingsGoal())
+                "savings_entry" -> upsertIfNewer(payload.toSavingsLedger())
             }
         }
     }
@@ -485,6 +498,30 @@ class SyncRepository(
         val existing = db.categoryDao().getById(category.id)
         if (existing == null || category.updatedAt >= existing.updatedAt) {
             db.categoryDao().upsert(category)
+        }
+    }
+
+    suspend fun enqueueSavingsGoal(goal: SavingsGoalEntity, schedule: Boolean = true) {
+        enqueueEntity(goal.toSyncEntity(System.currentTimeMillis()))
+        if (schedule) scheduleSync()
+    }
+
+    suspend fun enqueueSavingsEntry(entry: SavingsLedgerEntity, schedule: Boolean = true) {
+        enqueueEntity(entry.toSyncEntity(System.currentTimeMillis()))
+        if (schedule) scheduleSync()
+    }
+
+    private suspend fun upsertIfNewer(goal: SavingsGoalEntity) {
+        val existing = db.savingsGoalDao().getById(goal.id)
+        if (existing == null || goal.updatedAt >= existing.updatedAt) {
+            db.savingsGoalDao().upsert(goal)
+        }
+    }
+
+    private suspend fun upsertIfNewer(entry: SavingsLedgerEntity) {
+        val existing = db.savingsLedgerDao().getById(entry.id)
+        if (existing == null || entry.updatedAt >= existing.updatedAt) {
+            db.savingsLedgerDao().upsert(entry)
         }
     }
 
@@ -565,6 +602,44 @@ class SyncRepository(
         updatedAt = now,
     )
 
+    private fun SavingsGoalEntity.toSyncEntity(now: Long) = SyncEntityDto(
+        type = "savings_goal",
+        id = id,
+        payload = JSONObject().apply {
+            put("id", id)
+            put("householdId", householdId)
+            put("goalType", goalType)
+            if (customName != null) put("customName", customName)
+            put("targetKopecks", targetKopecks)
+            put("savedKopecks", savedKopecks)
+            if (incomePercent != null) put("incomePercent", incomePercent)
+            if (monthlyPlanKopecks != null) put("monthlyPlanKopecks", monthlyPlanKopecks)
+            put("isActive", isActive)
+            put("createdAt", createdAt)
+            put("updatedAt", updatedAt)
+        }.toString(),
+        syncVersion = 1,
+        updatedAt = now,
+    )
+
+    private fun SavingsLedgerEntity.toSyncEntity(now: Long) = SyncEntityDto(
+        type = "savings_entry",
+        id = id,
+        payload = JSONObject().apply {
+            put("id", id)
+            put("goalId", goalId)
+            put("amountKopecks", amountKopecks)
+            put("entryType", entryType)
+            if (transactionId != null) put("transactionId", transactionId)
+            put("dateEpochDay", dateEpochDay)
+            if (note != null) put("note", note)
+            put("createdAt", createdAt)
+            put("updatedAt", updatedAt)
+        }.toString(),
+        syncVersion = 1,
+        updatedAt = now,
+    )
+
     private fun JSONObject.toAccount() = AccountEntity(
         id = getString("id"),
         name = getString("name"),
@@ -609,6 +684,34 @@ class SyncRepository(
         splitMemberIds = if (has("splitMemberIds") && !isNull("splitMemberIds")) {
             getString("splitMemberIds")
         } else null,
+        createdAt = getLong("createdAt"),
+        updatedAt = getLong("updatedAt"),
+    )
+
+    private fun JSONObject.toSavingsGoal() = SavingsGoalEntity(
+        id = getString("id"),
+        householdId = getString("householdId"),
+        goalType = getString("goalType"),
+        customName = if (has("customName") && !isNull("customName")) getString("customName") else null,
+        targetKopecks = getLong("targetKopecks"),
+        savedKopecks = optLong("savedKopecks", 0),
+        incomePercent = if (has("incomePercent") && !isNull("incomePercent")) getInt("incomePercent") else null,
+        monthlyPlanKopecks = if (has("monthlyPlanKopecks") && !isNull("monthlyPlanKopecks")) {
+            getLong("monthlyPlanKopecks")
+        } else null,
+        isActive = optBoolean("isActive", false),
+        createdAt = getLong("createdAt"),
+        updatedAt = getLong("updatedAt"),
+    )
+
+    private fun JSONObject.toSavingsLedger() = SavingsLedgerEntity(
+        id = getString("id"),
+        goalId = getString("goalId"),
+        amountKopecks = getLong("amountKopecks"),
+        entryType = getString("entryType"),
+        transactionId = if (has("transactionId") && !isNull("transactionId")) getString("transactionId") else null,
+        dateEpochDay = getLong("dateEpochDay"),
+        note = if (has("note") && !isNull("note")) getString("note") else null,
         createdAt = getLong("createdAt"),
         updatedAt = getLong("updatedAt"),
     )

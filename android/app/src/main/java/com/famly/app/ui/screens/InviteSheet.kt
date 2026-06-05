@@ -1,5 +1,6 @@
 package com.famly.app.ui.screens
 
+import com.famly.app.ui.theme.FamlyColor
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -24,7 +25,6 @@ import androidx.compose.ui.unit.sp
 import com.famly.app.domain.InviteLinks
 import com.famly.app.ui.components.FamlyCard
 import com.famly.app.ui.theme.Expense
-import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
 
@@ -67,7 +67,7 @@ fun InviteSheet(
                     Text("Код приглашения", fontWeight = FontWeight.SemiBold, color = TextMuted, fontSize = 12.sp)
                     Text(inviteCode, fontWeight = FontWeight.Bold, fontSize = 24.sp, modifier = Modifier.padding(vertical = 6.dp))
                     Text("Ссылка", fontWeight = FontWeight.SemiBold, color = TextMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
-                    Text(link, fontSize = 13.sp, color = Primary)
+                    Text(link, fontSize = 13.sp, color = FamlyColor.primary)
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
                     FamlyCard(
@@ -76,7 +76,7 @@ fun InviteSheet(
                             .padding(end = 6.dp)
                             .clickable { copyToClipboard(context, inviteCode) },
                     ) {
-                        Text("Копировать код", fontWeight = FontWeight.Bold, color = Primary)
+                        Text("Копировать код", fontWeight = FontWeight.Bold, color = FamlyColor.primary)
                     }
                     FamlyCard(
                         modifier = Modifier
@@ -95,7 +95,7 @@ fun InviteSheet(
                                 )
                             },
                     ) {
-                        Text("Поделиться", fontWeight = FontWeight.Bold, color = Primary)
+                        Text("Поделиться", fontWeight = FontWeight.Bold, color = FamlyColor.primary)
                     }
                 }
             }
@@ -111,7 +111,7 @@ fun InviteSheet(
                         else -> "Обновить код"
                     },
                     fontWeight = FontWeight.Bold,
-                    color = Primary,
+                    color = FamlyColor.primary,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 )
             }

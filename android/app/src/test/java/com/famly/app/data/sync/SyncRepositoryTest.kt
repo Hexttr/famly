@@ -8,6 +8,8 @@ import com.famly.app.data.local.FamlyDatabase
 import com.famly.app.data.local.UserPreferences
 import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.PendingSyncEntity
+import com.famly.app.data.local.entity.SavingsGoalEntity
+import com.famly.app.data.local.entity.SavingsLedgerEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.data.remote.FamlyApiClient
 import kotlinx.coroutines.flow.first
@@ -106,8 +108,21 @@ class SyncRepositoryTest {
                 id = "a1",
                 name = "Main",
                 icon = "💳",
-                balanceKopecks = 7500,
+                balanceKopecks = 0,
                 color = "#000",
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        db.transactionDao().upsert(
+            TransactionEntity(
+                id = "tx-income",
+                amountKopecks = 10_000,
+                type = "income",
+                categoryId = "c1",
+                accountId = "a1",
+                dateEpochDay = 20_000,
+                note = null,
                 createdAt = now,
                 updatedAt = now,
             ),
@@ -119,7 +134,7 @@ class SyncRepositoryTest {
                 type = "expense",
                 categoryId = "c1",
                 accountId = "a1",
-                dateEpochDay = 20_000,
+                dateEpochDay = 20_001,
                 note = null,
                 createdAt = now,
                 updatedAt = now,
@@ -228,6 +243,53 @@ class SyncRepositoryTest {
         assertEquals(3000L, db.transactionDao().observeById("server-tx").first()?.amountKopecks)
     }
 
+    @Test
+    fun reconcileAccountBalances_fixesStaleBalanceFromTransactions() = runBlocking {
+        val now = System.currentTimeMillis()
+        db.accountDao().upsert(
+            AccountEntity(
+                id = "a1",
+                name = "Наличные",
+                icon = "💵",
+                balanceKopecks = 0,
+                color = "#2D6A4F",
+                sortOrder = 0,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        db.transactionDao().upsert(
+            TransactionEntity(
+                id = "tx-income",
+                amountKopecks = 10_000,
+                type = "income",
+                categoryId = "c1",
+                accountId = "a1",
+                dateEpochDay = 20_000,
+                note = null,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        db.transactionDao().upsert(
+            TransactionEntity(
+                id = "tx-expense",
+                amountKopecks = 2_500,
+                type = "expense",
+                categoryId = "c1",
+                accountId = "a1",
+                dateEpochDay = 20_001,
+                note = null,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+
+        repository().reconcileAccountBalances()
+
+        assertEquals(7_500, db.accountDao().getById("a1")!!.balanceKopecks)
+    }
+
     private fun repository(): SyncRepository {
         val baseUrl = server.url("/").toString().removeSuffix("/")
         return SyncRepository(FamlyApiClient(baseUrl), db, preferences).also {
@@ -286,5 +348,60 @@ class SyncRepositoryTest {
         put("syncVersion", 1)
         put("updatedAt", System.currentTimeMillis())
         put("deleted", true)
+    }
+
+    @Test
+    fun sync_savingsGoalAndLedgerRoundTrip() = runBlocking {
+        val now = System.currentTimeMillis()
+        val goalId = "household:hh-1"
+        val goalPayload = JSONObject().apply {
+            put("id", goalId)
+            put("householdId", "hh-1")
+            put("goalType", "car")
+            put("targetKopecks", 200_000_00)
+            put("savedKopecks", 5000)
+            put("incomePercent", 10)
+            put("isActive", true)
+            put("createdAt", now)
+            put("updatedAt", now)
+        }
+        val entryPayload = JSONObject().apply {
+            put("id", "entry-1")
+            put("goalId", goalId)
+            put("amountKopecks", 5000)
+            put("entryType", "manual_add")
+            put("dateEpochDay", 20_000L)
+            put("createdAt", now)
+            put("updatedAt", now)
+        }
+        enqueuePull(
+            entities = listOf(
+                JSONObject().apply {
+                    put("type", "savings_goal")
+                    put("id", goalId)
+                    put("payload", goalPayload.toString())
+                    put("syncVersion", 1)
+                    put("updatedAt", now)
+                    put("deleted", false)
+                },
+                JSONObject().apply {
+                    put("type", "savings_entry")
+                    put("id", "entry-1")
+                    put("payload", entryPayload.toString())
+                    put("syncVersion", 1)
+                    put("updatedAt", now)
+                    put("deleted", false)
+                },
+            ),
+        )
+        responseQueue.offer("""{"accepted":[]}""")
+        val repo = repository()
+        val status = repo.sync()
+        assertTrue(status.success)
+        val goal = db.savingsGoalDao().getById(goalId)
+        assertEquals("car", goal?.goalType)
+        assertEquals(5000L, goal?.savedKopecks)
+        val entry = db.savingsLedgerDao().getById("entry-1")
+        assertEquals("manual_add", entry?.entryType)
     }
 }

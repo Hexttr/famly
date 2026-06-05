@@ -1,5 +1,6 @@
 package com.famly.app.ui.components
 
+import com.famly.app.ui.theme.FamlyColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.famly.app.ui.theme.Expense
-import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.SurfaceAlt
 import com.famly.app.ui.theme.TextMuted
 import com.famly.app.ui.theme.Warning
@@ -25,7 +25,7 @@ import com.famly.app.ui.theme.Warning
 fun BudgetProgressBar(
     spent: Long,
     limit: Long,
-    color: Color = Primary,
+    color: Color? = null,
     trackColor: Color = SurfaceAlt,
     height: Dp = 8.dp,
     showLabel: Boolean = false,
@@ -34,12 +34,13 @@ fun BudgetProgressBar(
     modifier: Modifier = Modifier,
 ) {
     if (limit <= 0) return
+    val barBaseColor = color ?: FamlyColor.primary
     val progress = (spent.toFloat() / limit).coerceIn(0f, 1f)
     val barColor = when {
-        color == Color.White -> color
+        barBaseColor == Color.White -> barBaseColor
         progress >= 1f -> Expense
         progress >= 0.9f -> Warning
-        else -> color
+        else -> barBaseColor
     }
     val shape = RoundedCornerShape(height / 2)
     Column(modifier = modifier.fillMaxWidth()) {

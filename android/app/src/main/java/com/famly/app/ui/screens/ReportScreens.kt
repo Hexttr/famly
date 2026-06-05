@@ -1,5 +1,6 @@
 package com.famly.app.ui.screens
 
+import com.famly.app.ui.theme.FamlyColor
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -63,9 +64,6 @@ import com.famly.app.ui.components.GroupedListCard
 import com.famly.app.ui.components.PremiumGateContent
 import com.famly.app.ui.components.SectionHeading
 import com.famly.app.ui.theme.Expense
-import com.famly.app.ui.theme.Income
-import com.famly.app.ui.theme.Primary
-import com.famly.app.ui.theme.PrimaryLight
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
@@ -209,7 +207,7 @@ fun ReportsScreen(state: FamlyUiState, onBack: () -> Unit) {
                         }
                     }
                     if (index < top5.lastIndex) {
-                        HorizontalDivider(color = Primary.copy(alpha = 0.12f))
+                        HorizontalDivider(color = FamlyColor.primary.copy(alpha = 0.12f))
                     }
                 }
             }
@@ -252,7 +250,7 @@ private fun DonutChartWithCenter(
                 .size(120.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surface)
-                .border(2.dp, Primary.copy(alpha = 0.12f), CircleShape),
+                .border(2.dp, FamlyColor.primary.copy(alpha = 0.12f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -296,6 +294,7 @@ fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Un
     val netBalance = income - expenses
     val periodDescription = getReportPeriodDescription(period)
     val maxMonthlyExpense = (monthly.maxOfOrNull { it.expensesKopecks } ?: 1L).coerceAtLeast(1L)
+    val incomeColor = FamlyColor.income
 
     val insights = buildList {
         if (avgDaily > 0) add("Средний расход в день — ${MoneyFormatter.formatKopecks(avgDaily)}")
@@ -330,7 +329,7 @@ fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Un
             )
             Spacer(modifier = Modifier.height(Spacing.md))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                AnalyticsFlowCard("Доходы", MoneyFormatter.formatKopecks(income), "💰", Income, Modifier.weight(1f))
+                AnalyticsFlowCard("Доходы", MoneyFormatter.formatKopecks(income), "💰", incomeColor, Modifier.weight(1f))
                 AnalyticsFlowCard("Расходы", MoneyFormatter.formatKopecks(expenses), "💸", Expense, Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(Spacing.md))
@@ -381,9 +380,9 @@ fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Un
                                                 if (m.expensesKopecks == 0L) {
                                                     Modifier
                                                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                                                        .border(2.dp, Primary.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
+                                                        .border(2.dp, FamlyColor.primary.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
                                                 } else {
-                                                    Modifier.background(Brush.verticalGradient(listOf(PrimaryLight, Primary)))
+                                                    Modifier.background(Brush.verticalGradient(listOf(FamlyColor.primaryLight, FamlyColor.primary)))
                                                 },
                                             ),
                                     )
@@ -394,7 +393,7 @@ fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Un
                     }
                     HorizontalDivider(
                         modifier = Modifier.padding(top = 8.dp),
-                        color = Primary.copy(alpha = 0.12f),
+                        color = FamlyColor.primary.copy(alpha = 0.12f),
                     )
                 }
             }
@@ -412,12 +411,12 @@ fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Un
                                     .padding(top = 6.dp)
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(Primary),
+                                    .background(FamlyColor.primary),
                             )
                             Text(text, modifier = Modifier.padding(start = 10.dp), fontSize = 14.sp, lineHeight = 20.sp)
                         }
                         if (index < insights.lastIndex) {
-                            HorizontalDivider(color = Primary.copy(alpha = 0.12f))
+                            HorizontalDivider(color = FamlyColor.primary.copy(alpha = 0.12f))
                         }
                     }
                 }
@@ -474,13 +473,13 @@ fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Un
                                 color = when {
                                     trend.changePercent == null -> TextMuted
                                     trend.changePercent > 0 -> Expense
-                                    trend.changePercent < 0 -> Income
+                                    trend.changePercent < 0 -> FamlyColor.income
                                     else -> TextSecondary
                                 },
                             )
                         }
                         if (index < minOf(4, trends.lastIndex)) {
-                            HorizontalDivider(color = Primary.copy(alpha = 0.12f))
+                            HorizontalDivider(color = FamlyColor.primary.copy(alpha = 0.12f))
                         }
                     }
                 }

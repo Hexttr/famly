@@ -39,7 +39,11 @@ class UserPreferences(private val context: Context) {
             lastSyncAttemptAt = prefs[KEY_LAST_SYNC_ATTEMPT]?.takeIf { it > 0 },
             lastRolloverPeriodStart = prefs[KEY_LAST_ROLLOVER_PERIOD]?.takeIf { it != 0L },
             dismissedNotificationIds = prefs[KEY_DISMISSED_NOTIFICATIONS] ?: emptySet(),
-            pinnedQuickCategoryIds = prefs[KEY_PINNED_QUICK_CATEGORIES]?.toList() ?: emptyList(),
+            pinnedQuickCategoryIds = prefs[KEY_PINNED_QUICK_CATEGORIES]
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?: emptyList(),
         )
     }
 
@@ -48,7 +52,7 @@ class UserPreferences(private val context: Context) {
     suspend fun setTheme(theme: String) = context.dataStore.edit { it[KEY_THEME] = theme }
 
     suspend fun setPinnedQuickCategoryIds(ids: List<String>) = context.dataStore.edit {
-        it[KEY_PINNED_QUICK_CATEGORIES] = ids.take(4).toSet()
+        it[KEY_PINNED_QUICK_CATEGORIES] = ids.take(4).joinToString(",")
     }
 
     suspend fun setBudgetStartDay(day: Int) = context.dataStore.edit { it[KEY_START_DAY] = day }
@@ -217,7 +221,7 @@ class UserPreferences(private val context: Context) {
         private val KEY_LAST_ROLLOVER_PERIOD = longPreferencesKey("last_rollover_period_start")
         private val KEY_LEGACY_DEMO_PURGED = booleanPreferencesKey("legacy_demo_purged_v1")
         private val KEY_DISMISSED_NOTIFICATIONS = stringSetPreferencesKey("dismissed_notifications")
-        private val KEY_PINNED_QUICK_CATEGORIES = stringSetPreferencesKey("pinned_quick_categories")
+        private val KEY_PINNED_QUICK_CATEGORIES = stringPreferencesKey("pinned_quick_categories_v2")
         private const val TRIAL_MS = 7L * 24 * 60 * 60 * 1000
     }
 }

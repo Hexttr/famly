@@ -13,8 +13,8 @@ android {
         applicationId = "com.famly.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.0.5"
+        versionCode = 8
+        versionName = "1.0.8"
         buildConfigField("String", "API_BASE_URL", "\"https://api.jazz68.ru\"")
         buildConfigField("boolean", "MONETIZATION_ENABLED", "false")
     }

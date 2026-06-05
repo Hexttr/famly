@@ -9,6 +9,8 @@ import com.famly.app.billing.PurchaseResult
 import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.CategoryEntity
 import com.famly.app.data.local.entity.FamilyMemberEntity
+import com.famly.app.data.local.entity.SavingsGoalEntity
+import com.famly.app.data.local.entity.SavingsLedgerEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.data.repository.FamlyRepository
 import com.famly.app.data.sync.SyncRepository
@@ -48,6 +50,8 @@ data class FamlyUiState(
     val categories: List<CategoryEntity> = emptyList(),
     val transactions: List<TransactionEntity> = emptyList(),
     val familyMembers: List<FamilyMemberEntity> = emptyList(),
+    val savingsGoal: SavingsGoalEntity? = null,
+    val savingsLedger: List<SavingsLedgerEntity> = emptyList(),
     val safeToSpendKopecks: Long = 0,
     val spentKopecks: Long = 0,
     val incomeKopecks: Long = 0,
@@ -55,6 +59,8 @@ data class FamlyUiState(
     val daysLeft: Int = 0,
     val dailySafeSpendKopecks: Long = 0,
     val periodLabel: String = "",
+    val periodStartEpochDay: Long = 0,
+    val periodEndEpochDay: Long = 0,
 )
 
 class FamlyViewModel(
@@ -94,12 +100,28 @@ class FamlyViewModel(
     }
 
     val uiState: StateFlow<FamlyUiState> = combine(
-        repository.settings,
-        repository.accounts,
-        repository.categories,
-        repository.transactions,
-        repository.familyMembers,
-    ) { settings, accounts, categories, transactions, family ->
+        combine(
+            repository.settings,
+            repository.accounts,
+            repository.categories,
+            repository.transactions,
+            repository.familyMembers,
+        ) { settings, accounts, categories, transactions, family ->
+            listOf(settings, accounts, categories, transactions, family)
+        },
+        repository.savingsState,
+    ) { core, savings ->
+        @Suppress("UNCHECKED_CAST")
+        val settings = core[0] as com.famly.app.domain.model.AppSettings
+        @Suppress("UNCHECKED_CAST")
+        val accounts = core[1] as List<AccountEntity>
+        @Suppress("UNCHECKED_CAST")
+        val categories = core[2] as List<CategoryEntity>
+        @Suppress("UNCHECKED_CAST")
+        val transactions = core[3] as List<TransactionEntity>
+        @Suppress("UNCHECKED_CAST")
+        val family = core[4] as List<FamilyMemberEntity>
+        val (goal, ledger) = savings
         val period = BudgetCalculator.currentPeriod(settings.budgetPeriod.startDay)
         val startDay = period.start.toEpochDay()
         val endDay = period.end.toEpochDay()
@@ -117,6 +139,8 @@ class FamlyViewModel(
             categories = categories,
             transactions = transactions,
             familyMembers = family,
+            savingsGoal = goal,
+            savingsLedger = ledger,
             safeToSpendKopecks = remaining,
             spentKopecks = spent,
             incomeKopecks = income,
@@ -124,6 +148,8 @@ class FamlyViewModel(
             daysLeft = daysLeft,
             dailySafeSpendKopecks = getDailySafeSpend(remaining, daysLeft),
             periodLabel = MoneyFormatter.formatPeriodLabel(period.start),
+            periodStartEpochDay = startDay,
+            periodEndEpochDay = endDay,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FamlyUiState())
 
@@ -230,6 +256,7 @@ class FamlyViewModel(
         note: String?,
         isRecurring: Boolean,
         dateEpochDay: Long? = null,
+        spendFromGoalKopecks: Long = 0,
     ) = viewModelScope.launch {
         val amount = (amountRubles.replace(',', '.').toDoubleOrNull() ?: return@launch) * 100
         repository.addTransaction(
@@ -240,7 +267,36 @@ class FamlyViewModel(
             dateEpochDay = dateEpochDay ?: LocalDate.now().toEpochDay(),
             note = note?.takeIf { it.isNotBlank() },
             isRecurring = isRecurring,
+            spendFromGoalKopecks = spendFromGoalKopecks,
         )
+    }
+
+    fun upsertSavingsGoal(
+        goalType: String,
+        customName: String?,
+        targetRubles: String,
+        incomePercent: Int?,
+        monthlyPlanRubles: String?,
+    ) = viewModelScope.launch {
+        val target = (targetRubles.replace(',', '.').toDoubleOrNull() ?: return@launch) * 100
+        val monthlyPlan = monthlyPlanRubles?.trim()?.takeIf { it.isNotBlank() }?.let {
+            (it.replace(',', '.').toDoubleOrNull() ?: return@launch) * 100
+        }?.toLong()
+        repository.upsertSavingsGoal(
+            goalType = goalType,
+            customName = customName,
+            targetKopecks = target.toLong(),
+            incomePercent = incomePercent,
+            monthlyPlanKopecks = monthlyPlan,
+            activate = true,
+        )
+    }
+
+    fun pauseSavingsGoal() = viewModelScope.launch { repository.pauseSavingsGoal() }
+
+    fun manualAddToSavings(amountRubles: String, note: String? = null) = viewModelScope.launch {
+        val amount = (amountRubles.replace(',', '.').toDoubleOrNull() ?: return@launch) * 100
+        repository.manualAddToSavings(amount.toLong(), note?.takeIf { it.isNotBlank() })
     }
 
     fun deleteTransaction(id: String) = viewModelScope.launch { repository.deleteTransaction(id) }

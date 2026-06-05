@@ -1,5 +1,6 @@
 package com.famly.app.ui.components
 
+import com.famly.app.ui.theme.FamlyColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,7 +26,6 @@ import androidx.compose.ui.unit.sp
 import com.famly.app.domain.analytics.REPORT_PERIOD_LABELS
 import com.famly.app.domain.analytics.ReportPeriod
 import com.famly.app.ui.theme.Expense
-import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
@@ -44,8 +44,8 @@ fun PeriodFilterChip(
         modifier = modifier
             .clip(shape)
             .then(if (!selected) Modifier.famlySmShadow(shape) else Modifier)
-            .background(if (selected) Primary else MaterialTheme.colorScheme.surface)
-            .border(2.dp, if (selected) Primary else Primary.copy(alpha = 0.27f), shape)
+            .background(if (selected) FamlyColor.primary else MaterialTheme.colorScheme.surface)
+            .border(2.dp, if (selected) FamlyColor.primary else FamlyColor.primary.copy(alpha = 0.27f), shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
