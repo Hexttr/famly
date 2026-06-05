@@ -49,6 +49,44 @@ private val DarkColors = darkColorScheme(
     outline = Color(0xFF3A4540),
 )
 
+private val PinkColors = lightColorScheme(
+    primary = PinkPrimary,
+    onPrimary = Color.White,
+    primaryContainer = PinkPrimary.copy(alpha = 0.12f),
+    onPrimaryContainer = PinkPrimary,
+    secondary = PinkAccent,
+    onSecondary = Color.White,
+    secondaryContainer = PinkAccent.copy(alpha = 0.15f),
+    onSecondaryContainer = PinkPrimary,
+    tertiary = Premium,
+    background = PinkBackground,
+    surface = PinkSurface,
+    surfaceVariant = PinkSurfaceAlt,
+    onBackground = TextPrimary,
+    onSurface = TextPrimary,
+    onSurfaceVariant = TextSecondary,
+    outline = PinkAccent.copy(alpha = 0.35f),
+)
+
+private val BlueColors = lightColorScheme(
+    primary = BluePrimary,
+    onPrimary = Color.White,
+    primaryContainer = BluePrimary.copy(alpha = 0.12f),
+    onPrimaryContainer = BluePrimary,
+    secondary = BlueAccent,
+    onSecondary = Color.White,
+    secondaryContainer = BlueAccent.copy(alpha = 0.15f),
+    onSecondaryContainer = BluePrimary,
+    tertiary = Premium,
+    background = BlueBackground,
+    surface = BlueSurface,
+    surfaceVariant = BlueSurfaceAlt,
+    onBackground = TextPrimary,
+    onSurface = TextPrimary,
+    onSurfaceVariant = TextSecondary,
+    outline = BlueAccent.copy(alpha = 0.35f),
+)
+
 private val FamlyTypography = Typography(
     displaySmall = TextStyle(fontSize = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
     headlineMedium = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
@@ -64,11 +102,19 @@ private val FamlyTypography = Typography(
 
 @Composable
 fun FamlyTheme(
+    theme: String = "light",
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
+    val colorScheme = when (theme) {
+        "dark" -> DarkColors
+        "pink" -> PinkColors
+        "blue" -> BlueColors
+        "light" -> LightColors
+        else -> if (darkTheme) DarkColors else LightColors
+    }
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+        colorScheme = colorScheme,
         typography = FamlyTypography,
         content = content,
     )

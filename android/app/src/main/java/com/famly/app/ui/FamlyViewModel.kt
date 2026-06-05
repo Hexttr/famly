@@ -129,6 +129,9 @@ class FamlyViewModel(
 
     fun completeOnboarding() = viewModelScope.launch { repository.completeOnboarding() }
     fun setTheme(theme: String) = viewModelScope.launch { repository.setTheme(theme) }
+
+    fun setPinnedQuickCategories(ids: List<String>) =
+        viewModelScope.launch { repository.setPinnedQuickCategoryIds(ids) }
     fun setBudgetStartDay(day: Int) = viewModelScope.launch { repository.setBudgetStartDay(day) }
     fun setCurrency(currency: String) = viewModelScope.launch { repository.setCurrency(currency) }
     fun activatePremium() = viewModelScope.launch { repository.activatePremium() }

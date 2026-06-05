@@ -226,6 +226,7 @@ fun FamlyNavHost(
                     onOpenOperations = { navController.navigate(Routes.OPERATIONS) },
                     onOpenTransaction = { navController.navigate(Routes.operationDetail(it)) },
                     onQuickAddCategory = { openQuickAdd(it) },
+                    onUpdatePinnedCategories = { viewModel.setPinnedQuickCategories(it) },
                 )
             }
             composable(Routes.OPERATIONS) {
@@ -323,6 +324,7 @@ fun FamlyNavHost(
                     onJoinHousehold = { viewModel.joinHousehold(it) },
                     onRefreshInvite = { viewModel.generateInvite() },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    onLeaveHousehold = { viewModel.leaveHousehold() },
                     inviteCode = inviteCode,
                     inviteUrl = viewModel.inviteUrl(),
                     inviteLoading = inviteLoading,

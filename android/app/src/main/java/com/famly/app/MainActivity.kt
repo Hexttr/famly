@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
                 ),
             )
             val state by vm.uiState.collectAsState()
-            FamlyTheme(darkTheme = state.settings.theme == "dark") {
+            FamlyTheme(theme = state.settings.theme) {
                 FamlyNavHost(
                     viewModel = vm,
                     pendingQuickAddType = pendingQuickAddType,

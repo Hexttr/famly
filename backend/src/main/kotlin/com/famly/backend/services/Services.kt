@@ -299,9 +299,16 @@ class HouseholdService {
             }
         }
         HouseholdMembers.deleteWhere { HouseholdMembers.id eq member.id }
-        if (members(household.id).isEmpty()) {
+        val remaining = members(household.id)
+        if (remaining.isEmpty()) {
             SyncLog.deleteWhere { SyncLog.householdId eq household.id }
             Households.deleteWhere { Households.id eq household.id }
+        } else if (remaining.none { it.role == "admin" }) {
+            remaining.forEach { survivor ->
+                HouseholdMembers.update({ HouseholdMembers.id eq survivor.id }) {
+                    it[role] = "admin"
+                }
+            }
         }
     }
 

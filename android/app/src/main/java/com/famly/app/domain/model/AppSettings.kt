@@ -21,6 +21,7 @@ data class AppSettings(
     val lastSyncAttemptAt: Long? = null,
     val lastRolloverPeriodStart: Long? = null,
     val dismissedNotificationIds: Set<String> = emptySet(),
+    val pinnedQuickCategoryIds: List<String> = emptyList(),
 ) {
     val isAuthenticated: Boolean get() = !authToken.isNullOrBlank() && !userId.isNullOrBlank()
 

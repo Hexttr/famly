@@ -51,6 +51,11 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CurrencyRuble
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Euro
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Logout
@@ -113,6 +118,7 @@ import com.famly.app.ui.components.FamlyCard
 import com.famly.app.ui.components.FamlyCategoryChip
 import com.famly.app.ui.components.FamlyDatePickerDialog
 import com.famly.app.ui.components.FamlyFilterChip
+import com.famly.app.ui.components.FamlyRecurringToggle
 import com.famly.app.ui.components.HeroCard
 import com.famly.app.ui.components.PremiumGateContent
 import com.famly.app.ui.components.SectionHeading
@@ -169,20 +175,17 @@ fun OperationDetailScreen(
         DetailRow("Дата", MoneyFormatter.formatShortDate(tx.dateEpochDay))
         DetailRow("Счёт", "${acc?.icon ?: ""} ${acc?.name ?: "—"}")
         FamlyCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = recurring,
-                    onCheckedChange = {
-                        recurring = it
-                        onUpdateRecurring(it, if (it) recurringDay else null)
-                    },
-                )
-                Text("Повторять каждый месяц", fontWeight = FontWeight.SemiBold)
-            }
+            FamlyRecurringToggle(
+                checked = recurring,
+                onCheckedChange = {
+                    recurring = it
+                    onUpdateRecurring(it, if (it) recurringDay else null)
+                },
+            )
             if (recurring) {
-                Text("День месяца", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(1, 5, 10, 15, 20, 25, 28).forEach { day ->
+                Text("День месяца", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(listOf(1, 5, 10, 15, 20, 25, 28)) { day ->
                         FamlyFilterChip(
                             label = "$day",
                             selected = recurringDay == day,
@@ -190,7 +193,6 @@ fun OperationDetailScreen(
                                 recurringDay = day
                                 onUpdateRecurring(true, day)
                             },
-                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -202,7 +204,8 @@ fun OperationDetailScreen(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Expense.copy(alpha = 0.15f), contentColor = Expense),
         ) {
-            Text("Удалить")
+            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text("Удалить", modifier = Modifier.padding(start = 8.dp))
         }
     }
 }
@@ -541,19 +544,35 @@ fun SettingsScreen(
             }
         }
         SectionHeading("🎨", "Оформление")
-        Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FamlyFilterChip(
-                label = "☀️ Светлая",
-                selected = state.settings.theme == "light",
-                onClick = { onThemeChange("light") },
-                modifier = Modifier.weight(1f),
-            )
-            FamlyFilterChip(
-                label = "🌙 Тёмная",
-                selected = state.settings.theme == "dark",
-                onClick = { onThemeChange("dark") },
-                modifier = Modifier.weight(1f),
-            )
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FamlyFilterChip(
+                    label = "☀️ Светлая",
+                    selected = state.settings.theme == "light",
+                    onClick = { onThemeChange("light") },
+                    modifier = Modifier.weight(1f),
+                )
+                FamlyFilterChip(
+                    label = "🌙 Тёмная",
+                    selected = state.settings.theme == "dark",
+                    onClick = { onThemeChange("dark") },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FamlyFilterChip(
+                    label = "🌸 Розовая",
+                    selected = state.settings.theme == "pink",
+                    onClick = { onThemeChange("pink") },
+                    modifier = Modifier.weight(1f),
+                )
+                FamlyFilterChip(
+                    label = "💙 Синяя",
+                    selected = state.settings.theme == "blue",
+                    onClick = { onThemeChange("blue") },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         SectionHeading("📄", "Документы", modifier = Modifier.padding(top = Spacing.md))
         Column(modifier = Modifier.padding(start = 4.dp, bottom = Spacing.lg)) {
@@ -811,13 +830,12 @@ private fun QuickAddAmountField(
                         }
                         innerTextField()
                     }
-                    Icon(
-                        Icons.Default.CurrencyRuble,
-                        contentDescription = "Рубли",
-                        tint = if (isFocused || value.isNotEmpty()) Primary else Primary.copy(alpha = 0.45f),
-                        modifier = Modifier
-                            .padding(start = 6.dp)
-                            .size(30.dp),
+                    Text(
+                        text = "₽",
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isFocused || value.isNotEmpty()) Primary else Primary.copy(alpha = 0.45f),
+                        modifier = Modifier.padding(start = 6.dp),
                     )
                 }
             },
@@ -974,7 +992,14 @@ fun QuickAddSheet(
                 animationSpec = spring(dampingRatio = 0.72f, stiffness = 340f),
             ) + fadeIn(animationSpec = spring(dampingRatio = 0.8f)),
         ) {
-            Column(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 24.dp)
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .navigationBarsPadding(),
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Add, contentDescription = null, tint = Primary)
                     Text(
@@ -1091,13 +1116,11 @@ fun QuickAddSheet(
                     onValueChange = { note = it },
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    Checkbox(checked = recurring, onCheckedChange = { recurring = it })
-                    Text("Повторять каждый месяц", style = MaterialTheme.typography.bodyMedium)
-                }
+                FamlyRecurringToggle(
+                    checked = recurring,
+                    onCheckedChange = { recurring = it },
+                    modifier = Modifier.padding(top = 8.dp),
+                )
                 Button(
                     onClick = {
                         onSave(amount, type, categoryId, accountId, note, recurring, effectiveDate.toEpochDay())

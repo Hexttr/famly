@@ -61,6 +61,7 @@ class FamlyRepository(
             preferences.initTrialIfNeeded()
         }
         processBudgetRollover()
+        syncRepository?.reconcileAccountBalances()
     }
 
     private suspend fun purgeLegacyDemoDataIfNeeded() {
@@ -169,6 +170,9 @@ class FamlyRepository(
     suspend fun completeOnboarding() = preferences.setOnboardingComplete()
     suspend fun dismissNotification(id: String) = preferences.dismissNotification(id)
     suspend fun setTheme(theme: String) = preferences.setTheme(theme)
+
+    suspend fun setPinnedQuickCategoryIds(ids: List<String>) =
+        preferences.setPinnedQuickCategoryIds(ids)
     suspend fun setBudgetStartDay(day: Int) = preferences.setBudgetStartDay(day)
     suspend fun setCurrency(currency: String) = preferences.setCurrency(currency)
     suspend fun activatePremium() = preferences.activatePremium()

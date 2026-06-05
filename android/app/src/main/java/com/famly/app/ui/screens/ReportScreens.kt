@@ -45,6 +45,7 @@ import com.famly.app.domain.analytics.getCategoryExpenseTrends
 import com.famly.app.domain.analytics.getCategorySpent
 import com.famly.app.domain.analytics.getMonthlyTotals
 import com.famly.app.domain.analytics.getMonthsCountForPeriod
+import com.famly.app.domain.analytics.hasPeriodComparisonBaseline
 import com.famly.app.domain.analytics.getPeriodExpenseComparison
 import com.famly.app.domain.analytics.getReportPeriodDescription
 import com.famly.app.domain.analytics.getTotalExpenses
@@ -271,6 +272,9 @@ fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Un
         return
     }
     var period by remember { mutableStateOf(ReportPeriod.MONTH) }
+    val hasComparisonBaseline = remember(state.transactions, period) {
+        hasPeriodComparisonBaseline(state.transactions, period)
+    }
     val comparison = remember(state.transactions, period) {
         getPeriodExpenseComparison(state.transactions, period)
     }
@@ -420,7 +424,24 @@ fun AnalyticsScreen(state: FamlyUiState, onBack: () -> Unit, onUpgrade: () -> Un
             }
             Spacer(modifier = Modifier.height(Spacing.md))
             SectionHeading("📈", "Изменение по категориям")
-            if (trends.isEmpty()) {
+            if (!hasComparisonBaseline) {
+                FamlyCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp, horizontal = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text("⏳", fontSize = 36.sp)
+                        Text(
+                            "Сравнение с прошлым периодом появится после первого полного месяца с данными",
+                            textAlign = TextAlign.Center,
+                            color = TextMuted,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.padding(top = 10.dp),
+                        )
+                    }
+                }
+            } else if (trends.isEmpty()) {
                 FamlyCard(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         "Недостаточно данных для сравнения",

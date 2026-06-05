@@ -39,6 +39,10 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -89,6 +93,7 @@ import com.famly.app.ui.theme.TextSecondary
 
 private const val INITIAL_RECENT = 5
 private const val LOAD_MORE_STEP = 10
+private val DEFAULT_QUICK_CATEGORY_IDS = listOf("c2", "c1", "c4", "c3")
 
 @Composable
 fun HomeScreen(
@@ -97,18 +102,31 @@ fun HomeScreen(
     onOpenOperations: () -> Unit,
     onOpenTransaction: (String) -> Unit,
     onQuickAddCategory: (String) -> Unit,
+    onUpdatePinnedCategories: (List<String>) -> Unit,
 ) {
     var visibleRecent by remember { mutableIntStateOf(INITIAL_RECENT) }
+    var showPinnedPicker by remember { mutableStateOf(false) }
     val recent = state.transactions.take(visibleRecent)
     val hasMore = visibleRecent < state.transactions.size
     val remaining = maxOf(0, state.safeToSpendKopecks)
     val net = state.incomeKopecks - state.spentKopecks
     val budgetConfigured = state.budgetTotalKopecks > 0
 
-    val topIds = getTopExpenseCategoryIds(state.transactions)
-    val quickFromTop = topIds.mapNotNull { id -> state.categories.find { it.id == id } }.take(4)
-    val fallbackQuick = state.categories.filter { it.type == "expense" }.take(4)
-    val quickCategories = if (quickFromTop.size >= 4) quickFromTop else fallbackQuick
+    val expenseCategories = state.categories.filter { it.type == "expense" }
+    val pinnedIds = state.settings.pinnedQuickCategoryIds
+    val quickCategories = when {
+        pinnedIds.isNotEmpty() -> pinnedIds.mapNotNull { id -> expenseCategories.find { it.id == id } }.take(4)
+        else -> {
+            val topIds = getTopExpenseCategoryIds(state.transactions)
+            val fromTop = topIds.mapNotNull { id -> expenseCategories.find { it.id == id } }.take(4)
+            if (fromTop.size >= 4) {
+                fromTop
+            } else {
+                DEFAULT_QUICK_CATEGORY_IDS.mapNotNull { id -> expenseCategories.find { it.id == id } }
+                    .ifEmpty { expenseCategories.take(4) }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -226,6 +244,23 @@ fun HomeScreen(
         if (quickCategories.isNotEmpty()) {
             Row(
                 modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.md)
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Топ категории", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Row(
+                    modifier = Modifier.clickable { showPinnedPicker = true },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.Tune, contentDescription = null, tint = Primary, modifier = Modifier.size(16.dp))
+                    Text("Настроить", color = Primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.padding(start = 4.dp))
+                }
+            }
+            Row(
+                modifier = Modifier
                     .padding(horizontal = Spacing.md)
                     .padding(bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -240,6 +275,62 @@ fun HomeScreen(
                     )
                 }
             }
+        }
+
+        if (showPinnedPicker) {
+            var draftPinned by remember(pinnedIds, expenseCategories) {
+                mutableStateOf(
+                    if (pinnedIds.isNotEmpty()) pinnedIds else quickCategories.map { it.id },
+                )
+            }
+            AlertDialog(
+                onDismissRequest = { showPinnedPicker = false },
+                title = { Text("Топ категории") },
+                text = {
+                    Column {
+                        Text(
+                            "Выберите до 4 категорий для быстрого доступа на главной",
+                            fontSize = 13.sp,
+                            color = TextMuted,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                        expenseCategories.forEach { cat ->
+                            val selected = cat.id in draftPinned
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        draftPinned = when {
+                                            selected -> draftPinned.filter { it != cat.id }
+                                            draftPinned.size >= 4 -> draftPinned
+                                            else -> draftPinned + cat.id
+                                        }
+                                    }
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Checkbox(checked = selected, onCheckedChange = null)
+                                Text("${cat.icon} ${cat.name}", modifier = Modifier.padding(start = 8.dp))
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onUpdatePinnedCategories(draftPinned.take(4))
+                            showPinnedPicker = false
+                        },
+                    ) {
+                        Text("Сохранить", color = Primary, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPinnedPicker = false }) {
+                        Text("Отмена")
+                    }
+                },
+            )
         }
 
         if (budgetConfigured) {

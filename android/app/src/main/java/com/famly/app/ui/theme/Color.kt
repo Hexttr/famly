@@ -29,6 +29,17 @@ val DarkTextSecondary = Color(0xFFA8B5AE)
 val DarkExpense = Color(0xFFFF6B6B)
 val DarkPremium = Color(0xFFFFD166)
 val HeroHint = Color(0xFFB7E4C7)
+val PinkPrimary = Color(0xFFC2185B)
+val PinkAccent = Color(0xFFF48FB1)
+val PinkBackground = Color(0xFFFFF5F8)
+val PinkSurface = Color(0xFFFFFFFF)
+val PinkSurfaceAlt = Color(0xFFFCE4EC)
+
+val BluePrimary = Color(0xFF1565C0)
+val BlueAccent = Color(0xFF42A5F5)
+val BlueBackground = Color(0xFFF3F8FF)
+val BlueSurface = Color(0xFFFFFFFF)
+val BlueSurfaceAlt = Color(0xFFE3F2FD)
 
 fun parseHexColor(hex: String, fallback: Color = Primary): Color {
     val cleaned = hex.removePrefix("#")

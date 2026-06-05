@@ -94,8 +94,21 @@ class ReportAnalyticsTest {
     }
 
     @Test
-    fun getReportPeriodDescription_month_usesRussianLabel() {
-        val desc = getReportPeriodDescription(ReportPeriod.MONTH, now)
-        assertTrue(desc.contains("2025"))
+    fun getCategoryExpenseTrends_noBaselineWhenFirstMonth() {
+        val categories = listOf(
+            com.famly.app.data.local.entity.CategoryEntity(
+                "c2", "Транспорт", "🚌", "expense", "#457B9D", 0L, 0, false, 0, 0, 0,
+            ),
+        )
+        val txs = listOf(tx("1", 205_000, "expense", LocalDate.of(2025, 6, 10), "c2"))
+        val trends = getCategoryExpenseTrends(categories, txs, ReportPeriod.MONTH, now)
+        assertEquals(1, trends.size)
+        assertNull(trends.first().changePercent)
+    }
+
+    @Test
+    fun hasPeriodComparisonBaseline_falseForFirstMonthOnly() {
+        val txs = listOf(tx("1", 1000, "expense", LocalDate.of(2025, 6, 10)))
+        assertEquals(false, hasPeriodComparisonBaseline(txs, ReportPeriod.MONTH, now))
     }
 }

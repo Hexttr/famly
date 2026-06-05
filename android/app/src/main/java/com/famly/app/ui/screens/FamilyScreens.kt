@@ -31,11 +31,15 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.GroupRemove
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -82,6 +86,7 @@ fun FamilyScreen(
     onJoinHousehold: (String) -> Unit,
     onRefreshInvite: () -> Unit,
     onOpenSettings: () -> Unit,
+    onLeaveHousehold: () -> Unit,
     inviteCode: String?,
     inviteUrl: String?,
     inviteLoading: Boolean,
@@ -101,6 +106,7 @@ fun FamilyScreen(
     }
     var joinCode by remember(initialJoinCode) { mutableStateOf(initialJoinCode) }
     var autoInviteRequested by remember { mutableStateOf(false) }
+    var showLeaveConfirm by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val displayName = state.settings.householdName?.takeIf { it.isNotBlank() } ?: familyName.takeIf { it.isNotBlank() }
     val nameFieldEnabled = !familyCreated || !state.settings.isSynced
@@ -460,6 +466,49 @@ fun FamilyScreen(
             }
         }
 
+        if (familyCreated && state.settings.isSynced) {
+            OutlinedButton(
+                onClick = { showLeaveConfirm = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.md),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Expense),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Expense.copy(alpha = 0.5f)),
+            ) {
+                Icon(Icons.Default.GroupRemove, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Выйти из группы", modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        if (showLeaveConfirm) {
+            AlertDialog(
+                onDismissRequest = { showLeaveConfirm = false },
+                title = { Text("Выйти из группы?") },
+                text = {
+                    Text(
+                        "Вы покинете семью «${displayName ?: "семья"}». " +
+                            "Локальные данные бюджета останутся на устройстве, но синхронизация с семьёй прекратится.",
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showLeaveConfirm = false
+                            onLeaveHousehold()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Expense),
+                    ) {
+                        Text("Выйти")
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { showLeaveConfirm = false }) {
+                        Text("Отмена")
+                    }
+                },
+            )
+        }
+
         Spacer(modifier = Modifier.height(72.dp))
     }
 }
@@ -502,28 +551,37 @@ fun FamilyMemberScreen(
     val canEditRole = isAdmin
     val canEditVisibility = isAdmin
 
+    val canChangeAvatar = isSelf || isAdmin
+
     ScreenScaffold(onBack = onBack) {
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 modifier = Modifier
-                    .clickable { onCycleAvatar() }
+                    .then(if (canChangeAvatar) Modifier.clickable { onCycleAvatar() } else Modifier)
                     .padding(bottom = 4.dp),
             ) {
                 MemberAvatar(member.avatar, size = 72)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .offset(x = 4.dp, y = 4.dp)
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Primary)
-                        .border(2.dp, Color.White, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Сменить аватар", tint = Color.White, modifier = Modifier.size(14.dp))
+                if (canChangeAvatar) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 4.dp, y = 4.dp)
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Primary)
+                            .border(2.dp, Color.White, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = "Сменить аватар", tint = Color.White, modifier = Modifier.size(14.dp))
+                    }
                 }
             }
-            Text("Нажмите на аватар, чтобы сменить", fontSize = 12.sp, color = TextMuted, modifier = Modifier.padding(bottom = 8.dp))
+            Text(
+                if (canChangeAvatar) "Нажмите на аватар, чтобы сменить" else "Аватар участника",
+                fontSize = 12.sp,
+                color = TextMuted,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
             Text(member.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
 
             Spacer(modifier = Modifier.height(Spacing.lg))

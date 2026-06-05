@@ -112,6 +112,13 @@ fun getCategorySpent(categoryId: String, transactions: List<TransactionEntity>):
     transactions.filter { it.categoryId == categoryId && it.type == "expense" }
         .sumOf { it.amountKopecks }
 
+fun hasPeriodComparisonBaseline(
+    transactions: List<TransactionEntity>,
+    period: ReportPeriod,
+    now: LocalDate = LocalDate.now(),
+): Boolean = filterTransactionsByPreviousPeriod(transactions, period, now)
+    .any { it.type == "expense" }
+
 fun getPeriodExpenseComparison(
     transactions: List<TransactionEntity>,
     period: ReportPeriod,
@@ -155,12 +162,14 @@ fun getCategoryExpenseTrends(
     period: ReportPeriod,
     now: LocalDate = LocalDate.now(),
 ): List<CategoryTrend> {
+    val hasBaseline = hasPeriodComparisonBaseline(transactions, period, now)
     val currentTx = filterTransactionsByPeriod(transactions, period, now)
     val previousTx = filterTransactionsByPreviousPeriod(transactions, period, now)
     return categories.filter { it.type == "expense" }.map { cat ->
         val current = getCategorySpent(cat.id, currentTx)
         val previous = getCategorySpent(cat.id, previousTx)
         val changePercent = when {
+            !hasBaseline -> null
             previous > 0 -> ((current - previous) * 100 / previous).toInt()
             current > 0 -> 100
             else -> null

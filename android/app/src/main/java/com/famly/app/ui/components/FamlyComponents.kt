@@ -36,6 +36,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -530,6 +532,46 @@ fun FamlyFilterChip(
             color = if (selected) Color.White else TextSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+fun FamlyRecurringToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.md))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .border(1.dp, Primary.copy(alpha = 0.18f), RoundedCornerShape(Radius.md))
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text("Повторять каждый месяц", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text(
+                "Автоматически создавать такую операцию",
+                fontSize = 12.sp,
+                color = TextMuted,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Primary,
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = TextMuted.copy(alpha = 0.35f),
+                uncheckedBorderColor = TextMuted.copy(alpha = 0.25f),
+            ),
         )
     }
 }

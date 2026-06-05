@@ -314,6 +314,7 @@ class SyncRepository(
 
             val pull = api.pull(token, since)
             applyRemoteEntities(pull.entities)
+            reconcileAccountBalances()
             if (pull.household != null) {
                 applyHouseholdSnapshot(pull.household)
             } else {
@@ -451,6 +452,26 @@ class SyncRepository(
                 "transaction" -> upsertIfNewer(payload.toTransaction())
             }
         }
+    }
+
+    suspend fun reconcileAccountBalances() {
+        val accounts = db.accountDao().observeAll().first()
+        if (accounts.isEmpty()) return
+        val transactions = db.transactionDao().observeAll().first()
+        val now = System.currentTimeMillis()
+        var changed = false
+        accounts.forEach { account ->
+            val computed = transactions
+                .filter { it.accountId == account.id }
+                .sumOf { tx -> if (tx.type == "income") tx.amountKopecks else -tx.amountKopecks }
+            if (account.balanceKopecks != computed) {
+                val updated = account.copy(balanceKopecks = computed, updatedAt = now)
+                db.accountDao().upsert(updated)
+                enqueueAccount(updated, schedule = false)
+                changed = true
+            }
+        }
+        if (changed) scheduleSync()
     }
 
     private suspend fun upsertIfNewer(account: AccountEntity) {
