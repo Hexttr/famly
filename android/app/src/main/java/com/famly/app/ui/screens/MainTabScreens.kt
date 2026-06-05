@@ -670,7 +670,7 @@ fun MoreScreen(
             }
         }
         Text(
-            "Мой (Наш) Бюджет v1.0.3 · Сделано в России",
+            "Мой (Наш) Бюджет v1.0.4 · Сделано в России",
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.md, bottom = Spacing.md),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.labelSmall,
