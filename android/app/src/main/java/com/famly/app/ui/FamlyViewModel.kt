@@ -94,26 +94,12 @@ class FamlyViewModel(
     }
 
     val uiState: StateFlow<FamlyUiState> = combine(
-        combine(
-            repository.settings,
-            repository.accounts,
-            repository.categories,
-            repository.transactions,
-            repository.familyMembers,
-        ) { settings, accounts, categories, transactions, family ->
-            arrayOf(settings, accounts, categories, transactions, family)
-        },
-    ) { core ->
-        @Suppress("UNCHECKED_CAST")
-        val settings = core[0] as AppSettings
-        @Suppress("UNCHECKED_CAST")
-        val accounts = core[1] as List<AccountEntity>
-        @Suppress("UNCHECKED_CAST")
-        val categories = core[2] as List<CategoryEntity>
-        @Suppress("UNCHECKED_CAST")
-        val transactions = core[3] as List<TransactionEntity>
-        @Suppress("UNCHECKED_CAST")
-        val family = core[4] as List<FamilyMemberEntity>
+        repository.settings,
+        repository.accounts,
+        repository.categories,
+        repository.transactions,
+        repository.familyMembers,
+    ) { settings, accounts, categories, transactions, family ->
         val period = BudgetCalculator.currentPeriod(settings.budgetPeriod.startDay)
         val startDay = period.start.toEpochDay()
         val endDay = period.end.toEpochDay()
