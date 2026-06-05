@@ -28,6 +28,7 @@ data class HouseholdMemberDto(
     val displayName: String,
     val role: String,
     val visibility: String,
+    val avatar: String = "",
 )
 
 data class HouseholdFullResult(
@@ -56,6 +57,18 @@ data class SubscriptionStatusResult(
 data class SyncPullResult(
     val entities: List<SyncEntityDto>,
     val syncToken: Long,
+    val household: HouseholdSnapshotDto? = null,
+)
+
+data class HouseholdSnapshotDto(
+    val id: String,
+    val name: String,
+    val members: List<HouseholdMemberDto>,
+)
+
+data class SyncPushResult(
+    val accepted: List<String>,
+    val rejected: List<String>,
 )
 
 /**
@@ -127,11 +140,13 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
         role: String? = null,
         visibility: String? = null,
         displayName: String? = null,
+        avatar: String? = null,
     ) = withContext(Dispatchers.IO) {
         val body = JSONObject()
         role?.let { body.put("role", it) }
         visibility?.let { body.put("visibility", it) }
         displayName?.let { body.put("displayName", it) }
+        avatar?.let { body.put("avatar", it) }
         patchJson("/households/$householdId/members/$memberId", body, authToken = token)
     }
 
@@ -178,6 +193,7 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
                             displayName = obj.getString("displayName"),
                             role = obj.getString("role"),
                             visibility = obj.getString("visibility"),
+                            avatar = obj.optString("avatar", ""),
                         )
                     }
                 }
@@ -192,9 +208,9 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
             }
         }
 
-    suspend fun push(token: String, entities: List<SyncEntityDto>) =
+    suspend fun push(token: String, entities: List<SyncEntityDto>): SyncPushResult =
         withContext(Dispatchers.IO) {
-            if (entities.isEmpty()) return@withContext
+            if (entities.isEmpty()) return@withContext SyncPushResult(emptyList(), emptyList())
             val arr = JSONArray()
             entities.forEach { e ->
                 arr.put(
@@ -208,7 +224,11 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
                     },
                 )
             }
-            postJson("/sync/push", JSONObject().put("entities", arr), authToken = token)
+            val response = postJson("/sync/push", JSONObject().put("entities", arr), authToken = token)
+            SyncPushResult(
+                accepted = response.optJSONArray("accepted").toStringList(),
+                rejected = response.optJSONArray("rejected").toStringList(),
+            )
         }
 
     suspend fun pull(token: String, since: Long): SyncPullResult =
@@ -227,8 +247,36 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
                     )
                 }
             }
-            SyncPullResult(entities, response.getLong("syncToken"))
+            val household = if (response.has("household") && !response.isNull("household")) {
+                val h = response.getJSONObject("household")
+                val members = h.getJSONArray("members").let { arr ->
+                    List(arr.length()) { i ->
+                        val obj = arr.getJSONObject(i)
+                        HouseholdMemberDto(
+                            id = obj.getString("id"),
+                            userId = obj.getString("userId"),
+                            displayName = obj.getString("displayName"),
+                            role = obj.getString("role"),
+                            visibility = obj.getString("visibility"),
+                            avatar = obj.optString("avatar", ""),
+                        )
+                    }
+                }
+                HouseholdSnapshotDto(
+                    id = h.getString("id"),
+                    name = h.getString("name"),
+                    members = members,
+                )
+            } else {
+                null
+            }
+            SyncPullResult(entities, response.getLong("syncToken"), household)
         }
+
+    private fun JSONArray?.toStringList(): List<String> {
+        if (this == null) return emptyList()
+        return List(length()) { i -> getString(i) }
+    }
 
     suspend fun getSubscriptionStatus(token: String): SubscriptionStatusResult = withContext(Dispatchers.IO) {
         try {

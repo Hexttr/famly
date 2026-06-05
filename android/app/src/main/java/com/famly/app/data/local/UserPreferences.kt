@@ -36,6 +36,7 @@ class UserPreferences(private val context: Context) {
             householdId = prefs[KEY_HOUSEHOLD_ID],
             householdName = prefs[KEY_HOUSEHOLD_NAME],
             lastSyncToken = prefs[KEY_LAST_SYNC_TOKEN]?.takeIf { it > 0 },
+            lastSyncAttemptAt = prefs[KEY_LAST_SYNC_ATTEMPT]?.takeIf { it > 0 },
             lastRolloverPeriodStart = prefs[KEY_LAST_ROLLOVER_PERIOD]?.takeIf { it != 0L },
             dismissedNotificationIds = prefs[KEY_DISMISSED_NOTIFICATIONS] ?: emptySet(),
         )
@@ -131,6 +132,14 @@ class UserPreferences(private val context: Context) {
         it[KEY_LAST_SYNC_TOKEN] = token
     }
 
+    suspend fun needsSyncCursorFix(): Boolean =
+        (context.dataStore.data.first()[KEY_SYNC_CURSOR_FIX] ?: 0) < SYNC_CURSOR_FIX_VERSION
+
+    suspend fun applySyncCursorFix() = context.dataStore.edit {
+        it.remove(KEY_LAST_SYNC_TOKEN)
+        it[KEY_SYNC_CURSOR_FIX] = SYNC_CURSOR_FIX_VERSION
+    }
+
     suspend fun getLastSyncAttemptAt(): Long =
         context.dataStore.data.first()[KEY_LAST_SYNC_ATTEMPT] ?: 0L
 
@@ -144,6 +153,17 @@ class UserPreferences(private val context: Context) {
     suspend fun setSyncSnapshotQueued(householdId: String) = context.dataStore.edit {
         val current = it[KEY_SYNC_SNAPSHOT_HOUSEHOLDS] ?: emptySet()
         it[KEY_SYNC_SNAPSHOT_HOUSEHOLDS] = current + householdId
+    }
+
+    suspend fun setPendingHouseholdSnapshot(pending: Boolean) = context.dataStore.edit {
+        it[KEY_PENDING_HOUSEHOLD_SNAPSHOT] = pending
+    }
+
+    suspend fun isPendingHouseholdSnapshot(): Boolean =
+        context.dataStore.data.first()[KEY_PENDING_HOUSEHOLD_SNAPSHOT] == true
+
+    suspend fun clearLastSyncToken() = context.dataStore.edit {
+        it.remove(KEY_LAST_SYNC_TOKEN)
     }
 
     suspend fun setLastRolloverPeriodStart(epochDay: Long) = context.dataStore.edit {
@@ -184,6 +204,9 @@ class UserPreferences(private val context: Context) {
         private val KEY_STALE_FAMILY_PURGED = booleanPreferencesKey("stale_family_purged_v1")
         private val KEY_SEED_BUDGET_ZEROED = booleanPreferencesKey("seed_budget_zeroed_v2")
         private val KEY_LAST_SYNC_TOKEN = longPreferencesKey("last_sync_token")
+        private val KEY_SYNC_CURSOR_FIX = intPreferencesKey("sync_cursor_fix_version")
+        private const val SYNC_CURSOR_FIX_VERSION = 2
+        private val KEY_PENDING_HOUSEHOLD_SNAPSHOT = booleanPreferencesKey("pending_household_snapshot")
         private val KEY_LAST_SYNC_ATTEMPT = longPreferencesKey("last_sync_attempt_at")
         private val KEY_SYNC_SNAPSHOT_HOUSEHOLDS = stringSetPreferencesKey("sync_snapshot_households")
         private val KEY_LAST_ROLLOVER_PERIOD = longPreferencesKey("last_rollover_period_start")

@@ -173,7 +173,7 @@ fun Application.configureRouting() {
                     } else {
                         call.respond(
                             householdService.members(id).map {
-                                HouseholdMemberDto(it.id, it.userId, it.displayName, it.role, it.visibility)
+                                HouseholdMemberDto(it.id, it.userId, it.displayName, it.role, it.visibility, it.avatar)
                             },
                         )
                     }
@@ -184,11 +184,16 @@ fun Application.configureRouting() {
                     val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
                     val body = call.receive<UpdateMemberRequest>()
                     val updated = householdService.updateMember(
-                        id, memberId, userId, body.role, body.visibility, body.displayName,
+                        id, memberId, userId, body.role, body.visibility, body.displayName, body.avatar,
                     )
                     call.respond(
                         HouseholdMemberDto(
-                            updated.id, updated.userId, updated.displayName, updated.role, updated.visibility,
+                            updated.id,
+                            updated.userId,
+                            updated.displayName,
+                            updated.role,
+                            updated.visibility,
+                            updated.avatar,
                         ),
                     )
                 }
@@ -206,15 +211,26 @@ fun Application.configureRouting() {
                     val body = call.receive<SyncPushRequest>()
                     val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
                     val h = householdService.getForUser(userId) ?: return@post call.respond(HttpStatusCode.Forbidden)
-                    syncService.push(h.id, body.entities)
-                    call.respond(HttpStatusCode.OK)
+                    val result = syncService.push(h.id, body.entities)
+                    call.respond(SyncPushResponse(result.accepted, result.rejected))
                 }
                 get("/pull") {
                     val since = call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
                     val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
                     val h = householdService.getForUser(userId) ?: return@get call.respond(HttpStatusCode.Forbidden)
-                    val (entities, token) = syncService.pull(h.id, since)
-                    call.respond(SyncPullResponse(entities, token))
+                    val pull = syncService.pull(h.id, since)
+                    val members = householdService.members(h.id).map {
+                        HouseholdMemberDto(
+                            it.id, it.userId, it.displayName, it.role, it.visibility, it.avatar,
+                        )
+                    }
+                    call.respond(
+                        SyncPullResponse(
+                            entities = pull.entities,
+                            syncToken = pull.syncToken,
+                            household = HouseholdSnapshot(h.id, h.name, members),
+                        ),
+                    )
                 }
             }
 
@@ -268,7 +284,7 @@ private fun toHouseholdResponse(
 ) = HouseholdResponse(
     h.id, h.name, h.ownerId,
     householdService.members(h.id).map {
-        HouseholdMemberDto(it.id, it.userId, it.displayName, it.role, it.visibility)
+        HouseholdMemberDto(it.id, it.userId, it.displayName, it.role, it.visibility, it.avatar)
     },
 )
 

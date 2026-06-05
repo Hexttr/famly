@@ -33,7 +33,7 @@ class SyncWorker(
 object SyncWorkScheduler {
     private const val PERIODIC_NAME = "famly_sync_periodic"
     private const val DEBOUNCED_NAME = "famly_sync_debounced"
-    private const val FOREGROUND_MIN_INTERVAL_MS = 45_000L
+    private const val FOREGROUND_MIN_INTERVAL_MS = 15_000L
 
     private val networkConstraints = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -51,7 +51,7 @@ object SyncWorkScheduler {
     }
 
     /** Coalesce local edits: wait briefly, then push pending changes and pull updates. */
-    fun scheduleDebounced(context: Context, delaySeconds: Long = 20) {
+    fun scheduleDebounced(context: Context, delaySeconds: Long = 5) {
         val request = OneTimeWorkRequestBuilder<SyncWorker>()
             .setInitialDelay(delaySeconds, TimeUnit.SECONDS)
             .setConstraints(networkConstraints)

@@ -26,6 +26,9 @@ interface AccountDao {
 
     @Query("DELETE FROM accounts WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("DELETE FROM accounts")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -41,6 +44,9 @@ interface CategoryDao {
 
     @Query("DELETE FROM categories WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("DELETE FROM categories")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -101,6 +107,9 @@ interface IouBalanceDao {
 
     @Query("SELECT * FROM iou_balances WHERE id = :id")
     suspend fun getById(id: String): IouBalanceEntity?
+
+    @Query("DELETE FROM iou_balances")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -113,6 +122,9 @@ interface SplitAllocationDao {
 
     @Query("DELETE FROM split_allocations WHERE transactionId = :transactionId")
     suspend fun deleteByTransaction(transactionId: String)
+
+    @Query("DELETE FROM split_allocations")
+    suspend fun deleteAll()
 }
 
 @Dao

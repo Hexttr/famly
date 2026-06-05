@@ -500,7 +500,7 @@ fun FamilyMemberScreen(
     val isAdmin = currentMember?.role == "admin"
     val isSelf = member.userId != null && member.userId == currentUserId
     val canEditRole = isAdmin
-    val canEditVisibility = isAdmin || isSelf
+    val canEditVisibility = isAdmin
 
     ScreenScaffold(onBack = onBack) {
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -562,7 +562,7 @@ fun FamilyMemberScreen(
             }
             if (canEditVisibility) {
                 Row(modifier = Modifier.padding(bottom = 8.dp)) {
-                    VisibilityChip("full", "Полный доступ", Icons.Default.Visibility, member.visibility, onUpdateVisibility)
+                    VisibilityChip("full", "Все операции видны", Icons.Default.Visibility, member.visibility, onUpdateVisibility)
                     VisibilityChip("partial", "Частичный", Icons.Default.VisibilityOff, member.visibility, onUpdateVisibility)
                     VisibilityChip("private", "Приватный", Icons.Default.Lock, member.visibility, onUpdateVisibility)
                 }
@@ -571,13 +571,21 @@ fun FamilyMemberScreen(
                     visibilityLabel(member.visibility),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier = Modifier.padding(bottom = 4.dp),
                 )
+                if (isSelf) {
+                    Text(
+                        "Видимость меняет администратор семьи",
+                        fontSize = 12.sp,
+                        color = TextMuted,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
             }
             FamlyCard(modifier = Modifier.fillMaxWidth(), padding = 12.dp) {
-                Text("Полный доступ — все операции участника видны семье.", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(bottom = 4.dp))
-                Text("Частичный — видны только общие расходы.", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(bottom = 4.dp))
-                Text("Приватный — операции скрыты от других.", fontSize = 13.sp, color = TextMuted)
+                Text("Все операции видны — операции участника видны семье.", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(bottom = 4.dp))
+                Text("Частичный — видны только общие расходы (скоро).", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(bottom = 4.dp))
+                Text("Приватный — операции скрыты от других (скоро).", fontSize = 13.sp, color = TextMuted)
             }
         }
     }
@@ -789,7 +797,7 @@ private fun roleLabel(role: String): String = when (role) {
 }
 
 private fun visibilityLabel(v: String): String = when (v) {
-    "full" -> "Полный доступ"
+    "full" -> "Все операции видны"
     "partial" -> "Частичный"
     else -> "Приватный"
 }

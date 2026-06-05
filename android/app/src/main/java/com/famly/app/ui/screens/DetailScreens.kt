@@ -419,6 +419,15 @@ fun SettingsScreen(
                     Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text("Синхронизировать сейчас", modifier = Modifier.padding(start = 8.dp))
                 }
+                state.settings.lastSyncAttemptAt?.let { at ->
+                    val mins = ((System.currentTimeMillis() - at) / 60_000).coerceAtLeast(0)
+                    Text(
+                        if (mins == 0L) "Обновлено только что" else "Обновлено $mins мин. назад",
+                        fontSize = 12.sp,
+                        color = TextMuted,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
             }
             if (state.settings.isAuthenticated) {
                 OutlinedButton(

@@ -230,6 +230,9 @@ fun FamlyNavHost(
                 )
             }
             composable(Routes.OPERATIONS) {
+                LaunchedEffect(Unit) {
+                    viewModel.syncIfStale()
+                }
                 OperationsScreen(state) { navController.navigate(Routes.operationDetail(it)) }
             }
             composable(Routes.BUDGET) {

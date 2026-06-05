@@ -18,6 +18,10 @@ import com.famly.backend.models.AdminUserDto
 import com.famly.backend.models.HouseholdMemberDto
 import com.famly.backend.models.RegistrationsDayDto
 import com.famly.backend.models.SyncEntity
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
@@ -161,7 +165,25 @@ class AuthService {
 
 class HouseholdService {
     data class HouseholdRecord(val id: String, val name: String, val ownerId: String, val inviteCode: String)
-    data class MemberRecord(val id: String, val userId: String, val displayName: String, val role: String, val visibility: String)
+    data class MemberRecord(
+        val id: String,
+        val userId: String,
+        val displayName: String,
+        val role: String,
+        val visibility: String,
+        val avatar: String,
+    )
+
+    companion object {
+        private val VALID_ROLES = setOf("admin", "member", "viewer")
+        private val VALID_VISIBILITY = setOf("full", "partial", "private")
+        private val MEMBER_AVATARS = listOf("👨", "👩", "👦", "👧", "👴", "👵", "🧑")
+
+        fun defaultMemberAvatar(displayName: String): String {
+            val idx = displayName.hashCode().mod(MEMBER_AVATARS.size).let { if (it < 0) it + MEMBER_AVATARS.size else it }
+            return MEMBER_AVATARS[idx]
+        }
+    }
 
     fun create(name: String, ownerId: String, ownerName: String): HouseholdRecord = transaction {
         val existing = getForUser(ownerId)
@@ -183,6 +205,7 @@ class HouseholdService {
             it[HouseholdMembers.displayName] = ownerName
             it[HouseholdMembers.role] = "admin"
             it[HouseholdMembers.visibility] = "full"
+            it[HouseholdMembers.avatar] = defaultMemberAvatar(ownerName)
         }
         HouseholdRecord(id, name, ownerId, code)
     }
@@ -209,6 +232,7 @@ class HouseholdService {
                 row[HouseholdMembers.displayName],
                 row[HouseholdMembers.role],
                 row[HouseholdMembers.visibility],
+                row[HouseholdMembers.avatar].ifBlank { defaultMemberAvatar(row[HouseholdMembers.displayName]) },
             )
         }
     }
@@ -224,6 +248,7 @@ class HouseholdService {
                     row[HouseholdMembers.displayName],
                     row[HouseholdMembers.role],
                     row[HouseholdMembers.visibility],
+                    row[HouseholdMembers.avatar].ifBlank { defaultMemberAvatar(row[HouseholdMembers.displayName]) },
                 )
             }
     }
@@ -248,6 +273,7 @@ class HouseholdService {
                 it[HouseholdMembers.displayName] = displayName
                 it[HouseholdMembers.role] = "member"
                 it[HouseholdMembers.visibility] = "partial"
+                it[HouseholdMembers.avatar] = defaultMemberAvatar(displayName)
             }
         }
         HouseholdRecord(
@@ -286,7 +312,11 @@ class HouseholdService {
         role: String?,
         visibility: String?,
         displayName: String?,
+        avatar: String?,
     ): MemberRecord = transaction {
+        role?.let { require(it in VALID_ROLES) { "Invalid role" } }
+        visibility?.let { require(it in VALID_VISIBILITY) { "Invalid visibility" } }
+
         val actor = memberForUser(householdId, actorUserId)
             ?: throw AccessDeniedException("Not a member")
         val row = HouseholdMembers.selectAll()
@@ -307,6 +337,9 @@ class HouseholdService {
                 if (role != null && role != row[HouseholdMembers.role]) {
                     throw AccessDeniedException("Admin role required")
                 }
+                if (visibility != null && visibility != row[HouseholdMembers.visibility]) {
+                    throw AccessDeniedException("Admin role required")
+                }
             }
             else -> throw AccessDeniedException("Admin role required")
         }
@@ -314,10 +347,12 @@ class HouseholdService {
         HouseholdMembers.update({ HouseholdMembers.id eq memberId }) {
             if (isAdmin) {
                 role?.let { value -> it[HouseholdMembers.role] = value }
-            }
-            if (isAdmin || isSelf) {
                 visibility?.let { value -> it[HouseholdMembers.visibility] = value }
                 displayName?.let { value -> it[HouseholdMembers.displayName] = value.trim() }
+                avatar?.let { value -> it[HouseholdMembers.avatar] = value }
+            } else if (isSelf) {
+                displayName?.let { value -> it[HouseholdMembers.displayName] = value.trim() }
+                avatar?.let { value -> it[HouseholdMembers.avatar] = value }
             }
         }
         val updated = HouseholdMembers.selectAll().where { HouseholdMembers.id eq memberId }.single()
@@ -327,6 +362,7 @@ class HouseholdService {
             updated[HouseholdMembers.displayName],
             updated[HouseholdMembers.role],
             updated[HouseholdMembers.visibility],
+            updated[HouseholdMembers.avatar].ifBlank { defaultMemberAvatar(updated[HouseholdMembers.displayName]) },
         )
     }
 
@@ -390,36 +426,49 @@ class SubscriptionService {
 }
 
 class SyncService {
-    fun push(householdId: String, entities: List<SyncEntity>) = transaction {
+    data class PushResult(val accepted: List<String>, val rejected: List<String>)
+    data class PullResult(val entities: List<SyncEntity>, val syncToken: Long)
+
+    fun push(householdId: String, entities: List<SyncEntity>): PushResult = transaction {
+        val accepted = mutableListOf<String>()
+        val rejected = mutableListOf<String>()
         entities.forEach { entity ->
             if (entity.type == "family_member") return@forEach
             val compositeId = "${entity.type}:${entity.id}"
             val existing = SyncLog.selectAll().where { SyncLog.id eq compositeId }.singleOrNull()
-            if (existing == null) {
-                SyncLog.insert {
-                    it[SyncLog.id] = compositeId
-                    it[SyncLog.householdId] = householdId
-                    it[SyncLog.entityType] = entity.type
-                    it[SyncLog.entityId] = entity.id
-                    it[SyncLog.payload] = entity.payload
-                    it[SyncLog.syncVersion] = entity.syncVersion
-                    it[SyncLog.updatedAt] = entity.updatedAt
-                    it[SyncLog.deleted] = entity.deleted
+            val existingPayloadUpdatedAt = existing?.let { payloadUpdatedAt(it[SyncLog.payload]) } ?: 0L
+            if (existing == null || entity.updatedAt >= existingPayloadUpdatedAt) {
+                val serverNow = System.currentTimeMillis()
+                if (existing == null) {
+                    SyncLog.insert {
+                        it[SyncLog.id] = compositeId
+                        it[SyncLog.householdId] = householdId
+                        it[SyncLog.entityType] = entity.type
+                        it[SyncLog.entityId] = entity.id
+                        it[SyncLog.payload] = entity.payload
+                        it[SyncLog.syncVersion] = entity.syncVersion
+                        it[SyncLog.updatedAt] = serverNow
+                        it[SyncLog.deleted] = entity.deleted
+                    }
+                } else {
+                    SyncLog.update({ SyncLog.id eq compositeId }) {
+                        it[SyncLog.payload] = entity.payload
+                        it[SyncLog.syncVersion] = entity.syncVersion
+                        it[SyncLog.updatedAt] = serverNow
+                        it[SyncLog.deleted] = entity.deleted
+                    }
                 }
-            } else if (entity.updatedAt >= existing[SyncLog.updatedAt]) {
-                SyncLog.update({ SyncLog.id eq compositeId }) {
-                    it[SyncLog.payload] = entity.payload
-                    it[SyncLog.syncVersion] = entity.syncVersion
-                    it[SyncLog.updatedAt] = entity.updatedAt
-                    it[SyncLog.deleted] = entity.deleted
-                }
+                accepted.add(compositeId)
+            } else {
+                rejected.add(compositeId)
             }
         }
+        PushResult(accepted, rejected)
     }
 
-    fun pull(householdId: String, since: Long): Pair<List<SyncEntity>, Long> = transaction {
+    fun pull(householdId: String, since: Long): PullResult = transaction {
         val entities = SyncLog.selectAll()
-            .where { (SyncLog.householdId eq householdId) and (SyncLog.updatedAt greater since) }
+            .where { (SyncLog.householdId eq householdId) and (SyncLog.updatedAt greaterEq since) }
             .map { row ->
                 SyncEntity(
                     type = row[SyncLog.entityType],
@@ -430,8 +479,15 @@ class SyncService {
                     deleted = row[SyncLog.deleted],
                 )
             }
-        entities to System.currentTimeMillis()
+        val serverNow = System.currentTimeMillis()
+        val maxUpdated = entities.maxOfOrNull { it.updatedAt } ?: since
+        val syncToken = maxOf(serverNow, maxUpdated)
+        PullResult(entities, syncToken)
     }
+
+    private fun payloadUpdatedAt(payload: String): Long = runCatching {
+        Json.parseToJsonElement(payload).jsonObject["updatedAt"]?.jsonPrimitive?.longOrNull
+    }.getOrNull() ?: 0L
 }
 
 class AdminService {
@@ -651,6 +707,9 @@ class AdminService {
                     m[HouseholdMembers.displayName],
                     m[HouseholdMembers.role],
                     m[HouseholdMembers.visibility],
+                    m[HouseholdMembers.avatar].ifBlank {
+                        HouseholdService.defaultMemberAvatar(m[HouseholdMembers.displayName])
+                    },
                 )
             },
         )
@@ -672,6 +731,9 @@ class AdminService {
                         m[HouseholdMembers.displayName],
                         m[HouseholdMembers.role],
                         m[HouseholdMembers.visibility],
+                        m[HouseholdMembers.avatar].ifBlank {
+                            HouseholdService.defaultMemberAvatar(m[HouseholdMembers.displayName])
+                        },
                     )
                 },
             )

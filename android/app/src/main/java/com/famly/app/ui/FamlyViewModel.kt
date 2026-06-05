@@ -173,6 +173,10 @@ class FamlyViewModel(
         _syncStatus.value = syncRepository.sync()
     }
 
+    fun syncIfStale(maxAgeMs: Long = 30_000L) = viewModelScope.launch {
+        syncRepository.syncIfStale(maxAgeMs)?.let { _syncStatus.value = it }
+    }
+
     private fun autoSyncAfterAuth() = viewModelScope.launch {
         _syncStatus.value = syncRepository.sync()
     }
@@ -321,6 +325,7 @@ class FamlyViewModel(
             invite.inviteCode
         }.onFailure { _inviteError.value = it.message ?: "Не удалось создать код" }.getOrNull()
         _inviteLoading.value = false
+        autoSyncAfterAuth()
     }
 
     fun logout() = viewModelScope.launch {
@@ -350,15 +355,9 @@ class FamlyViewModel(
         role: String? = null,
         visibility: String? = null,
     ) = viewModelScope.launch {
-        val member = uiState.value.familyMembers.find { it.id == memberId } ?: return@launch
         _memberUpdateError.value = null
         runCatching {
-            repository.updateFamilyMember(
-                member.copy(
-                    role = role ?: member.role,
-                    visibility = visibility ?: member.visibility,
-                ),
-            )
+            repository.updateFamilyMemberFields(memberId, role = role, visibility = visibility)
         }.onFailure {
             _memberUpdateError.value = it.message ?: "Не удалось обновить участника"
         }

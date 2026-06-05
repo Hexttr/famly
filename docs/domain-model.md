@@ -104,6 +104,7 @@ data class HouseholdMember(
     val displayName: String,
     val role: String,       // "admin" | "member" | "viewer"
     val visibility: String, // "full" | "partial" | "private"
+    val avatar: String = "",
     val joinedAt: Long
 )
 ```

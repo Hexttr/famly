@@ -28,6 +28,7 @@ object HouseholdMembers : Table("household_members") {
     val displayName = varchar("display_name", 100)
     val role = varchar("role", 20)
     val visibility = varchar("visibility", 20)
+    val avatar = varchar("avatar", 16).default("")
     override val primaryKey = PrimaryKey(id)
 }
 

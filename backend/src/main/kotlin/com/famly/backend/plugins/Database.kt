@@ -35,6 +35,7 @@ fun Application.configureDatabase() {
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at BIGINT DEFAULT 0",
             "ALTER TABLE households ADD COLUMN IF NOT EXISTS created_at BIGINT DEFAULT 0",
+            "ALTER TABLE household_members ADD COLUMN IF NOT EXISTS avatar VARCHAR(16) DEFAULT ''",
         ).forEach { sql -> runCatching { exec(sql) } }
         listOf(
             "ALTER TABLE sync_log ALTER COLUMN id SET DATA TYPE VARCHAR(128)",

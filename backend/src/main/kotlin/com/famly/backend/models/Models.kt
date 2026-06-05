@@ -32,6 +32,7 @@ data class HouseholdMemberDto(
     val displayName: String,
     val role: String,
     val visibility: String,
+    val avatar: String = "",
 )
 
 @Serializable
@@ -48,6 +49,7 @@ data class UpdateMemberRequest(
     val role: String? = null,
     val visibility: String? = null,
     val displayName: String? = null,
+    val avatar: String? = null,
 )
 
 @Serializable
@@ -64,7 +66,21 @@ data class SyncEntity(
 )
 
 @Serializable
-data class SyncPullResponse(val entities: List<SyncEntity>, val syncToken: Long)
+data class HouseholdSnapshot(
+    val id: String,
+    val name: String,
+    val members: List<HouseholdMemberDto>,
+)
+
+@Serializable
+data class SyncPushResponse(val accepted: List<String>, val rejected: List<String>)
+
+@Serializable
+data class SyncPullResponse(
+    val entities: List<SyncEntity>,
+    val syncToken: Long,
+    val household: HouseholdSnapshot? = null,
+)
 
 @Serializable
 data class SubscriptionStatusResponse(

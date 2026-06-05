@@ -215,16 +215,18 @@ class FamlyRepository(
 
     suspend fun updateTransaction(transaction: TransactionEntity) {
         val previous = db.transactionDao().observeById(transaction.id).first()
-        db.transactionDao().upsert(transaction.copy(updatedAt = System.currentTimeMillis()))
+        val now = System.currentTimeMillis()
+        val updated = transaction.copy(updatedAt = now)
+        db.transactionDao().upsert(updated)
         if (previous != null &&
-            (previous.amountKopecks != transaction.amountKopecks ||
-                previous.accountId != transaction.accountId ||
-                previous.type != transaction.type)
+            (previous.amountKopecks != updated.amountKopecks ||
+                previous.accountId != updated.accountId ||
+                previous.type != updated.type)
         ) {
             applyBalanceDelta(previous.accountId, previous.type, -previous.amountKopecks)
-            applyBalanceDelta(transaction.accountId, transaction.type, transaction.amountKopecks)
+            applyBalanceDelta(updated.accountId, updated.type, updated.amountKopecks)
         }
-        syncRepository?.enqueueTransaction(transaction)
+        syncRepository?.enqueueTransaction(updated)
     }
 
     suspend fun updateTransactionRecurring(
@@ -379,6 +381,25 @@ class FamlyRepository(
         syncRepository?.enqueueCategory(updated)
     }
 
+    suspend fun updateFamilyMemberFields(
+        memberId: String,
+        role: String? = null,
+        visibility: String? = null,
+    ) {
+        if (syncRepository != null) {
+            syncRepository.updateMemberFields(memberId, role = role, visibility = visibility)
+            return
+        }
+        val member = db.familyMemberDao().observeById(memberId).first() ?: return
+        db.familyMemberDao().upsert(
+            member.copy(
+                role = role ?: member.role,
+                visibility = visibility ?: member.visibility,
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
     suspend fun updateFamilyMember(member: FamilyMemberEntity) {
         if (syncRepository != null) {
             syncRepository.updateFamilyMemberOnServer(member)
@@ -389,32 +410,32 @@ class FamlyRepository(
 
     suspend fun cycleAccountIcon(accountId: String) {
         val account = db.accountDao().getById(accountId) ?: return
-        db.accountDao().upsert(
-            account.copy(
-                icon = nextAccountIcon(account.icon),
-                updatedAt = System.currentTimeMillis(),
-            ),
+        val updated = account.copy(
+            icon = nextAccountIcon(account.icon),
+            updatedAt = System.currentTimeMillis(),
         )
+        db.accountDao().upsert(updated)
+        syncRepository?.enqueueAccount(updated)
     }
 
     suspend fun cycleMemberAvatar(memberId: String) {
         val member = db.familyMemberDao().observeAll().first().find { it.id == memberId } ?: return
-        val updated = member.copy(
-            avatar = nextMemberAvatar(member.avatar),
-            updatedAt = System.currentTimeMillis(),
-        )
-        db.familyMemberDao().upsert(updated)
-        syncRepository?.enqueueFamilyMember(updated)
+        val avatar = nextMemberAvatar(member.avatar)
+        if (syncRepository != null) {
+            syncRepository.updateMemberAvatar(memberId, avatar)
+            return
+        }
+        db.familyMemberDao().upsert(member.copy(avatar = avatar, updatedAt = System.currentTimeMillis()))
     }
 
     suspend fun cycleCategoryIcon(categoryId: String) {
         val cat = db.categoryDao().getById(categoryId) ?: return
-        db.categoryDao().upsert(
-            cat.copy(
-                icon = nextCategoryIcon(cat.icon, cat.type),
-                updatedAt = System.currentTimeMillis(),
-            ),
+        val updated = cat.copy(
+            icon = nextCategoryIcon(cat.icon, cat.type),
+            updatedAt = System.currentTimeMillis(),
         )
+        db.categoryDao().upsert(updated)
+        syncRepository?.enqueueCategory(updated)
     }
 
     suspend fun upsertCategory(category: CategoryEntity) {
