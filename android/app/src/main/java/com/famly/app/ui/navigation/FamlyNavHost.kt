@@ -429,8 +429,8 @@ fun FamlyNavHost(
             quickAddCategoryId = null
             quickAddInitialType = null
         },
-        onSave = { amount, type, cat, acc, note, rec, dateEpochDay, spendFromGoal ->
-            viewModel.addTransaction(amount, type, cat, acc, note, rec, dateEpochDay, spendFromGoal)
+        onSave = { amount, type, cat, acc, note, rec, dateEpochDay ->
+            viewModel.addTransaction(amount, type, cat, acc, note, rec, dateEpochDay)
         },
     )
     }

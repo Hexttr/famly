@@ -6,10 +6,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -56,6 +58,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -92,6 +98,10 @@ fun SavingsPreviewCard(
         if (goal != null && goal.isActive) {
             HeroCard(
                 modifier = Modifier.fillMaxWidth(),
+                gradientStart = FamlyColor.primaryLight,
+                gradientEnd = FamlyColor.primaryDark,
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                showDecoration = false,
                 onClick = onOpen,
             ) {
                 SavingsHeroContent(
@@ -99,7 +109,7 @@ fun SavingsPreviewCard(
                     goalName = savingsGoalDisplayName(goal.goalType, goal.customName),
                     savedKopecks = goal.savedKopecks,
                     targetKopecks = goal.targetKopecks,
-                    monthlyPlanKopecks = goal.monthlyPlanKopecks,
+                    monthlyPlanKopecks = null,
                     compact = true,
                     animateProgress = true,
                 )
@@ -158,75 +168,81 @@ private fun SavingsHeroContent(
     compact: Boolean,
     animateProgress: Boolean,
 ) {
-    if (compact) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GoalIllustration(goalType, size = 88.dp)
-            Column(modifier = Modifier.padding(start = 14.dp).weight(1f)) {
-                Text(
-                    "Копи на",
-                    color = Color.White.copy(alpha = 0.82f),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                )
+    val imageSize = if (compact) 64.dp else 112.dp
+    val nameSize = if (compact) 17.sp else 24.sp
+    val labelSize = if (compact) 10.sp else 12.sp
+    val pct = SavingsGoalProcessor.progressPercent(savedKopecks, targetKopecks)
+
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        GoalIllustration(goalType = goalType, size = imageSize, compact = compact)
+        Column(
+            modifier = Modifier
+                .padding(start = if (compact) 12.dp else 18.dp)
+                .weight(1f),
+        ) {
+            Text(
+                "Копим на",
+                color = Color.White.copy(alpha = 0.78f),
+                fontSize = labelSize,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.6.sp,
+                lineHeight = labelSize,
+            )
+            Row(
+                modifier = Modifier.padding(top = if (compact) 2.dp else 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     goalName,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 19.sp,
-                    modifier = Modifier.padding(top = 2.dp),
+                    fontSize = nameSize,
+                    lineHeight = nameSize,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
-                SavingsGoalProgressBar(
-                    savedKopecks = savedKopecks,
-                    targetKopecks = targetKopecks,
-                    monthlyPlanKopecks = monthlyPlanKopecks,
-                    animate = animateProgress,
-                    modifier = Modifier.padding(top = 10.dp),
-                    lightOnDark = true,
-                )
-            }
-        }
-    } else {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            GoalIllustration(goalType, size = 120.dp)
-            Text(
-                "Копи на",
-                color = Color.White.copy(alpha = 0.82f),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(top = 14.dp),
-            )
-            Text(
-                goalName,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-            Box(
-                modifier = Modifier
-                    .padding(top = 10.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.18f))
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    "${SavingsGoalProcessor.progressPercent(savedKopecks, targetKopecks)}%",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                )
+                SavingsPercentBadge(pct, compact = compact)
             }
             SavingsGoalProgressBar(
                 savedKopecks = savedKopecks,
                 targetKopecks = targetKopecks,
                 monthlyPlanKopecks = monthlyPlanKopecks,
                 animate = animateProgress,
-                modifier = Modifier.padding(top = 14.dp),
+                compact = compact,
+                modifier = Modifier.padding(top = if (compact) 6.dp else 12.dp),
                 lightOnDark = true,
             )
         }
+    }
+}
+
+@Composable
+private fun SavingsPercentBadge(pct: Int, compact: Boolean) {
+    Box(
+        modifier = Modifier
+            .padding(start = 8.dp)
+            .clip(RoundedCornerShape(50))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.28f),
+                        Color.White.copy(alpha = 0.12f),
+                    ),
+                ),
+            )
+            .border(1.dp, Color.White.copy(alpha = 0.38f), RoundedCornerShape(50))
+            .padding(horizontal = if (compact) 7.dp else 11.dp, vertical = if (compact) 3.dp else 5.dp),
+    ) {
+        Text(
+            "$pct%",
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = if (compact) 12.sp else 14.sp,
+        )
     }
 }
 
@@ -236,6 +252,7 @@ fun SavingsGoalProgressBar(
     targetKopecks: Long,
     monthlyPlanKopecks: Long? = null,
     animate: Boolean = false,
+    compact: Boolean = false,
     modifier: Modifier = Modifier,
     lightOnDark: Boolean = false,
 ) {
@@ -252,33 +269,46 @@ fun SavingsGoalProgressBar(
     val pct = SavingsGoalProcessor.progressPercent(savedKopecks, targetKopecks)
     val mutedColor = if (lightOnDark) Color.White.copy(alpha = 0.75f) else TextMuted
     Column(modifier = modifier.fillMaxWidth()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(12.dp)
-                .clip(RoundedCornerShape(50))
-                .background(if (lightOnDark) Color.White.copy(alpha = 0.22f) else FamlyColor.primary.copy(alpha = 0.12f)),
-        ) {
+            val barHeight = if (compact) 10.dp else 12.dp
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(fraction)
-                    .height(12.dp)
+                    .fillMaxWidth()
+                    .height(barHeight)
                     .clip(RoundedCornerShape(50))
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(
-                                if (lightOnDark) Color.White.copy(alpha = 0.85f) else FamlyColor.primaryLight,
-                                if (lightOnDark) Color.White else FamlyColor.primary,
+                    .background(if (lightOnDark) Color.White.copy(alpha = 0.18f) else FamlyColor.primary.copy(alpha = 0.12f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(fraction)
+                        .height(barHeight)
+                        .clip(RoundedCornerShape(50))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    if (lightOnDark) Color.White.copy(alpha = 0.55f) else FamlyColor.primaryLight,
+                                    if (lightOnDark) Color.White else FamlyColor.primary,
+                                    if (lightOnDark) Color.White.copy(alpha = 0.92f) else FamlyColor.accent,
+                                ),
                             ),
                         ),
-                    ),
-            )
-        }
+                )
+                if (fraction > 0.05f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction)
+                            .height(5.dp)
+                            .padding(start = 6.dp, top = 2.dp, end = 6.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.White.copy(alpha = if (lightOnDark) 0.45f else 0.3f)),
+                    )
+                }
+            }
         Text(
             "${MoneyFormatter.formatKopecks(savedKopecks)} из ${MoneyFormatter.formatKopecks(targetKopecks)} · $pct%",
             color = mutedColor,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(top = 6.dp),
+            fontSize = if (compact) 10.sp else 12.sp,
+            lineHeight = if (compact) 11.sp else 14.sp,
+            modifier = Modifier.padding(top = if (compact) 2.dp else 6.dp),
         )
         monthlyPlanKopecks?.takeIf { it > 0 }?.let { plan ->
             Text(
@@ -291,7 +321,7 @@ fun SavingsGoalProgressBar(
 }
 
 @Composable
-fun GoalIllustration(goalType: String, size: androidx.compose.ui.unit.Dp = 72.dp) {
+fun GoalIllustration(goalType: String, size: Dp = 72.dp, compact: Boolean = false) {
     val type = SavingsGoalType.fromKey(goalType)
     val drawable = when (type) {
         SavingsGoalType.CAR -> R.drawable.goal_car
@@ -301,15 +331,54 @@ fun GoalIllustration(goalType: String, size: androidx.compose.ui.unit.Dp = 72.dp
         SavingsGoalType.VACATION -> R.drawable.goal_vacation
         SavingsGoalType.OTHER -> R.drawable.goal_other
     }
-    Image(
-        painter = painterResource(drawable),
-        contentDescription = type.label,
-        modifier = Modifier
-            .size(size)
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color.White.copy(alpha = 0.12f)),
-        contentScale = ContentScale.Crop,
-    )
+    val corner = if (size >= 100.dp) 22.dp else if (compact) 14.dp else 18.dp
+    val frameScale = if (compact) 0.96f else 0.92f
+    Box(
+        modifier = Modifier.size(size),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (!compact) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .drawBehind {
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.14f),
+                            radius = this.size.maxDimension * 0.58f,
+                            center = Offset(this.size.width / 2f, this.size.height / 2f),
+                        )
+                    },
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(size * frameScale)
+                .clip(RoundedCornerShape(corner))
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            Color.White.copy(alpha = if (compact) 0.28f else 0.32f),
+                            Color.White.copy(alpha = if (compact) 0.06f else 0.08f),
+                        ),
+                    ),
+                )
+                .border(
+                    width = if (compact) 1.5.dp else 2.dp,
+                    color = Color.White.copy(alpha = 0.42f),
+                    shape = RoundedCornerShape(corner),
+                )
+                .padding(if (compact) 2.dp else 3.dp),
+        ) {
+            Image(
+                painter = painterResource(drawable),
+                contentDescription = type.label,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(corner - 3.dp)),
+                contentScale = ContentScale.Crop,
+            )
+        }
+    }
 }
 
 @Composable
@@ -406,7 +475,11 @@ fun SavingsScreen(
             val plan = goal.monthlyPlanKopecks ?: 0L
             val planRemaining = (plan - monthlySaved).coerceAtLeast(0)
 
-            HeroCard(modifier = Modifier.fillMaxWidth()) {
+            HeroCard(
+                modifier = Modifier.fillMaxWidth(),
+                gradientStart = FamlyColor.primaryLight,
+                gradientEnd = FamlyColor.primaryDark,
+            ) {
                 SavingsHeroContent(
                     goalType = goal.goalType,
                     goalName = name,

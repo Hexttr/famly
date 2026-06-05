@@ -922,7 +922,7 @@ fun QuickAddSheet(
     initialCategoryId: String? = null,
     initialType: String? = null,
     onDismiss: () -> Unit,
-    onSave: (amount: String, type: String, categoryId: String, accountId: String, note: String, recurring: Boolean, dateEpochDay: Long?, spendFromGoalKopecks: Long) -> Unit,
+    onSave: (amount: String, type: String, categoryId: String, accountId: String, note: String, recurring: Boolean, dateEpochDay: Long?) -> Unit,
 ) {
     if (!visible) return
     var amount by remember { mutableStateOf("") }
@@ -941,23 +941,13 @@ fun QuickAddSheet(
     var recurring by remember { mutableStateOf(false) }
     var customDate by remember { mutableStateOf<LocalDate?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
-    var spendFromGoalEnabled by remember { mutableStateOf(false) }
-    var spendFromGoalPercent by remember { mutableIntStateOf(100) }
     val savingsGoal = state.savingsGoal
-    val canSpendFromGoal = type == "expense" &&
+    val canPayFromGoal = type == "expense" &&
         savingsGoal?.isActive == true &&
-        (savingsGoal.savedKopecks > 0)
-    val amountKopecks = remember(amount) {
-        ((amount.replace(',', '.').toDoubleOrNull() ?: 0.0) * 100).toLong()
+        savingsGoal.savedKopecks > 0
+    val goalAccountId = remember(savingsGoal?.id) {
+        savingsGoal?.id?.let { com.famly.app.domain.savings.savingsGoalAccountId(it) }
     }
-    val spendFromGoalKopecks = remember(amountKopecks, spendFromGoalEnabled, spendFromGoalPercent, savingsGoal) {
-        if (!canSpendFromGoal || !spendFromGoalEnabled || amountKopecks <= 0) 0L
-        else {
-            val fromPercent = amountKopecks * spendFromGoalPercent / 100
-            minOf(fromPercent, savingsGoal?.savedKopecks ?: 0L)
-        }
-    }
-    val fromAccountKopecks = (amountKopecks - spendFromGoalKopecks).coerceAtLeast(0)
     val today = remember { LocalDate.now() }
     val effectiveDate = customDate ?: today
 
@@ -967,13 +957,17 @@ fun QuickAddSheet(
         note = ""
         recurring = false
         customDate = null
-        spendFromGoalEnabled = false
-        spendFromGoalPercent = 100
         type = initialType ?: "expense"
         categoryId = initialCategoryId
             ?: state.categories.firstOrNull { it.type == type }?.id
             ?: ""
         accountId = state.accounts.firstOrNull()?.id ?: ""
+    }
+
+    LaunchedEffect(type, goalAccountId) {
+        if (type == "income" && com.famly.app.domain.savings.isSavingsGoalAccountId(accountId)) {
+            accountId = state.accounts.firstOrNull()?.id ?: ""
+        }
     }
 
     if (showDatePicker) {
@@ -1061,64 +1055,6 @@ fun QuickAddSheet(
                     onValueChange = { amount = it },
                     modifier = Modifier.scale(amountScale),
                 )
-                if (canSpendFromGoal) {
-                    val goalName = com.famly.app.domain.savings.savingsGoalDisplayName(
-                        savingsGoal!!.goalType,
-                        savingsGoal.customName,
-                    )
-                    FamlyCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        padding = 12.dp,
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(
-                                "Списать с цели «$goalName»",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp,
-                                modifier = Modifier.weight(1f).padding(end = 8.dp),
-                            )
-                            Switch(
-                                checked = spendFromGoalEnabled,
-                                onCheckedChange = { spendFromGoalEnabled = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = FamlyColor.primary,
-                                ),
-                            )
-                        }
-                        if (spendFromGoalEnabled) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                listOf(0, 25, 50, 100).forEach { pct ->
-                                    FamlyFilterChip(
-                                        label = if (pct == 0) "0%" else "$pct%",
-                                        selected = spendFromGoalPercent == pct,
-                                        onClick = { spendFromGoalPercent = pct },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                            }
-                            if (amountKopecks > 0) {
-                                Text(
-                                    "С цели: ${MoneyFormatter.formatKopecks(spendFromGoalKopecks)} · со счёта: ${MoneyFormatter.formatKopecks(fromAccountKopecks)}",
-                                    color = TextMuted,
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.padding(top = 8.dp),
-                                )
-                            }
-                        }
-                    }
-                }
                 QuickAddSectionLabel(
                     icon = Icons.Default.CalendarToday,
                     text = "Дата",
@@ -1186,6 +1122,20 @@ fun QuickAddSheet(
                             onClick = { accountId = acc.id },
                         )
                     }
+                    if (canPayFromGoal && goalAccountId != null) {
+                        val goalType = com.famly.app.domain.savings.SavingsGoalType.fromKey(savingsGoal!!.goalType)
+                        val goalName = com.famly.app.domain.savings.savingsGoalDisplayName(
+                            savingsGoal.goalType,
+                            savingsGoal.customName,
+                        )
+                        item {
+                            FamlyCategoryChip(
+                                label = "${goalType.emoji} $goalName",
+                                selected = accountId == goalAccountId,
+                                onClick = { accountId = goalAccountId },
+                            )
+                        }
+                    }
                 }
                 QuickAddNoteField(
                     value = note,
@@ -1199,7 +1149,7 @@ fun QuickAddSheet(
                 )
                 Button(
                     onClick = {
-                        onSave(amount, type, categoryId, accountId, note, recurring, effectiveDate.toEpochDay(), spendFromGoalKopecks)
+                        onSave(amount, type, categoryId, accountId, note, recurring, effectiveDate.toEpochDay())
                         onDismiss()
                     },
                     modifier = Modifier

@@ -25,3 +25,10 @@ fun savingsGoalDisplayName(goalType: String, customName: String?): String {
         type.label
     }
 }
+
+const val SAVINGS_GOAL_ACCOUNT_PREFIX = "savings_goal:"
+
+fun savingsGoalAccountId(goalId: String): String = "$SAVINGS_GOAL_ACCOUNT_PREFIX$goalId"
+
+fun isSavingsGoalAccountId(accountId: String): Boolean =
+    accountId.startsWith(SAVINGS_GOAL_ACCOUNT_PREFIX)

@@ -232,7 +232,8 @@ class FamlyRepository(
             updatedAt = now,
         )
         db.transactionDao().upsert(entity)
-        applyBalanceDelta(accountId, type, amountKopecks)
+        val balanceDelta = if (type == "expense") amountKopecks - spendFromGoalKopecks else amountKopecks
+        applyBalanceDelta(accountId, type, balanceDelta)
         if (type == "income") {
             applyIncomeToSavings(entity)
         }

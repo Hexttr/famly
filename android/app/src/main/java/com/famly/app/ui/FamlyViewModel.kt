@@ -256,14 +256,21 @@ class FamlyViewModel(
         note: String?,
         isRecurring: Boolean,
         dateEpochDay: Long? = null,
-        spendFromGoalKopecks: Long = 0,
     ) = viewModelScope.launch {
-        val amount = (amountRubles.replace(',', '.').toDoubleOrNull() ?: return@launch) * 100
+        val amountKopecks = ((amountRubles.replace(',', '.').toDoubleOrNull() ?: return@launch) * 100).toLong()
+        var realAccountId = accountId
+        var spendFromGoalKopecks = 0L
+        if (com.famly.app.domain.savings.isSavingsGoalAccountId(accountId)) {
+            if (type != "expense") return@launch
+            val saved = uiState.value.savingsGoal?.savedKopecks ?: 0L
+            spendFromGoalKopecks = minOf(amountKopecks, saved)
+            realAccountId = uiState.value.accounts.firstOrNull()?.id ?: return@launch
+        }
         repository.addTransaction(
-            amountKopecks = amount.toLong(),
+            amountKopecks = amountKopecks,
             type = type,
             categoryId = categoryId,
-            accountId = accountId,
+            accountId = realAccountId,
             dateEpochDay = dateEpochDay ?: LocalDate.now().toEpochDay(),
             note = note?.takeIf { it.isNotBlank() },
             isRecurring = isRecurring,

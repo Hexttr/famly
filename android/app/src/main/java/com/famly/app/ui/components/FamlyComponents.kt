@@ -9,6 +9,7 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -468,6 +469,8 @@ fun HeroCard(
     modifier: Modifier = Modifier,
     gradientStart: Color? = null,
     gradientEnd: Color? = null,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
+    showDecoration: Boolean = true,
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -481,16 +484,18 @@ fun HeroCard(
             .clip(shape)
             .background(Brush.linearGradient(listOf(start, end)))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 18.dp, vertical = 16.dp),
+            .padding(contentPadding),
     ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = 30.dp, y = (-36).dp)
-                .size(130.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.06f)),
-        )
+        if (showDecoration) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 30.dp, y = (-36).dp)
+                    .size(130.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.06f)),
+            )
+        }
         content()
     }
 }
