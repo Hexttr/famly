@@ -3,6 +3,8 @@ package com.famly.app.ui.theme
 import androidx.compose.ui.graphics.Color
 
 val PrimaryDark = Color(0xFF1B4332)
+/** Bottom tab bar — darker than PrimaryDark for contrast with content. */
+val BottomNavBackground = Color(0xFF0D2818)
 val Primary = Color(0xFF2D6A4F)
 val PrimaryLight = Color(0xFF40916C)
 val Accent = Color(0xFF52B788)

@@ -184,21 +184,19 @@ fun FamlyNavHost(
             }
         },
         bottomBar = {
-            if (isMainTab) {
-                FamlyBottomNav(
-                    selectedRoute = bottomNavRoute,
-                    onTabSelected = { route ->
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
+            FamlyBottomNav(
+                selectedRoute = bottomNavRoute,
+                onTabSelected = { route ->
+                    navController.navigate(route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
                         }
-                    },
-                    tabs = tabs.map { Triple(it.route, it.icon, it.label) },
-                )
-            }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                tabs = tabs.map { Triple(it.route, it.icon, it.label) },
+            )
         },
     ) { padding ->
         NavHost(

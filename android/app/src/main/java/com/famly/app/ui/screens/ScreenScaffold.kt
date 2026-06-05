@@ -37,7 +37,7 @@ fun ScreenScaffold(
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Spacing.md, vertical = Spacing.sm)
-                .padding(bottom = LayoutInsets.scrollBottomClearance),
+                .padding(bottom = LayoutInsets.mainTabScrollBottom),
             content = content,
         )
     }

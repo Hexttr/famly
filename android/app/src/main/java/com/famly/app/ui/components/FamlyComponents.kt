@@ -58,6 +58,7 @@ import com.famly.app.ui.theme.HeaderLayout
 import com.famly.app.ui.theme.Premium
 import com.famly.app.ui.theme.PremiumBg
 import com.famly.app.ui.theme.Primary
+import com.famly.app.ui.theme.BottomNavBackground
 import com.famly.app.ui.theme.PrimaryDark
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
@@ -207,7 +208,7 @@ fun FamlyBottomNav(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(PrimaryDark)
+            .background(BottomNavBackground)
             .windowInsetsPadding(WindowInsets.navigationBars)
             .famlyBottomNavShadow()
             .padding(vertical = 4.dp),

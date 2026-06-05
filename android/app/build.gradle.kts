@@ -21,7 +21,8 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080\"")
+            // Emulator/device debug builds use the deployed API (no local backend required).
+            buildConfigField("String", "API_BASE_URL", "\"https://api.jazz68.ru\"")
             buildConfigField("boolean", "MONETIZATION_ENABLED", "false")
         }
         release {

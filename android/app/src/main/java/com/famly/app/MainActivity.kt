@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(0xFF1B4332.toInt()),
+            navigationBarStyle = SystemBarStyle.dark(0xFF0D2818.toInt()),
         )
         handleIntent(intent)
 
