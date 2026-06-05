@@ -1,29 +1,10 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: famly-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: famly
-      POSTGRES_USER: famly
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-famly_dev_password}
-    volumes:
-      - famly_pg:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U famly -d famly"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   famly-backend:
     build:
       context: ..
       dockerfile: docker/Dockerfile.backend
     container_name: famly-backend
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     ports:
       - "127.0.0.1:8080:8080"
     environment:
@@ -32,7 +13,9 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       RUSTORE_WEBHOOK_SECRET: ${RUSTORE_WEBHOOK_SECRET:-}
-      DATABASE_URL: jdbc:postgresql://postgres:5432/famly?user=famly&password=${POSTGRES_PASSWORD:-famly_dev_password}
+      DATABASE_URL: jdbc:h2:/data/famly;DB_CLOSE_DELAY=-1
+    volumes:
+      - famly_data:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -41,4 +24,4 @@ services:
       start_period: 40s
 
 volumes:
-  famly_pg:
+  famly_data:
