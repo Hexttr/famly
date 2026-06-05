@@ -189,6 +189,10 @@ class SyncRepository(
     }
 
     suspend fun refreshPremiumStatus(token: String? = null) {
+        if (!com.famly.app.domain.FamlyAccess.monetizationEnabled()) {
+            preferences.setPremiumFromServer(isPremium = true, expiresAt = null)
+            return
+        }
         val authToken = token ?: preferences.settings.first().authToken
         if (authToken.isNullOrBlank()) return
         val status = api.getSubscriptionStatus(authToken)

@@ -32,10 +32,10 @@ object HouseholdMembers : Table("household_members") {
 }
 
 object SyncLog : Table("sync_log") {
-    val id = varchar("id", 36)
+    val id = varchar("id", 128)
     val householdId = varchar("household_id", 36)
     val entityType = varchar("entity_type", 50)
-    val entityId = varchar("entity_id", 36)
+    val entityId = varchar("entity_id", 128)
     val payload = text("payload")
     val syncVersion = integer("sync_version")
     val updatedAt = long("updated_at")

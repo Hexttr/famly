@@ -1,5 +1,6 @@
 package com.famly.backend.plugins
 
+import com.famly.backend.FamlyConfig
 import com.famly.backend.models.*
 import com.famly.backend.services.AdminService
 import com.famly.backend.services.AuthService
@@ -198,12 +199,20 @@ fun Application.configureRouting() {
 
             get("/subscription/status") {
                 val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
-                val sub = subscriptionService.status(userId)
-                call.respond(SubscriptionStatusResponse(sub.isActive, sub.expiresAt, sub.source.ifBlank { null }))
+                if (!FamlyConfig.monetizationEnabled) {
+                    call.respond(SubscriptionStatusResponse(isPremium = true, expiresAt = null, source = null))
+                } else {
+                    val sub = subscriptionService.status(userId)
+                    call.respond(SubscriptionStatusResponse(sub.isActive, sub.expiresAt, sub.source.ifBlank { null }))
+                }
             }
         }
 
         post("/webhooks/rustore") {
+            if (!FamlyConfig.monetizationEnabled) {
+                call.respond(HttpStatusCode.OK)
+                return@post
+            }
             verifyWebhookSecret(call, "RUSTORE_WEBHOOK_SECRET", "X-RuStore-Signature")
             val body = call.receive<RuStoreWebhookPayload>()
             when (body.event) {
@@ -215,6 +224,10 @@ fun Application.configureRouting() {
         }
 
         post("/webhooks/yookassa") {
+            if (!FamlyConfig.monetizationEnabled) {
+                call.respond(HttpStatusCode.OK)
+                return@post
+            }
             verifyWebhookSecret(call, "YOOKASSA_WEBHOOK_SECRET", "X-YooKassa-Signature")
             val body = call.receive<YooKassaWebhookPayload>()
             if (body.event == "payment.succeeded" && body.userId != null) {

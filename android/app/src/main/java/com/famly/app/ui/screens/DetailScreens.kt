@@ -63,6 +63,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -215,11 +216,14 @@ fun CategoryBudgetScreen(
     state: FamlyUiState,
     categoryId: String,
     onBack: () -> Unit,
+    onSaveName: (String) -> Unit,
     onSaveLimit: (Long) -> Unit,
     onToggleRollover: (Boolean) -> Unit,
 ) {
     val cat = state.categories.find { it.id == categoryId } ?: return
+    var name by remember(cat.id, cat.name) { mutableStateOf(cat.name) }
     var limit by remember(cat) { mutableStateOf(((cat.budgetLimitKopecks ?: 0) / 100).toString()) }
+    LaunchedEffect(cat.name) { name = cat.name }
     val effectiveLimit = BudgetRolloverProcessor.effectiveLimit(cat)
 
     ScreenScaffold(onBack = onBack) {
@@ -229,7 +233,7 @@ fun CategoryBudgetScreen(
         ) {
             CategoryEmojiIcon(emoji = cat.icon, size = 40.dp, accent = categoryAccentColor(cat.color))
             Text(
-                cat.name,
+                "Категория",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 12.dp),
@@ -237,10 +241,21 @@ fun CategoryBudgetScreen(
         }
         Column(modifier = Modifier.padding(16.dp)) {
             OutlinedTextField(
+                value = name,
+                onValueChange = { value ->
+                    name = value
+                    val trimmed = value.trim()
+                    if (trimmed.isNotBlank() && trimmed != cat.name) onSaveName(trimmed)
+                },
+                label = { Text("Название категории") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            OutlinedTextField(
                 value = limit,
                 onValueChange = { limit = it; onSaveLimit(it.toLongOrNull() ?: 0) },
                 label = { Text("Лимит бюджета (₽)") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
             if (cat.rolloverKopecks > 0) {
                 Text(

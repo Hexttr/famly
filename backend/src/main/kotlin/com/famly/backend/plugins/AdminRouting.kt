@@ -1,5 +1,6 @@
 package com.famly.backend.plugins
 
+import com.famly.backend.FamlyConfig
 import com.famly.backend.models.AdminGrantSubscriptionRequest
 import com.famly.backend.models.AdminLoginRequest
 import com.famly.backend.models.AuthResponse
@@ -33,7 +34,7 @@ fun Route.configureAdminRouting(
             get("/dashboard") {
                 val adminId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
                 adminService.audit(adminId, "view_dashboard")
-                call.respondText(adminDashboardHtml(adminService.stats()), ContentType.Text.Html)
+                call.respondText(adminDashboardHtml(adminService.stats(), FamlyConfig.monetizationEnabled), ContentType.Text.Html)
             }
 
             get("/stats") {
@@ -67,6 +68,10 @@ fun Route.configureAdminRouting(
             }
 
             post("/subscriptions/grant") {
+                if (!FamlyConfig.monetizationEnabled) {
+                    call.respond(HttpStatusCode.NotFound, mapOf("error" to "Monetization disabled"))
+                    return@post
+                }
                 val adminId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
                 val body = call.receive<AdminGrantSubscriptionRequest>()
                 subscriptionService.activate(body.userId, "admin", body.expiresAt)
@@ -87,7 +92,7 @@ fun Route.configureAdminRouting(
     }
 }
 
-private fun adminDashboardHtml(stats: com.famly.backend.models.AdminStatsResponse): String = """
+private fun adminDashboardHtml(stats: com.famly.backend.models.AdminStatsResponse, monetizationEnabled: Boolean): String = """
     <!DOCTYPE html>
     <html lang="ru">
     <head>
@@ -104,16 +109,18 @@ private fun adminDashboardHtml(stats: com.famly.backend.models.AdminStatsRespons
         .card p { margin: 8px 0 0; color: #666; font-size: 14px; }
         nav { margin-top: 24px; }
         nav a { display: inline-block; margin-right: 12px; color: #1B4332; }
+        .note { margin-top: 16px; padding: 12px 16px; background: #e8f5e9; border-radius: 8px; color: #1B4332; }
       </style>
     </head>
     <body>
       <header><h1>Famly Admin</h1></header>
       <main>
+        ${if (!monetizationEnabled) """<div class="note">Монетизация отключена — весь функционал бесплатный для пользователей.</div>""" else ""}
         <div class="grid">
           <div class="card"><h2>${stats.usersCount}</h2><p>Пользователей</p></div>
           <div class="card"><h2>${stats.householdsCount}</h2><p>Семей</p></div>
           <div class="card"><h2>${stats.syncEvents24h}</h2><p>Sync за 24ч</p></div>
-          <div class="card"><h2>${stats.activeSubscriptions}</h2><p>Активных подписок</p></div>
+          ${if (monetizationEnabled) """<div class="card"><h2>${stats.activeSubscriptions}</h2><p>Активных подписок</p></div>""" else ""}
         </div>
         <nav>
           <p>JSON API (Bearer admin token):</p>

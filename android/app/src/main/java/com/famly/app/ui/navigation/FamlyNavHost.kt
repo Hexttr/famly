@@ -387,6 +387,7 @@ fun FamlyNavHost(
                     state,
                     catId,
                     { navController.popBackStack() },
+                    { viewModel.updateCategoryName(catId, it) },
                     { viewModel.updateCategoryBudget(catId, it) },
                     { viewModel.updateCategoryRollover(catId, it) },
                 )

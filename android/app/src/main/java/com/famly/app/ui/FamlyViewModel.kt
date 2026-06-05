@@ -355,6 +355,14 @@ class FamlyViewModel(
         repository.upsertCategory(cat.copy(budgetLimitKopecks = limitRubles * 100))
     }
 
+    fun updateCategoryName(categoryId: String, name: String) = viewModelScope.launch {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return@launch
+        val cat = uiState.value.categories.find { it.id == categoryId } ?: return@launch
+        if (cat.name == trimmed) return@launch
+        repository.upsertCategory(cat.copy(name = trimmed))
+    }
+
     fun updateCategoryRollover(categoryId: String, enabled: Boolean) = viewModelScope.launch {
         repository.updateCategoryRollover(categoryId, enabled)
     }
