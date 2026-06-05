@@ -9,6 +9,12 @@ data class RegisterRequest(val email: String, val password: String, val displayN
 data class LoginRequest(val email: String, val password: String)
 
 @Serializable
+data class UpdateProfileRequest(val displayName: String)
+
+@Serializable
+data class ProfileResponse(val displayName: String, val email: String)
+
+@Serializable
 data class AuthResponse(val token: String, val userId: String)
 
 @Serializable

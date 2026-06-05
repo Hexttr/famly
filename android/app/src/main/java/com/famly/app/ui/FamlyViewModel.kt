@@ -222,6 +222,18 @@ class FamlyViewModel(
         _inviteLoading.value = false
     }
 
+    fun updateProfileName(name: String) = viewModelScope.launch {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return@launch
+        runCatching {
+            syncRepository.updateProfileName(trimmed)
+        }.onFailure {
+            _syncStatus.value = SyncStatus(success = false, error = it.message ?: "Не удалось сохранить имя")
+        }.onSuccess {
+            _syncStatus.value = SyncStatus(success = true)
+        }
+    }
+
     fun addTransaction(
         amountRubles: String,
         type: String,

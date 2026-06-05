@@ -187,6 +187,15 @@ class SyncRepository(
         syncHouseholdMembers(token, householdId)
     }
 
+    suspend fun updateProfileName(displayName: String) {
+        val token = requireAuthToken()
+        api.updateProfile(token, displayName.trim())
+        val settings = preferences.settings.first()
+        if (!settings.householdId.isNullOrBlank()) {
+            syncHouseholdMembers(token, settings.householdId)
+        }
+    }
+
     suspend fun generateInviteCode(): InviteResult {
         ensureHouseholdLinked()
         val settings = preferences.settings.first()

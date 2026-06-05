@@ -43,14 +43,11 @@ import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -100,6 +97,7 @@ import com.famly.app.ui.FamlyUiState
 import com.famly.app.ui.components.CategoryEmojiIcon
 import com.famly.app.ui.components.FamlyCard
 import com.famly.app.ui.components.FamlyCategoryChip
+import com.famly.app.ui.components.FamlyDatePickerDialog
 import com.famly.app.ui.components.FamlyFilterChip
 import com.famly.app.ui.components.HeroCard
 import com.famly.app.ui.components.PremiumGateContent
@@ -112,9 +110,7 @@ import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import com.famly.app.ui.theme.TextSecondary
 import com.famly.app.ui.theme.famlySmShadow
 import com.famly.app.ui.theme.parseHexColor
@@ -307,11 +303,16 @@ fun SettingsScreen(
     onSyncNow: () -> Unit,
     onOpenFamily: () -> Unit,
     onLogout: () -> Unit,
+    onUpdateProfileName: (String) -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
     var showLogoutConfirm by remember { mutableStateOf(false) }
+    val selfMember = state.familyMembers.find { it.userId == state.settings.userId }
+    var profileName by remember(selfMember?.name, state.settings.userId) {
+        mutableStateOf(selfMember?.name ?: "")
+    }
     var startDayInput by remember(state.settings.budgetPeriod.startDay) {
         mutableStateOf(state.settings.budgetPeriod.startDay.toString())
     }
@@ -413,6 +414,30 @@ fun SettingsScreen(
             }
             syncStatus?.let {
                 Text(it, fontSize = 12.sp, color = if (it.contains("Hostname") || it.contains("error", true) || it.contains("Ошибка")) Expense else Primary, modifier = Modifier.padding(top = 10.dp))
+            }
+        }
+
+        if (state.settings.isAuthenticated) {
+            SectionHeading("👤", "Профиль")
+            FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), padding = 14.dp) {
+                OutlinedTextField(
+                    value = profileName,
+                    onValueChange = { profileName = it },
+                    label = { Text("Ваше имя") },
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                    placeholder = { Text("Как вас видят в семье") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                Button(
+                    onClick = { onUpdateProfileName(profileName) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                    enabled = profileName.trim().isNotBlank() &&
+                        profileName.trim() != (selfMember?.name ?: "").trim(),
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text("Сохранить имя", modifier = Modifier.padding(start = 8.dp))
+                }
             }
         }
 
@@ -762,36 +787,11 @@ fun QuickAddSheet(
     }
 
     if (showDatePicker) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = effectiveDate
-                .atStartOfDay(ZoneId.systemDefault())
-                .toInstant()
-                .toEpochMilli(),
-        )
-        DatePickerDialog(
+        FamlyDatePickerDialog(
             onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pickerState.selectedDateMillis?.let { millis ->
-                            customDate = Instant.ofEpochMilli(millis)
-                                .atZone(ZoneId.systemDefault())
-                                .toLocalDate()
-                        }
-                        showDatePicker = false
-                    },
-                ) {
-                    Text("Готово")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Отмена")
-                }
-            },
-        ) {
-            DatePicker(state = pickerState)
-        }
+            onConfirm = { customDate = it },
+            initialDate = effectiveDate,
+        )
     }
 
     ModalBottomSheet(

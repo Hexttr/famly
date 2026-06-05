@@ -92,6 +92,19 @@ fun Application.configureRouting() {
         }
 
         authenticate("auth-jwt") {
+            route("/auth") {
+                get("/profile") {
+                    val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
+                    val (name, email) = authService.profile(userId)
+                    call.respond(ProfileResponse(name, email))
+                }
+                patch("/profile") {
+                    val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
+                    val body = call.receive<UpdateProfileRequest>()
+                    val name = authService.updateDisplayName(userId, body.displayName)
+                    call.respond(ProfileResponse(name, authService.profile(userId).second))
+                }
+            }
             route("/households") {
                 get("/mine") {
                     val userId = call.principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()

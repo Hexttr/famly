@@ -14,6 +14,8 @@ import java.net.URL
 
 data class AuthResult(val token: String, val userId: String)
 
+data class ProfileResult(val displayName: String, val email: String)
+
 data class HouseholdResult(
     val id: String,
     val name: String,
@@ -136,6 +138,32 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
     suspend fun logout(token: String) = withContext(Dispatchers.IO) {
         postJson("/auth/logout", JSONObject(), authToken = token)
     }
+
+    suspend fun updateProfile(token: String, displayName: String): ProfileResult =
+        withContext(Dispatchers.IO) {
+            val response = patchJson(
+                "/auth/profile",
+                JSONObject().apply { put("displayName", displayName) },
+                authToken = token,
+            )
+            ProfileResult(
+                displayName = response.getString("displayName"),
+                email = response.getString("email"),
+            )
+        }
+
+    suspend fun getProfile(token: String): ProfileResult? =
+        withContext(Dispatchers.IO) {
+            try {
+                val response = getJson("/auth/profile", authToken = token)
+                ProfileResult(
+                    displayName = response.getString("displayName"),
+                    email = response.getString("email"),
+                )
+            } catch (_: Exception) {
+                null
+            }
+        }
 
     suspend fun getHousehold(token: String): HouseholdFullResult? =
         withContext(Dispatchers.IO) {

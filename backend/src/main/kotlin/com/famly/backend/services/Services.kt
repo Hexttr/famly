@@ -89,6 +89,27 @@ class AuthService {
         Users.selectAll().where { Users.id eq userId }.singleOrNull()?.get(Users.displayName) ?: "User"
     }
 
+    fun updateDisplayName(userId: String, displayName: String): String = transaction {
+        val trimmed = displayName.trim()
+        require(trimmed.isNotBlank()) { "Display name is required" }
+        require(trimmed.length <= 100) { "Display name is too long" }
+        val row = Users.selectAll().where { Users.id eq userId }.singleOrNull()
+            ?: throw IllegalArgumentException("User not found")
+        Users.update({ Users.id eq userId }) {
+            it[Users.displayName] = trimmed
+        }
+        HouseholdMembers.update({ HouseholdMembers.userId eq userId }) {
+            it[HouseholdMembers.displayName] = trimmed
+        }
+        trimmed
+    }
+
+    fun profile(userId: String): Pair<String, String> = transaction {
+        val row = Users.selectAll().where { Users.id eq userId }.singleOrNull()
+            ?: throw IllegalArgumentException("User not found")
+        row[Users.displayName] to row[Users.email]
+    }
+
     fun token(userId: String, admin: Boolean = false): String {
         val builder = JWT.create().withClaim("userId", userId)
         if (admin) builder.withClaim("role", "admin")

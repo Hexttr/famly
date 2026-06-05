@@ -271,6 +271,7 @@ fun FamlyNavHost(
                     { viewModel.syncNow() },
                     { navController.navigate(Routes.FAMILY) },
                     { viewModel.logout() },
+                    { viewModel.updateProfileName(it) },
                 )
             }
             composable(Routes.RECURRING) {
