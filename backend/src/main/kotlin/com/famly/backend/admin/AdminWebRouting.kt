@@ -99,6 +99,7 @@ fun Route.configureAdminWebRouting(
             val q = call.request.queryParameters["q"]
             val pageSize = 25
             val csrf = AdminAuth.issueCsrf(adminId)
+            val stats = adminService.statsCached()
             call.respondText(
                 AdminTemplates.usersPage(
                     adminEmail = authService.adminEmail(adminId) ?: adminId,
@@ -108,9 +109,93 @@ fun Route.configureAdminWebRouting(
                     total = adminService.usersCount(q),
                     pageSize = pageSize,
                     query = q,
+                    navCounts = AdminTemplates.NavCounts(stats.usersCount, stats.householdsCount),
+                    flash = call.request.queryParameters["flash"],
+                    flashError = call.request.queryParameters["flash_error"],
                 ),
                 ContentType.Text.Html,
             )
+        }
+    }
+
+    get("/users/{id}/edit") {
+        val adminId = AdminAuth.resolveAdminUserId(call, authService)
+            ?: return@get call.respondRedirect("/admin")
+        val id = call.parameters["id"]!!
+        val user = adminService.getUser(id) ?: return@get call.respond(HttpStatusCode.NotFound)
+        adminService.audit(adminId, "edit_user_form", "user", id)
+        val csrf = AdminAuth.issueCsrf(adminId)
+        val stats = adminService.statsCached()
+        call.respondText(
+            AdminTemplates.userEditPage(
+                adminEmail = authService.adminEmail(adminId) ?: adminId,
+                csrfToken = csrf,
+                user = user,
+                navCounts = AdminTemplates.NavCounts(stats.usersCount, stats.householdsCount),
+                flashError = call.request.queryParameters["flash_error"],
+            ),
+            ContentType.Text.Html,
+        )
+    }
+
+    post("/users/create") {
+        val adminId = AdminAuth.resolveAdminUserId(call, authService)
+            ?: return@post call.respondRedirect("/admin")
+        val params = call.receiveParameters()
+        if (!AdminAuth.validateCsrf(adminId, params["csrf"])) {
+            return@post call.respond(HttpStatusCode.Forbidden, "CSRF")
+        }
+        try {
+            val id = adminService.createUser(
+                email = params["email"] ?: "",
+                password = params["password"] ?: "",
+                displayName = params["displayName"] ?: "",
+                isAdmin = params["isAdmin"] == "on",
+            )
+            adminService.audit(adminId, "create_user", "user", id)
+            call.respondRedirect(adminFlashRedirect("/admin/users", "Пользователь создан"))
+        } catch (e: Exception) {
+            call.respondRedirect(adminFlashRedirect("/admin/users", e.message ?: "Ошибка", error = true))
+        }
+    }
+
+    post("/users/{id}/update") {
+        val adminId = AdminAuth.resolveAdminUserId(call, authService)
+            ?: return@post call.respondRedirect("/admin")
+        val params = call.receiveParameters()
+        if (!AdminAuth.validateCsrf(adminId, params["csrf"])) {
+            return@post call.respond(HttpStatusCode.Forbidden, "CSRF")
+        }
+        val id = call.parameters["id"]!!
+        try {
+            adminService.updateUser(
+                id = id,
+                email = params["email"] ?: "",
+                displayName = params["displayName"] ?: "",
+                password = params["password"]?.takeIf { it.isNotBlank() },
+                isAdmin = params["isAdmin"] == "on",
+            )
+            adminService.audit(adminId, "update_user", "user", id)
+            call.respondRedirect(adminFlashRedirect("/admin/users", "Пользователь обновлён"))
+        } catch (e: Exception) {
+            call.respondRedirect(adminFlashRedirect("/admin/users/$id/edit", e.message ?: "Ошибка", error = true))
+        }
+    }
+
+    post("/users/{id}/delete") {
+        val adminId = AdminAuth.resolveAdminUserId(call, authService)
+            ?: return@post call.respondRedirect("/admin")
+        val params = call.receiveParameters()
+        if (!AdminAuth.validateCsrf(adminId, params["csrf"])) {
+            return@post call.respond(HttpStatusCode.Forbidden, "CSRF")
+        }
+        val id = call.parameters["id"]!!
+        try {
+            adminService.deleteUser(id, adminId)
+            adminService.audit(adminId, "delete_user", "user", id)
+            call.respondRedirect(adminFlashRedirect("/admin/users", "Пользователь удалён"))
+        } catch (e: Exception) {
+            call.respondRedirect(adminFlashRedirect("/admin/users", e.message ?: "Ошибка", error = true))
         }
     }
 
@@ -124,16 +209,20 @@ fun Route.configureAdminWebRouting(
         } else {
             adminService.audit(adminId, "list_households")
             val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
+            val q = call.request.queryParameters["q"]
             val pageSize = 25
             val csrf = AdminAuth.issueCsrf(adminId)
+            val stats = adminService.statsCached()
             call.respondText(
                 AdminTemplates.householdsPage(
                     adminEmail = authService.adminEmail(adminId) ?: adminId,
                     csrfToken = csrf,
-                    households = adminService.listHouseholdsPage(page, pageSize),
+                    households = adminService.listHouseholdsPage(page, pageSize, q),
                     page = page,
-                    total = adminService.householdsCount(),
+                    total = adminService.householdsCount(q),
                     pageSize = pageSize,
+                    query = q,
+                    navCounts = AdminTemplates.NavCounts(stats.usersCount, stats.householdsCount),
                 ),
                 ContentType.Text.Html,
             )
@@ -170,12 +259,15 @@ fun Route.configureAdminWebRouting(
             val adminId = call.requireAdminId()
             adminService.audit(adminId, "view_dashboard")
             val csrf = AdminAuth.issueCsrf(adminId)
+            val stats = adminService.statsCached()
+            val nav = AdminTemplates.NavCounts(stats.usersCount, stats.householdsCount)
             call.respondText(
                 AdminTemplates.dashboard(
                     adminEmail = authService.adminEmail(adminId) ?: adminId,
                     csrfToken = csrf,
-                    stats = adminService.statsCached(),
+                    stats = stats,
                     chart = adminService.registrationsLast7Days(),
+                    navCounts = nav,
                 ),
                 ContentType.Text.Html,
             )
@@ -189,6 +281,7 @@ fun Route.configureAdminWebRouting(
                 ?: return@get call.respond(HttpStatusCode.NotFound, "Not found")
             val csrf = AdminAuth.issueCsrf(adminId)
             val flash = call.request.queryParameters["flash"]
+            val stats = adminService.statsCached()
             call.respondText(
                 AdminTemplates.householdDetailPage(
                     adminEmail = authService.adminEmail(adminId) ?: adminId,
@@ -196,6 +289,7 @@ fun Route.configureAdminWebRouting(
                     household = household,
                     transactions = adminService.transactionSummaries(id),
                     flash = flash,
+                    navCounts = AdminTemplates.NavCounts(stats.usersCount, stats.householdsCount),
                 ),
                 ContentType.Text.Html,
             )
@@ -208,6 +302,7 @@ fun Route.configureAdminWebRouting(
             val type = call.request.queryParameters["type"]?.takeIf { it.isNotBlank() }
             val pageSize = 25
             val csrf = AdminAuth.issueCsrf(adminId)
+            val stats = adminService.statsCached()
             call.respondText(
                 AdminTemplates.syncPage(
                     adminEmail = authService.adminEmail(adminId) ?: adminId,
@@ -217,6 +312,7 @@ fun Route.configureAdminWebRouting(
                     total = adminService.syncLogCount(type),
                     pageSize = pageSize,
                     entityType = type,
+                    navCounts = AdminTemplates.NavCounts(stats.usersCount, stats.householdsCount),
                 ),
                 ContentType.Text.Html,
             )
@@ -231,6 +327,7 @@ fun Route.configureAdminWebRouting(
                 entry.id, entry.householdId, entry.entityType, entry.entityId, entry.updatedAt, entry.deleted,
             )
             val csrf = AdminAuth.issueCsrf(adminId)
+            val stats = adminService.statsCached()
             call.respondText(
                 AdminTemplates.syncDetailPage(
                     adminEmail = authService.adminEmail(adminId) ?: adminId,
@@ -238,6 +335,7 @@ fun Route.configureAdminWebRouting(
                     id = id,
                     payload = entry.payload,
                     meta = meta,
+                    navCounts = AdminTemplates.NavCounts(stats.usersCount, stats.householdsCount),
                 ),
                 ContentType.Text.Html,
             )
@@ -249,6 +347,7 @@ fun Route.configureAdminWebRouting(
             val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
             val pageSize = 25
             val csrf = AdminAuth.issueCsrf(adminId)
+            val stats = adminService.statsCached()
             call.respondText(
                 AdminTemplates.auditPage(
                     adminEmail = authService.adminEmail(adminId) ?: adminId,
@@ -257,6 +356,7 @@ fun Route.configureAdminWebRouting(
                     page = page,
                     total = adminService.auditCount(),
                     pageSize = pageSize,
+                    navCounts = AdminTemplates.NavCounts(stats.usersCount, stats.householdsCount),
                 ),
                 ContentType.Text.Html,
             )
@@ -267,13 +367,15 @@ fun Route.configureAdminWebRouting(
             adminService.audit(adminId, "view_health")
             val csrf = AdminAuth.issueCsrf(adminId)
             val uptime = System.currentTimeMillis() - AdminRuntime.startedAtMs
+            val stats = adminService.statsCached()
             call.respondText(
                 AdminTemplates.healthPage(
                     adminEmail = authService.adminEmail(adminId) ?: adminId,
                     csrfToken = csrf,
                     serviceVersion = AdminRuntime.BACKEND_VERSION,
                     uptimeMs = uptime,
-                    stats = adminService.statsCached(),
+                    stats = stats,
+                    navCounts = AdminTemplates.NavCounts(stats.usersCount, stats.householdsCount),
                 ),
                 ContentType.Text.Html,
             )
@@ -330,3 +432,8 @@ private fun adminApiRequest(call: ApplicationCall): Boolean {
 
 private fun ApplicationCall.requireAdminId(): String =
     principal<JWTPrincipal>()!!.payload.getClaim("userId").asString()
+
+private fun adminFlashRedirect(path: String, message: String, error: Boolean = false): String {
+    val key = if (error) "flash_error" else "flash"
+    return "$path?$key=${java.net.URLEncoder.encode(message, Charsets.UTF_8)}"
+}

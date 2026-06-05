@@ -504,15 +504,115 @@ class AdminService {
 
     fun listUsers(): List<AdminUserDto> = listUsers(page = 1, pageSize = 1000)
 
-    fun householdsCount(): Int = transaction { Households.selectAll().count().toInt() }
+    fun getUser(id: String): AdminUserDto? = transaction {
+        val row = Users.selectAll().where { Users.id eq id }.singleOrNull() ?: return@transaction null
+        val householdId = HouseholdMembers.selectAll()
+            .where { HouseholdMembers.userId eq id }
+            .singleOrNull()
+            ?.get(HouseholdMembers.householdId)
+        AdminUserDto(
+            id = row[Users.id],
+            email = row[Users.email],
+            displayName = row[Users.displayName],
+            createdAt = row[Users.createdAt],
+            householdId = householdId,
+            isAdmin = row[Users.isAdmin],
+        )
+    }
 
-    fun listHouseholdsPage(page: Int = 1, pageSize: Int = 25): List<AdminHouseholdListDto> = transaction {
+    fun createUser(email: String, password: String, displayName: String, isAdmin: Boolean): String = transaction {
+        require(email.isNotBlank()) { "Email обязателен" }
+        require(password.length >= 6) { "Пароль — минимум 6 символов" }
+        require(displayName.isNotBlank()) { "Имя обязательно" }
+        val normalized = email.trim().lowercase()
+        if (Users.selectAll().where { Users.email eq normalized }.count() > 0) {
+            throw IllegalArgumentException("Email уже занят")
+        }
+        val id = UUID.randomUUID().toString()
+        Users.insert {
+            it[Users.id] = id
+            it[Users.email] = normalized
+            it[Users.passwordHash] = BCrypt.hashpw(password, BCrypt.gensalt(12))
+            it[Users.displayName] = displayName.trim()
+            it[Users.isAdmin] = isAdmin
+            it[Users.createdAt] = System.currentTimeMillis()
+        }
+        invalidateStatsCache()
+        id
+    }
+
+    fun updateUser(
+        id: String,
+        email: String,
+        displayName: String,
+        password: String?,
+        isAdmin: Boolean,
+    ) = transaction {
+        val row = Users.selectAll().where { Users.id eq id }.singleOrNull()
+            ?: throw IllegalArgumentException("Пользователь не найден")
+        val normalized = email.trim().lowercase()
+        if (normalized != row[Users.email]) {
+            val taken = Users.selectAll().where { Users.email eq normalized }.count() > 0
+            if (taken) throw IllegalArgumentException("Email уже занят")
+        }
+        Users.update({ Users.id eq id }) {
+            it[Users.email] = normalized
+            it[Users.displayName] = displayName.trim()
+            it[Users.isAdmin] = isAdmin
+            if (!password.isNullOrBlank()) {
+                require(password.length >= 6) { "Пароль — минимум 6 символов" }
+                it[Users.passwordHash] = BCrypt.hashpw(password, BCrypt.gensalt(12))
+            }
+        }
+        HouseholdMembers.update({ HouseholdMembers.userId eq id }) {
+            it[HouseholdMembers.displayName] = displayName.trim()
+        }
+        invalidateStatsCache()
+    }
+
+    fun deleteUser(id: String, requestingAdminId: String) = transaction {
+        if (id == requestingAdminId) throw IllegalArgumentException("Нельзя удалить свой аккаунт")
+        Users.selectAll().where { Users.id eq id }.singleOrNull()
+            ?: throw IllegalArgumentException("Пользователь не найден")
+        val ownsHousehold = Households.selectAll().where { Households.ownerId eq id }.count() > 0
+        if (ownsHousehold) {
+            throw IllegalArgumentException("Пользователь — владелец семьи. Удаление невозможно.")
+        }
+        HouseholdMembers.deleteWhere { HouseholdMembers.userId eq id }
+        Subscriptions.deleteWhere { Subscriptions.userId eq id }
+        Users.deleteWhere { Users.id eq id }
+        invalidateStatsCache()
+    }
+
+    private fun invalidateStatsCache() {
+        statsCache.set(null)
+    }
+
+    fun householdsCount(query: String? = null): Int = transaction {
+        val q = query?.trim()?.takeIf { it.isNotBlank() }
+        if (q == null) {
+            Households.selectAll().count().toInt()
+        } else {
+            val pattern = "%$q%"
+            Households.selectAll().where {
+                (Households.name like pattern) or (Households.inviteCode like pattern.uppercase())
+            }.count().toInt()
+        }
+    }
+
+    fun listHouseholdsPage(page: Int = 1, pageSize: Int = 25, query: String? = null): List<AdminHouseholdListDto> = transaction {
         val size = clampPageSize(pageSize)
         val offset = ((page.coerceAtLeast(1) - 1) * size).toLong()
-        val rows = Households.selectAll()
-            .orderBy(Households.createdAt to SortOrder.DESC)
-            .limit(size, offset)
-            .toList()
+        val q = query?.trim()?.takeIf { it.isNotBlank() }
+        val rows = if (q == null) {
+            Households.selectAll().orderBy(Households.createdAt to SortOrder.DESC).limit(size, offset)
+        } else {
+            val pattern = "%$q%"
+            Households.selectAll()
+                .where { (Households.name like pattern) or (Households.inviteCode like pattern.uppercase()) }
+                .orderBy(Households.createdAt to SortOrder.DESC)
+                .limit(size, offset)
+        }.toList()
         val ids = rows.map { it[Households.id] }
         val memberCounts = if (ids.isEmpty()) {
             emptyMap()
