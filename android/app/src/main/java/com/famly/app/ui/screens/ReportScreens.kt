@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -105,26 +106,31 @@ fun ReportsScreen(state: FamlyUiState, onBack: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(Spacing.md))
             if (totalSpent > 0 && top5.isNotEmpty()) {
-                FamlyCard(modifier = Modifier.fillMaxWidth()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center,
+                FamlyCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 320.dp),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         DonutChartWithCenter(
                             slices = top5.map { parseHexColor(it.first.color) to it.second },
                             total = totalSpent,
                             centerTitle = top5.first().first.name,
                             centerPercent = topShare,
-                            modifier = Modifier.size(200.dp),
+                            modifier = Modifier.size(220.dp),
                         )
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp, start = 8.dp, end = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                         top5.forEach { (cat, _) ->
                             Row(
                                 modifier = Modifier.padding(horizontal = 6.dp),
@@ -144,6 +150,7 @@ fun ReportsScreen(state: FamlyUiState, onBack: () -> Unit) {
                                     modifier = Modifier.padding(start = 4.dp),
                                 )
                             }
+                        }
                         }
                     }
                 }

@@ -64,6 +64,7 @@ import com.famly.app.ui.theme.Accent
 import com.famly.app.ui.theme.Border
 import com.famly.app.ui.theme.Expense
 import com.famly.app.ui.theme.HeaderLayout
+import com.famly.app.ui.theme.LayoutInsets
 import com.famly.app.ui.theme.Premium
 import com.famly.app.ui.theme.PremiumBg
 import com.famly.app.ui.theme.Primary
@@ -146,7 +147,7 @@ fun AppHeader(
                     icon = Icons.Default.Add,
                     contentDescription = "Добавить операцию",
                     onClick = onQuickAdd,
-                    primary = true,
+                    tint = PrimaryDark,
                 )
                 HeaderRightSlot.Settings -> HeaderCircleButton(
                     icon = Icons.Default.Settings,
@@ -232,6 +233,7 @@ fun FamlyBottomNav(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .padding(top = LayoutInsets.fabOverhang)
             .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
         Box(

@@ -28,7 +28,13 @@ object HeaderLayout {
 
 /** Space for floating bottom bar + raised FAB + grounding gradient. */
 object LayoutInsets {
-    val bottomNavHeight = 96.dp
+    /** FAB protrudes above the nav capsule; must be included in bottomBar slot height. */
+    val fabOverhang = 32.dp
+    val bottomNavBarBody = 104.dp
+    val bottomNavHeight = fabOverhang + bottomNavBarBody
     val scrollBottomClearance = 32.dp
-    val mainTabScrollBottom = bottomNavHeight + scrollBottomClearance
+    /** Extra scroll padding on main tabs (NavHost already reserves bottomBar height). */
+    val mainTabScrollBottom = scrollBottomClearance
+    /** Nested screens (ScreenScaffold): FAB can overlap content if slot height is underestimated. */
+    val stackedScreenScrollBottom = fabOverhang + scrollBottomClearance + 16.dp
 }
