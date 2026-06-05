@@ -26,9 +26,9 @@ object HeaderLayout {
     val height = 112.dp
 }
 
-/** Extra space so scrollable content is not hidden under the bottom tab bar or system nav. */
+/** Space for floating bottom bar + raised FAB. */
 object LayoutInsets {
-    val bottomNavHeight = 64.dp
+    val bottomNavHeight = 88.dp
     val scrollBottomClearance = 32.dp
     val mainTabScrollBottom = bottomNavHeight + scrollBottomClearance
 }

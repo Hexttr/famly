@@ -4,6 +4,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,14 +39,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -53,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.famly.app.R
+import com.famly.app.ui.theme.Accent
 import com.famly.app.ui.theme.Border
 import com.famly.app.ui.theme.Expense
 import com.famly.app.ui.theme.HeaderLayout
@@ -61,12 +69,14 @@ import com.famly.app.ui.theme.PremiumBg
 import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.BottomNavBackground
 import com.famly.app.ui.theme.PrimaryDark
+import com.famly.app.ui.theme.PrimaryLight
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
 import com.famly.app.ui.theme.TextSecondary
-import com.famly.app.ui.theme.famlyBottomNavShadow
 import com.famly.app.ui.theme.famlyCardShadow
+import com.famly.app.ui.theme.famlyFabShadow
+import com.famly.app.ui.theme.famlyFloatingNavShadow
 import com.famly.app.ui.theme.famlyHeaderButtonShadow
 import com.famly.app.ui.theme.famlyHeroShadow
 import com.famly.app.ui.theme.famlySmShadow
@@ -204,45 +214,139 @@ private fun HeaderNotificationButton(onClick: () -> Unit) {
 fun FamlyBottomNav(
     selectedRoute: String,
     onTabSelected: (String) -> Unit,
+    onQuickAdd: () -> Unit,
     tabs: List<Triple<String, ImageVector, String>>,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    val view = LocalView.current
+    val leftTabs = tabs.take(2)
+    val rightTabs = tabs.drop(2)
+    val capsuleShape = RoundedCornerShape(28.dp)
+    val fabGradient = Brush.linearGradient(
+        colors = listOf(PrimaryLight, Primary, PrimaryDark),
+        start = Offset(0f, 0f),
+        end = Offset(120f, 120f),
+    )
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(BottomNavBackground)
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .famlyBottomNavShadow()
-            .padding(vertical = 4.dp),
+            .padding(start = 16.dp, end = 16.dp, bottom = 10.dp, top = 4.dp)
+            .height(72.dp),
+        contentAlignment = Alignment.BottomCenter,
     ) {
-        tabs.forEach { (route, icon, label) ->
-            val selected = selectedRoute == route
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .famlyFloatingNavShadow(capsuleShape)
+                .clip(capsuleShape)
+                .background(BottomNavBackground)
+                .padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leftTabs.forEach { (route, icon, label) ->
+                FloatingNavTab(
+                    icon = icon,
+                    label = label,
+                    selected = selectedRoute == route,
+                    onClick = {
+                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        onTabSelected(route)
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(modifier = Modifier.width(52.dp))
+            rightTabs.forEach { (route, icon, label) ->
+                FloatingNavTab(
+                    icon = icon,
+                    label = label,
+                    selected = selectedRoute == route,
+                    onClick = {
+                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        onTabSelected(route)
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = (-6).dp)
+                .size(58.dp)
+                .famlyFabShadow()
+                .clip(CircleShape)
+                .background(fabGradient)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                        onQuickAdd()
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Default.Add,
+                contentDescription = "Новая операция",
+                tint = Color.White,
+                modifier = Modifier.size(28.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FloatingNavTab(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.1f else 1f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 380f),
+        label = "navTabScale",
+    )
+    Column(
+        modifier = modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .scale(scale)
+                .clip(CircleShape)
+                .background(if (selected) Color.White.copy(alpha = 0.2f) else Color.Transparent),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = if (selected) Color.White else Color.White.copy(alpha = 0.55f),
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        if (selected) {
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { onTabSelected(route) },
-                    )
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(if (selected) Color.White.copy(alpha = 0.18f) else Color.Transparent),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        icon,
-                        contentDescription = label,
-                        tint = if (selected) Color.White else Color.White.copy(alpha = 0.55f),
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            }
+                    .padding(top = 2.dp)
+                    .size(4.dp)
+                    .clip(CircleShape)
+                    .background(Accent),
+            )
         }
     }
 }

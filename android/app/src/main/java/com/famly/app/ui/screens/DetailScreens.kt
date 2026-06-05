@@ -4,6 +4,13 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
 import com.famly.app.BuildConfig
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +43,8 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CurrencyRuble
 import androidx.compose.material.icons.filled.Euro
@@ -75,6 +84,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -103,10 +113,13 @@ import com.famly.app.ui.components.HeroCard
 import com.famly.app.ui.components.PremiumGateContent
 import com.famly.app.ui.components.SectionHeading
 import com.famly.app.ui.components.categoryAccentColor
+import com.famly.app.ui.theme.Accent
 import com.famly.app.ui.theme.Expense
 import com.famly.app.ui.theme.Income
 import com.famly.app.ui.theme.Premium
 import com.famly.app.ui.theme.Primary
+import com.famly.app.ui.theme.PrimaryDark
+import com.famly.app.ui.theme.PrimaryLight
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
@@ -743,6 +756,26 @@ fun PremiumGateScreen(feature: String, onUpgrade: () -> Unit) {
     }
 }
 
+@Composable
+private fun QuickAddSectionLabel(
+    icon: ImageVector,
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.padding(bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 6.dp),
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickAddSheet(
@@ -794,60 +827,84 @@ fun QuickAddSheet(
         )
     }
 
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var sheetEntered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { sheetEntered = true }
+    val amountScale by animateFloatAsState(
+        targetValue = if (amount.isNotBlank() && amount != "0") 1.04f else 1f,
+        animationSpec = spring(dampingRatio = 0.45f, stiffness = 420f),
+        label = "amountScale",
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = sheetState,
+        dragHandle = null,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 4.dp,
+        scrimColor = Color.Black.copy(alpha = 0.5f),
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = Primary)
-                Text(
-                    "Новая операция",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(start = 8.dp),
+        QuickAddSheetDecor()
+        AnimatedVisibility(
+            visible = sheetEntered,
+            enter = slideInVertically(
+                initialOffsetY = { it / 5 },
+                animationSpec = spring(dampingRatio = 0.72f, stiffness = 340f),
+            ) + fadeIn(animationSpec = spring(dampingRatio = 0.8f)),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Primary)
+                    Text(
+                        "Новая операция",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FamlyFilterChip(
+                        label = "Расход",
+                        selected = type == "expense",
+                        onClick = {
+                            type = "expense"
+                            categoryId = state.categories.firstOrNull { it.type == "expense" }?.id ?: categoryId
+                        },
+                        modifier = Modifier.weight(1f),
+                        accent = Expense,
+                        leading = { Icon(Icons.Default.Remove, contentDescription = null, tint = if (type == "expense") Color.White else Expense, modifier = Modifier.size(18.dp)) },
+                    )
+                    FamlyFilterChip(
+                        label = "Доход",
+                        selected = type == "income",
+                        onClick = {
+                            type = "income"
+                            categoryId = state.categories.firstOrNull { it.type == "income" }?.id ?: categoryId
+                        },
+                        modifier = Modifier.weight(1f),
+                        accent = Income,
+                        leading = { Icon(Icons.Default.TrendingUp, contentDescription = null, tint = if (type == "income") Color.White else Income, modifier = Modifier.size(18.dp)) },
+                    )
+                }
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .scale(amountScale),
+                    placeholder = { Text("0", textAlign = TextAlign.Center) },
+                    textStyle = MaterialTheme.typography.displaySmall.copy(textAlign = TextAlign.Center),
                 )
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FamlyFilterChip(
-                    label = "Расход",
-                    selected = type == "expense",
-                    onClick = {
-                        type = "expense"
-                        categoryId = state.categories.firstOrNull { it.type == "expense" }?.id ?: categoryId
-                    },
-                    modifier = Modifier.weight(1f),
-                    accent = Expense,
-                    leading = { Icon(Icons.Default.Remove, contentDescription = null, tint = if (type == "expense") Color.White else Expense, modifier = Modifier.size(18.dp)) },
-                )
-                FamlyFilterChip(
-                    label = "Доход",
-                    selected = type == "income",
-                    onClick = {
-                        type = "income"
-                        categoryId = state.categories.firstOrNull { it.type == "income" }?.id ?: categoryId
-                    },
-                    modifier = Modifier.weight(1f),
-                    accent = Income,
-                    leading = { Icon(Icons.Default.TrendingUp, contentDescription = null, tint = if (type == "income") Color.White else Income, modifier = Modifier.size(18.dp)) },
-                )
-            }
-            OutlinedTextField(
-                value = amount,
-                onValueChange = { amount = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("0", textAlign = TextAlign.Center) },
-                textStyle = MaterialTheme.typography.displaySmall.copy(textAlign = TextAlign.Center),
-            )
-            Text(
-                "Дата",
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+            QuickAddSectionLabel(
+                icon = Icons.Default.CalendarToday,
+                text = "Дата",
+                modifier = Modifier.padding(top = 12.dp),
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -883,7 +940,11 @@ fun QuickAddSheet(
                     }
                 }
             }
-            Text("Категория", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
+            QuickAddSectionLabel(
+                icon = Icons.Default.Category,
+                text = "Категория",
+                modifier = Modifier.padding(top = 8.dp),
+            )
             LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.categories.filter { it.type == type }) { cat ->
                     FamlyCategoryChip(
@@ -894,7 +955,11 @@ fun QuickAddSheet(
                     )
                 }
             }
-            Text("Счёт", style = MaterialTheme.typography.labelMedium)
+            QuickAddSectionLabel(
+                icon = Icons.Default.AccountBalanceWallet,
+                text = "Счёт",
+                modifier = Modifier.padding(top = 8.dp),
+            )
             LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.accounts) { acc ->
                     FamlyCategoryChip(
@@ -925,7 +990,37 @@ fun QuickAddSheet(
                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                 Text("Сохранить", modifier = Modifier.padding(start = 8.dp))
             }
-            Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickAddSheetDecor() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(PrimaryDark, Primary, PrimaryLight, Accent),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp, bottom = 4.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(TextMuted.copy(alpha = 0.35f)),
+            )
         }
     }
 }

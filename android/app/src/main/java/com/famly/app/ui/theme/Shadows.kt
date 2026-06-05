@@ -1,5 +1,6 @@
 package com.famly.app.ui.theme
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -46,4 +47,20 @@ fun Modifier.famlyBottomNavShadow(): Modifier =
         shape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp),
         ambientColor = Color(0x591B4332),
         spotColor = Color(0x591B4332),
+    )
+
+fun Modifier.famlyFloatingNavShadow(shape: Shape = RoundedCornerShape(28.dp)): Modifier =
+    shadow(
+        elevation = 16.dp,
+        shape = shape,
+        ambientColor = Color(0x661B4332),
+        spotColor = Color(0x802D6A4F),
+    )
+
+fun Modifier.famlyFabShadow(): Modifier =
+    shadow(
+        elevation = 10.dp,
+        shape = CircleShape,
+        ambientColor = Color(0x8040916C),
+        spotColor = Color(0x992D6A4F),
     )

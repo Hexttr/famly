@@ -210,6 +210,7 @@ fun FamlyNavHost(
                         }
                     }
                 },
+                onQuickAdd = { openQuickAdd() },
                 tabs = tabs.map { Triple(it.route, it.icon, it.label) },
             )
         },
