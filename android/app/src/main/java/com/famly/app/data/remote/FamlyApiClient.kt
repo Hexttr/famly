@@ -1,6 +1,7 @@
 package com.famly.app.data.remote
 
 import com.famly.app.BuildConfig
+import com.famly.app.domain.InviteLinks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -109,7 +110,7 @@ class FamlyApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
             val response = postJson("/households/$householdId/invite", JSONObject(), authToken = token)
             InviteResult(
                 inviteCode = response.getString("inviteCode"),
-                inviteUrl = response.optString("inviteUrl", "https://famly.app/join?code=${response.getString("inviteCode")}"),
+                inviteUrl = response.optString("inviteUrl", InviteLinks.httpsJoinUrl(response.getString("inviteCode"))),
             )
         }
 

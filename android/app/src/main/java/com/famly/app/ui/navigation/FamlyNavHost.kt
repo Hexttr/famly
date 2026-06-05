@@ -92,6 +92,7 @@ fun FamlyNavHost(
     val inviteCode by viewModel.inviteCode.collectAsState()
     val inviteLoading by viewModel.inviteLoading.collectAsState()
     val inviteError by viewModel.inviteError.collectAsState()
+    val memberUpdateError by viewModel.memberUpdateError.collectAsState()
     val bootstrapReady by viewModel.bootstrapReady.collectAsState()
     var notificationsVisible by rememberSaveable { mutableStateOf(false) }
     var quickAddInitialType by rememberSaveable { mutableStateOf<String?>(null) }
@@ -183,19 +184,21 @@ fun FamlyNavHost(
             }
         },
         bottomBar = {
-            FamlyBottomNav(
-                selectedRoute = bottomNavRoute,
-                onTabSelected = { route ->
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+            if (isMainTab) {
+                FamlyBottomNav(
+                    selectedRoute = bottomNavRoute,
+                    onTabSelected = { route ->
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                tabs = tabs.map { Triple(it.route, it.icon, it.label) },
-            )
+                    },
+                    tabs = tabs.map { Triple(it.route, it.icon, it.label) },
+                )
+            }
         },
     ) { padding ->
         NavHost(
@@ -322,6 +325,7 @@ fun FamlyNavHost(
                     { viewModel.updateFamilyMember(memberId, role = it) },
                     { viewModel.updateFamilyMember(memberId, visibility = it) },
                     { viewModel.cycleMemberAvatar(memberId) },
+                    memberUpdateError = memberUpdateError,
                 )
             }
             composable(Routes.BALANCES) {

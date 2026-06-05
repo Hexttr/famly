@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.famly.app.domain.FamlyAccess
+import com.famly.app.domain.InviteLinks
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.ui.FamlyUiState
 import com.famly.app.ui.components.FamlyCard
@@ -99,6 +100,7 @@ fun FamilyScreen(
         mutableStateOf(state.settings.householdName ?: "")
     }
     var joinCode by remember(initialJoinCode) { mutableStateOf(initialJoinCode) }
+    var autoInviteRequested by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val displayName = state.settings.householdName?.takeIf { it.isNotBlank() } ?: familyName.takeIf { it.isNotBlank() }
     val nameFieldEnabled = !familyCreated || !state.settings.isSynced
@@ -108,9 +110,10 @@ fun FamilyScreen(
         if (initialJoinCode.isNotBlank()) joinCode = initialJoinCode
     }
 
-    LaunchedEffect(familyCreated, state.settings.isAuthenticated, state.settings.isSynced, inviteCode, inviteLoading) {
-        if (!familyCreated || inviteCode != null || inviteLoading) return@LaunchedEffect
+    LaunchedEffect(familyCreated, state.settings.isSynced, inviteCode) {
+        if (!familyCreated || inviteCode != null || autoInviteRequested) return@LaunchedEffect
         if (state.settings.isSynced) {
+            autoInviteRequested = true
             onRefreshInvite()
         }
     }
@@ -317,7 +320,7 @@ fun FamilyScreen(
             if (inviteLoading && inviteCode == null) {
                 Text("Генерация ссылки…", color = TextMuted, fontSize = 14.sp, modifier = Modifier.padding(top = Spacing.sm))
             } else if (inviteCode != null) {
-                val link = inviteUrl ?: "famly://join?code=$inviteCode"
+                val link = InviteLinks.qrPayload(inviteCode, inviteUrl)
                 FamlyCard(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -389,11 +392,11 @@ fun FamilyScreen(
                                     .clip(RoundedCornerShape(Radius.md))
                                     .background(Primary)
                                     .clickable {
-                                        val shareText = buildString {
-                                            append("Присоединяйся к семье «${displayName ?: "наша семья"}» в Мой (Наш) Бюджет!\n")
-                                            append("Код: $inviteCode\n")
-                                            append("Ссылка: $link")
-                                        }
+                                        val shareText = InviteLinks.shareText(
+                                            code = inviteCode,
+                                            familyName = displayName,
+                                            serverInviteUrl = inviteUrl,
+                                        )
                                         context.startActivity(
                                             Intent.createChooser(
                                                 Intent(Intent.ACTION_SEND).apply {
@@ -489,8 +492,16 @@ fun FamilyMemberScreen(
     onUpdateRole: (String) -> Unit,
     onUpdateVisibility: (String) -> Unit,
     onCycleAvatar: () -> Unit,
+    memberUpdateError: String? = null,
 ) {
     val member = state.familyMembers.find { it.id == memberId } ?: return
+    val currentUserId = state.settings.userId
+    val currentMember = state.familyMembers.find { it.userId == currentUserId }
+    val isAdmin = currentMember?.role == "admin"
+    val isSelf = member.userId != null && member.userId == currentUserId
+    val canEditRole = isAdmin
+    val canEditVisibility = isAdmin || isSelf
+
     ScreenScaffold(onBack = onBack) {
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
@@ -517,14 +528,27 @@ fun FamilyMemberScreen(
 
             Spacer(modifier = Modifier.height(Spacing.lg))
 
+            memberUpdateError?.let {
+                Text(it, color = Expense, fontSize = 13.sp, modifier = Modifier.padding(bottom = Spacing.sm))
+            }
+
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                 Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
                 Text("Роль", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
             }
-            Row(modifier = Modifier.padding(bottom = 8.dp)) {
-                RoleChip("admin", "Админ", Icons.Default.AdminPanelSettings, member.role, onUpdateRole)
-                RoleChip("member", "Участник", Icons.Default.Person, member.role, onUpdateRole)
-                RoleChip("viewer", "Наблюдатель", Icons.Default.Visibility, member.role, onUpdateRole)
+            if (canEditRole) {
+                Row(modifier = Modifier.padding(bottom = 8.dp)) {
+                    RoleChip("admin", "Админ", Icons.Default.AdminPanelSettings, member.role, onUpdateRole)
+                    RoleChip("member", "Участник", Icons.Default.Person, member.role, onUpdateRole)
+                    RoleChip("viewer", "Наблюдатель", Icons.Default.Visibility, member.role, onUpdateRole)
+                }
+            } else {
+                Text(
+                    roleLabel(member.role),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
             }
             FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.lg), padding = 12.dp) {
                 Text("Админ — управляет семьёй и видит все операции.", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(bottom = 4.dp))
@@ -536,10 +560,19 @@ fun FamilyMemberScreen(
                 Icon(Icons.Default.Shield, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
                 Text("Видимость", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
             }
-            Row(modifier = Modifier.padding(bottom = 8.dp)) {
-                VisibilityChip("full", "Полный доступ", Icons.Default.Visibility, member.visibility, onUpdateVisibility)
-                VisibilityChip("partial", "Частичный", Icons.Default.VisibilityOff, member.visibility, onUpdateVisibility)
-                VisibilityChip("private", "Приватный", Icons.Default.Lock, member.visibility, onUpdateVisibility)
+            if (canEditVisibility) {
+                Row(modifier = Modifier.padding(bottom = 8.dp)) {
+                    VisibilityChip("full", "Полный доступ", Icons.Default.Visibility, member.visibility, onUpdateVisibility)
+                    VisibilityChip("partial", "Частичный", Icons.Default.VisibilityOff, member.visibility, onUpdateVisibility)
+                    VisibilityChip("private", "Приватный", Icons.Default.Lock, member.visibility, onUpdateVisibility)
+                }
+            } else {
+                Text(
+                    visibilityLabel(member.visibility),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
             }
             FamlyCard(modifier = Modifier.fillMaxWidth(), padding = 12.dp) {
                 Text("Полный доступ — все операции участника видны семье.", fontSize = 13.sp, color = TextMuted, modifier = Modifier.padding(bottom = 4.dp))

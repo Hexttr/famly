@@ -18,6 +18,7 @@ import com.famly.app.domain.budget.BudgetRolloverProcessor
 import com.famly.app.domain.DEFAULT_ACCOUNT_ICON
 import com.famly.app.domain.DEFAULT_EXPENSE_ICON
 import com.famly.app.domain.DEFAULT_INCOME_ICON
+import com.famly.app.domain.InviteLinks
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.domain.analytics.ReportPeriod
 import com.famly.app.domain.analytics.getDailySafeSpend
@@ -74,6 +75,9 @@ class FamlyViewModel(
 
     private val _inviteLoading = MutableStateFlow(false)
     val inviteLoading: StateFlow<Boolean> = _inviteLoading.asStateFlow()
+
+    private val _memberUpdateError = MutableStateFlow<String?>(null)
+    val memberUpdateError: StateFlow<String?> = _memberUpdateError.asStateFlow()
 
     private val _bootstrapReady = MutableStateFlow(false)
     val bootstrapReady: StateFlow<Boolean> = _bootstrapReady.asStateFlow()
@@ -317,7 +321,8 @@ class FamlyViewModel(
     }
 
     fun inviteUrl(): String? =
-        cachedInviteUrl ?: syncRepository.cachedInviteUrl() ?: _inviteCode.value?.let { "https://famly.app/join?code=$it" }
+        cachedInviteUrl ?: syncRepository.cachedInviteUrl()
+            ?: _inviteCode.value?.let { InviteLinks.httpsJoinUrl(it) }
 
     fun saveSplit(transactionId: String, memberIds: List<String>) =
         viewModelScope.launch { repository.saveSplit(transactionId, memberIds) }
@@ -333,12 +338,21 @@ class FamlyViewModel(
         visibility: String? = null,
     ) = viewModelScope.launch {
         val member = uiState.value.familyMembers.find { it.id == memberId } ?: return@launch
-        repository.updateFamilyMember(
-            member.copy(
-                role = role ?: member.role,
-                visibility = visibility ?: member.visibility,
-            ),
-        )
+        _memberUpdateError.value = null
+        runCatching {
+            repository.updateFamilyMember(
+                member.copy(
+                    role = role ?: member.role,
+                    visibility = visibility ?: member.visibility,
+                ),
+            )
+        }.onFailure {
+            _memberUpdateError.value = it.message ?: "Не удалось обновить участника"
+        }
+    }
+
+    fun clearMemberUpdateError() {
+        _memberUpdateError.value = null
     }
 
     fun cycleMemberAvatar(memberId: String) =

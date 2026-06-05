@@ -2,6 +2,7 @@ package com.famly.backend.plugins
 
 import com.famly.backend.FamlyConfig
 import com.famly.backend.models.*
+import com.famly.backend.services.AccessDeniedException
 import com.famly.backend.services.AdminService
 import com.famly.backend.services.AuthService
 import com.famly.backend.services.HouseholdService
@@ -29,6 +30,9 @@ fun Application.configureRouting() {
         )
     }
     install(StatusPages) {
+        exception<AccessDeniedException> { call, cause ->
+            call.respond(HttpStatusCode.Forbidden, mapOf("error" to (cause.message ?: "Forbidden")))
+        }
         exception<IllegalArgumentException> { call, cause ->
             call.respond(HttpStatusCode.BadRequest, mapOf("error" to (cause.message ?: "Bad request")))
         }
@@ -125,21 +129,25 @@ fun Application.configureRouting() {
                         call.respond(HttpStatusCode.Forbidden)
                     } else {
                         val member = householdService.memberForUser(id, userId)
-                        if (member?.role != "admin") {
-                            call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Admin role required"))
+                        if (member == null) {
+                            call.respond(HttpStatusCode.Forbidden)
                         } else {
                             val regenerate = call.request.queryParameters["regenerate"] == "true"
-                            val code = if (regenerate) {
-                                householdService.regenerateInvite(id, userId)
+                            if (regenerate && member.role != "admin") {
+                                call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Admin role required"))
                             } else {
-                                h.inviteCode
+                                val code = if (regenerate) {
+                                    householdService.regenerateInvite(id, userId)
+                                } else {
+                                    h.inviteCode
+                                }
+                                call.respond(
+                                    InviteResponse(
+                                        code,
+                                        "${FamlyConfig.publicBaseUrl}/join?code=$code",
+                                    ),
+                                )
                             }
-                            call.respond(
-                                InviteResponse(
-                                    code,
-                                    "https://famly.app/join?code=$code",
-                                ),
-                            )
                         }
                     }
                 }
@@ -273,6 +281,7 @@ private fun joinLandingHtml(code: String?): String {
           <meta charset="utf-8"/>
           <meta name="viewport" content="width=device-width, initial-scale=1"/>
           <title>Присоединиться к семье — Famly</title>
+          <script>window.location.replace("$deepLink");</script>
           <style>
             body { font-family: system-ui, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; }
             .btn { display: block; background: #1B4332; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-weight: 600; margin-top: 16px; }

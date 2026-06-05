@@ -380,9 +380,11 @@ class FamlyRepository(
     }
 
     suspend fun updateFamilyMember(member: FamilyMemberEntity) {
-        val updated = member.copy(updatedAt = System.currentTimeMillis())
-        db.familyMemberDao().upsert(updated)
-        syncRepository?.updateFamilyMemberOnServer(updated)
+        if (syncRepository != null) {
+            syncRepository.updateFamilyMemberOnServer(member)
+            return
+        }
+        db.familyMemberDao().upsert(member.copy(updatedAt = System.currentTimeMillis()))
     }
 
     suspend fun cycleAccountIcon(accountId: String) {

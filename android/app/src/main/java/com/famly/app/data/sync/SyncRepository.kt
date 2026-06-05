@@ -32,6 +32,15 @@ class SyncRepository(
     private val preferences: UserPreferences,
 ) {
     private var cachedInvite: InviteResult? = null
+    private var onScheduleSync: (() -> Unit)? = null
+
+    fun setOnScheduleSync(callback: () -> Unit) {
+        onScheduleSync = callback
+    }
+
+    private fun scheduleSync() {
+        onScheduleSync?.invoke()
+    }
 
     suspend fun register(email: String, password: String, displayName: String): SyncStatus =
         runCatching {
@@ -106,16 +115,41 @@ class SyncRepository(
                 deleted = entity.deleted,
             ),
         )
+        scheduleSync()
     }
 
-    suspend fun enqueueTransaction(tx: TransactionEntity) =
-        enqueue(tx.toSyncEntity(System.currentTimeMillis()))
+    suspend fun enqueueTransaction(tx: TransactionEntity) {
+        db.categoryDao().getById(tx.categoryId)?.let { enqueueCategory(it, schedule = false) }
+        db.accountDao().getById(tx.accountId)?.let { enqueueAccount(it, schedule = false) }
+        enqueueEntity(tx.toSyncEntity(System.currentTimeMillis()))
+        scheduleSync()
+    }
 
-    suspend fun enqueueAccount(account: AccountEntity) =
-        enqueue(account.toSyncEntity(System.currentTimeMillis()))
+    suspend fun enqueueAccount(account: AccountEntity, schedule: Boolean = true) {
+        enqueueEntity(account.toSyncEntity(System.currentTimeMillis()))
+        if (schedule) scheduleSync()
+    }
 
-    suspend fun enqueueCategory(category: CategoryEntity) =
-        enqueue(category.toSyncEntity(System.currentTimeMillis()))
+    suspend fun enqueueCategory(category: CategoryEntity, schedule: Boolean = true) {
+        enqueueEntity(category.toSyncEntity(System.currentTimeMillis()))
+        if (schedule) scheduleSync()
+    }
+
+    private suspend fun enqueueEntity(entity: SyncEntityDto) {
+        if (entity.type == "family_member") return
+        val key = "${entity.type}:${entity.id}"
+        db.pendingSyncDao().upsert(
+            PendingSyncEntity(
+                compositeKey = key,
+                type = entity.type,
+                entityId = entity.id,
+                payload = entity.payload,
+                syncVersion = entity.syncVersion,
+                updatedAt = entity.updatedAt,
+                deleted = entity.deleted,
+            ),
+        )
+    }
 
     suspend fun enqueueFamilyMember(member: FamilyMemberEntity) {
         // Members are synced from server; local avatar changes stay local.
@@ -124,8 +158,8 @@ class SyncRepository(
     suspend fun enqueueIouBalance(balance: IouBalanceEntity) =
         enqueue(balance.toSyncEntity(System.currentTimeMillis()))
 
-    suspend fun enqueueDeleted(type: String, id: String) =
-        enqueue(
+    suspend fun enqueueDeleted(type: String, id: String) {
+        enqueueEntity(
             SyncEntityDto(
                 type = type,
                 id = id,
@@ -135,22 +169,22 @@ class SyncRepository(
                 deleted = true,
             ),
         )
+        scheduleSync()
+    }
 
     suspend fun updateFamilyMemberOnServer(member: FamilyMemberEntity) {
         val settings = preferences.settings.first()
         val token = settings.authToken ?: return
         val householdId = settings.householdId ?: return
-        runCatching {
-            api.updateMember(
-                token = token,
-                householdId = householdId,
-                memberId = member.id,
-                role = member.role,
-                visibility = member.visibility,
-                displayName = member.name,
-            )
-            syncHouseholdMembers(token, householdId)
-        }
+        api.updateMember(
+            token = token,
+            householdId = householdId,
+            memberId = member.id,
+            role = member.role,
+            visibility = member.visibility,
+            displayName = member.name,
+        )
+        syncHouseholdMembers(token, householdId)
     }
 
     suspend fun generateInviteCode(): InviteResult {
@@ -203,6 +237,8 @@ class SyncRepository(
         val token = preferences.settings.first().authToken
             ?: return SyncStatus(success = false, error = "Not authenticated")
 
+        preferences.setLastSyncAttemptAt(System.currentTimeMillis())
+
         return runCatching {
             var settings = preferences.settings.first()
             if (settings.householdId.isNullOrBlank()) {
@@ -220,6 +256,10 @@ class SyncRepository(
             }
 
             refreshPremiumStatus(token)
+            val needsSnapshot = !preferences.isSyncSnapshotQueued(settings.householdId!!)
+            if (needsSnapshot) {
+                queueHouseholdSnapshot(settings.householdId!!)
+            }
 
             val since = settings.lastSyncToken ?: 0L
             val pending = loadPendingEntities()
@@ -232,6 +272,9 @@ class SyncRepository(
             syncHouseholdMembers(token, settings.householdId!!)
             preferences.setLastSyncToken(pull.syncToken)
             db.pendingSyncDao().deleteAll()
+            if (needsSnapshot) {
+                preferences.setSyncSnapshotQueued(settings.householdId!!)
+            }
 
             SyncStatus(
                 success = true,
@@ -239,6 +282,17 @@ class SyncRepository(
                 pulledCount = pull.entities.size,
             )
         }.getOrElse { SyncStatus(success = false, error = it.message) }
+    }
+
+    private suspend fun queueHouseholdSnapshot(householdId: String) {
+        val now = System.currentTimeMillis()
+        db.categoryDao().observeAll().first().forEach { enqueueEntity(it.toSyncEntity(now)) }
+        db.accountDao().observeAll().first().forEach { enqueueEntity(it.toSyncEntity(now)) }
+        db.transactionDao().observeAll().first().forEach { tx ->
+            db.categoryDao().getById(tx.categoryId)?.let { enqueueEntity(it.toSyncEntity(now)) }
+            db.accountDao().getById(tx.accountId)?.let { enqueueEntity(it.toSyncEntity(now)) }
+            enqueueEntity(tx.toSyncEntity(now))
+        }
     }
 
     private suspend fun loadPendingEntities(): List<SyncEntityDto> =

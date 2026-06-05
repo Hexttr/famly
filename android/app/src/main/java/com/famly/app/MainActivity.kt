@@ -68,14 +68,22 @@ class MainActivity : ComponentActivity() {
             }
             Intent.ACTION_VIEW -> {
                 val data: Uri? = intent.data
-                when {
-                    data?.scheme == "famly" && data.host == "join" ->
-                        pendingJoinCode = data.getQueryParameter("code")
-                    data?.host == "famly.app" && data.path?.startsWith("/join") == true ->
-                        pendingJoinCode = data.getQueryParameter("code")
-                            ?: data.lastPathSegment?.takeIf { it.isNotBlank() && it != "join" }
-                }
+                pendingJoinCode = extractJoinCode(data) ?: pendingJoinCode
             }
+        }
+    }
+
+    private fun extractJoinCode(data: Uri?): String? {
+        if (data == null) return null
+        return when {
+            data.scheme == "famly" && data.host == "join" ->
+                data.getQueryParameter("code")
+            data.host == "api.jazz68.ru" && data.path?.startsWith("/join") == true ->
+                data.getQueryParameter("code")
+            data.host == "famly.app" && data.path?.startsWith("/join") == true ->
+                data.getQueryParameter("code")
+                    ?: data.lastPathSegment?.takeIf { it.isNotBlank() && it != "join" }
+            else -> null
         }
     }
 

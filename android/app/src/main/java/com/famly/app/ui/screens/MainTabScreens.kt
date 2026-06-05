@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -81,6 +82,7 @@ import com.famly.app.ui.theme.Income
 import com.famly.app.ui.theme.Premium
 import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Radius
+import com.famly.app.ui.theme.LayoutInsets
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
 import com.famly.app.ui.theme.TextSecondary
@@ -111,7 +113,7 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .verticalScroll(rememberScrollState())
-            .padding(bottom = Spacing.lg),
+            .padding(bottom = LayoutInsets.mainTabScrollBottom),
     ) {
         HeroCard(
             modifier = Modifier
@@ -346,6 +348,7 @@ fun OperationsScreen(state: FamlyUiState, onOpenTransaction: (String) -> Unit) {
     LazyColumn(
         modifier = Modifier.padding(horizontal = Spacing.md),
         verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(bottom = LayoutInsets.mainTabScrollBottom),
     ) {
         item {
             FamlySearchBar(
@@ -486,6 +489,7 @@ fun BudgetScreen(
     LazyColumn(
         state = lazyListState,
         modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        contentPadding = PaddingValues(bottom = LayoutInsets.mainTabScrollBottom),
     ) {
         item {
             HeroCard(modifier = Modifier.fillMaxWidth()) {
@@ -625,7 +629,8 @@ fun MoreScreen(
     Column(
         modifier = Modifier
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm)
+            .padding(bottom = LayoutInsets.mainTabScrollBottom),
     ) {
         if (showMonetization) {
             TrialBanner(

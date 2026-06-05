@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.famly.app.domain.InviteLinks
 import com.famly.app.ui.components.FamlyCard
 import com.famly.app.ui.theme.Expense
 import com.famly.app.ui.theme.Primary
@@ -61,13 +62,12 @@ fun InviteSheet(
                 )
             }
             if (inviteCode != null) {
+                val link = InviteLinks.qrPayload(inviteCode, inviteUrl)
                 FamlyCard(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
                     Text("Код приглашения", fontWeight = FontWeight.SemiBold, color = TextMuted, fontSize = 12.sp)
                     Text(inviteCode, fontWeight = FontWeight.Bold, fontSize = 24.sp, modifier = Modifier.padding(vertical = 6.dp))
-                    inviteUrl?.let {
-                        Text("Ссылка", fontWeight = FontWeight.SemiBold, color = TextMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
-                        Text(it, fontSize = 13.sp, color = Primary)
-                    }
+                    Text("Ссылка", fontWeight = FontWeight.SemiBold, color = TextMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+                    Text(link, fontSize = 13.sp, color = Primary)
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm)) {
                     FamlyCard(
@@ -83,11 +83,7 @@ fun InviteSheet(
                             .weight(1f)
                             .padding(start = 6.dp)
                             .clickable {
-                                val shareText = buildString {
-                                    append("Присоединяйся к семье в Мой (Наш) Бюджет!\n")
-                                    append("Код: $inviteCode\n")
-                                    inviteUrl?.let { append("Ссылка: $it") }
-                                }
+                                val shareText = InviteLinks.shareText(inviteCode, familyName = null, serverInviteUrl = inviteUrl)
                                 context.startActivity(
                                     Intent.createChooser(
                                         Intent(Intent.ACTION_SEND).apply {

@@ -25,3 +25,10 @@ object HeaderLayout {
     val buttonSize = 48.dp
     val height = 112.dp
 }
+
+/** Extra space so scrollable content is not hidden under the bottom tab bar or system nav. */
+object LayoutInsets {
+    val bottomNavHeight = 64.dp
+    val scrollBottomClearance = 32.dp
+    val mainTabScrollBottom = bottomNavHeight + scrollBottomClearance
+}

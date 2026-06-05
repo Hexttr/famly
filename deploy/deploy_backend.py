@@ -55,6 +55,7 @@ def main() -> None:
     with sftp.file(f"{REMOTE}/famly-src.tar.gz", "wb") as f:
         f.write(tarball)
 
+    email = os.environ.get("CERTBOT_EMAIL", "admin@jazz68.ru")
     remote_sh = f"""#!/bin/bash
 set -euo pipefail
 cd {REMOTE}
@@ -66,8 +67,14 @@ sleep 4
 curl -sf http://127.0.0.1:8080/health
 echo '{password}' | sudo -S cp deploy/nginx-api-jazz68.ru.conf /etc/nginx/sites-available/famly-api
 echo '{password}' | sudo -S ln -sf /etc/nginx/sites-available/famly-api /etc/nginx/sites-enabled/famly-api
+if [ ! -f /etc/letsencrypt/live/api.jazz68.ru/fullchain.pem ]; then
+  echo '{password}' | sudo -S certbot --nginx -d api.jazz68.ru --non-interactive --agree-tos --email {email} --redirect || true
+else
+  echo '{password}' | sudo -S certbot --nginx -d api.jazz68.ru --non-interactive --agree-tos --email {email} --redirect
+fi
 echo '{password}' | sudo -S nginx -t
 echo '{password}' | sudo -S systemctl reload nginx
+curl -sf https://api.jazz68.ru/health
 echo DEPLOY_OK
 """
     with sftp.file(f"{REMOTE}/deploy.sh", "w") as f:

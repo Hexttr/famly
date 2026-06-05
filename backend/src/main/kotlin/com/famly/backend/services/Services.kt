@@ -245,15 +245,37 @@ class HouseholdService {
         displayName: String?,
     ): MemberRecord = transaction {
         val actor = memberForUser(householdId, actorUserId)
-            ?: throw IllegalArgumentException("Not a member")
-        if (actor.role != "admin") throw IllegalArgumentException("Admin role required")
+            ?: throw AccessDeniedException("Not a member")
         val row = HouseholdMembers.selectAll()
             .where { (HouseholdMembers.id eq memberId) and (HouseholdMembers.householdId eq householdId) }
             .singleOrNull() ?: throw IllegalArgumentException("Member not found")
+        val targetUserId = row[HouseholdMembers.userId]
+        val isSelf = targetUserId == actorUserId
+        val isAdmin = actor.role == "admin"
+
+        when {
+            isAdmin -> {
+                if (role != null && role != "admin" && isSelf) {
+                    val adminCount = members(householdId).count { it.role == "admin" }
+                    if (adminCount <= 1) throw IllegalStateException("Cannot demote the last admin")
+                }
+            }
+            isSelf -> {
+                if (role != null && role != row[HouseholdMembers.role]) {
+                    throw AccessDeniedException("Admin role required")
+                }
+            }
+            else -> throw AccessDeniedException("Admin role required")
+        }
+
         HouseholdMembers.update({ HouseholdMembers.id eq memberId }) {
-            role?.let { value -> it[HouseholdMembers.role] = value }
-            visibility?.let { value -> it[HouseholdMembers.visibility] = value }
-            displayName?.let { value -> it[HouseholdMembers.displayName] = value.trim() }
+            if (isAdmin) {
+                role?.let { value -> it[HouseholdMembers.role] = value }
+            }
+            if (isAdmin || isSelf) {
+                visibility?.let { value -> it[HouseholdMembers.visibility] = value }
+                displayName?.let { value -> it[HouseholdMembers.displayName] = value.trim() }
+            }
         }
         val updated = HouseholdMembers.selectAll().where { HouseholdMembers.id eq memberId }.single()
         MemberRecord(

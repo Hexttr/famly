@@ -131,6 +131,21 @@ class UserPreferences(private val context: Context) {
         it[KEY_LAST_SYNC_TOKEN] = token
     }
 
+    suspend fun getLastSyncAttemptAt(): Long =
+        context.dataStore.data.first()[KEY_LAST_SYNC_ATTEMPT] ?: 0L
+
+    suspend fun setLastSyncAttemptAt(at: Long) = context.dataStore.edit {
+        it[KEY_LAST_SYNC_ATTEMPT] = at
+    }
+
+    suspend fun isSyncSnapshotQueued(householdId: String): Boolean =
+        context.dataStore.data.first()[KEY_SYNC_SNAPSHOT_HOUSEHOLDS]?.contains(householdId) == true
+
+    suspend fun setSyncSnapshotQueued(householdId: String) = context.dataStore.edit {
+        val current = it[KEY_SYNC_SNAPSHOT_HOUSEHOLDS] ?: emptySet()
+        it[KEY_SYNC_SNAPSHOT_HOUSEHOLDS] = current + householdId
+    }
+
     suspend fun setLastRolloverPeriodStart(epochDay: Long) = context.dataStore.edit {
         it[KEY_LAST_ROLLOVER_PERIOD] = epochDay
     }
@@ -169,6 +184,8 @@ class UserPreferences(private val context: Context) {
         private val KEY_STALE_FAMILY_PURGED = booleanPreferencesKey("stale_family_purged_v1")
         private val KEY_SEED_BUDGET_ZEROED = booleanPreferencesKey("seed_budget_zeroed_v2")
         private val KEY_LAST_SYNC_TOKEN = longPreferencesKey("last_sync_token")
+        private val KEY_LAST_SYNC_ATTEMPT = longPreferencesKey("last_sync_attempt_at")
+        private val KEY_SYNC_SNAPSHOT_HOUSEHOLDS = stringSetPreferencesKey("sync_snapshot_households")
         private val KEY_LAST_ROLLOVER_PERIOD = longPreferencesKey("last_rollover_period_start")
         private val KEY_LEGACY_DEMO_PURGED = booleanPreferencesKey("legacy_demo_purged_v1")
         private val KEY_DISMISSED_NOTIFICATIONS = stringSetPreferencesKey("dismissed_notifications")
