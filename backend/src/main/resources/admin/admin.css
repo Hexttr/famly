@@ -437,6 +437,13 @@ tbody tr:nth-child(even) { background: #fafcfb; }
   min-width: 200px;
 }
 
+.search-form .search-input-wrap input[type="text"] {
+  min-width: 0;
+  padding: 10px 14px 10px 46px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+}
+
 .chart-bars {
   display: flex;
   align-items: flex-end;
@@ -700,15 +707,21 @@ tbody tr:nth-child(even) { background: #fafcfb; }
   max-width: 420px;
 }
 
+.search-input-wrap input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .search-icon {
   position: absolute;
-  left: 12px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   width: 18px;
   height: 18px;
   color: var(--text-muted);
   pointer-events: none;
+  z-index: 1;
 }
 
 .search-icon svg {
@@ -719,15 +732,7 @@ tbody tr:nth-child(even) { background: #fafcfb; }
   stroke-width: 2;
 }
 
-.search-input-wrap input {
-  width: 100%;
-  padding: 10px 12px 10px 40px;
-  border: 2px solid var(--border);
-  border-radius: 10px;
-  font-size: 14px;
-}
-
-.search-input-wrap input:focus {
+.search-form .search-input-wrap input[type="text"]:focus {
   outline: none;
   border-color: var(--primary-light);
 }
