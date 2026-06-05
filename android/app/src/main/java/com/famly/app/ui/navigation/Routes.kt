@@ -16,13 +16,10 @@ object Routes {
     const val PREMIUM = "premium"
     const val FAMILY = "family"
     const val FAMILY_MEMBER = "family/{id}"
-    const val BALANCES = "balances"
     const val ANALYTICS = "analytics"
     const val RECURRING = "recurring"
-    const val SPLIT = "split/{id}"
 
     fun operationDetail(id: String) = "operations/$id"
     fun budgetCategory(id: String) = "budget/$id"
     fun familyMember(id: String) = "family/$id"
-    fun split(id: String) = "split/$id"
 }

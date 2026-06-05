@@ -31,7 +31,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.famly.app.domain.FamlyAccess
 import com.famly.app.ui.FamlyViewModel
 import com.famly.app.ui.components.AppHeader
 import com.famly.app.ui.components.FamlyBottomNav
@@ -40,7 +39,6 @@ import com.famly.app.ui.components.HeaderRightSlot
 import com.famly.app.ui.screens.AccountsScreen
 import com.famly.app.ui.screens.AnalyticsScreen
 import com.famly.app.ui.screens.BackupScreen
-import com.famly.app.ui.screens.BalancesScreen
 import com.famly.app.ui.screens.BudgetScreen
 import com.famly.app.ui.screens.CategoriesScreen
 import com.famly.app.ui.screens.CategoryBudgetScreen
@@ -57,7 +55,6 @@ import com.famly.app.ui.screens.QuickAddSheet
 import com.famly.app.ui.screens.RecurringScreen
 import com.famly.app.ui.screens.ReportsScreen
 import com.famly.app.ui.screens.SettingsScreen
-import com.famly.app.ui.screens.SplitExpenseScreen
 
 private data class TabItem(val route: String, val label: String, val icon: ImageVector)
 
@@ -346,14 +343,6 @@ fun FamlyNavHost(
                     memberUpdateError = memberUpdateError,
                 )
             }
-            composable(Routes.BALANCES) {
-                BalancesScreen(
-                    state,
-                    { navController.popBackStack() },
-                    { navigateToPremium() },
-                    { from, to -> viewModel.settleIouBetween(from, to) },
-                )
-            }
             composable(Routes.ANALYTICS) {
                 AnalyticsScreen(
                     state,
@@ -374,30 +363,7 @@ fun FamlyNavHost(
                         viewModel.deleteTransaction(txId)
                         navController.popBackStack()
                     },
-                    {
-                        if (FamlyAccess.hasPremium(state.settings)) {
-                            navController.navigate(Routes.split(txId))
-                        } else {
-                            navigateToPremium()
-                        }
-                    },
                     { recurring, day -> viewModel.updateTransactionRecurring(txId, recurring, day) },
-                )
-            }
-            composable(
-                Routes.SPLIT,
-                arguments = listOf(navArgument("id") { type = NavType.StringType }),
-            ) { entry ->
-                val txId = entry.arguments?.getString("id") ?: return@composable
-                SplitExpenseScreen(
-                    state,
-                    txId,
-                    { navController.popBackStack() },
-                    { navigateToPremium() },
-                    { members ->
-                        viewModel.saveSplit(txId, members)
-                        navController.popBackStack()
-                    },
                 )
             }
             composable(

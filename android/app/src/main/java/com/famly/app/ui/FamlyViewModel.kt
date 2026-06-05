@@ -22,7 +22,6 @@ import com.famly.app.domain.InviteLinks
 import com.famly.app.domain.MoneyFormatter
 import com.famly.app.domain.analytics.ReportPeriod
 import com.famly.app.domain.analytics.getDailySafeSpend
-import com.famly.app.domain.iou.IouBalance
 import com.famly.app.domain.model.AppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -49,7 +48,6 @@ data class FamlyUiState(
     val categories: List<CategoryEntity> = emptyList(),
     val transactions: List<TransactionEntity> = emptyList(),
     val familyMembers: List<FamilyMemberEntity> = emptyList(),
-    val iouBalances: List<IouBalance> = emptyList(),
     val safeToSpendKopecks: Long = 0,
     val spentKopecks: Long = 0,
     val incomeKopecks: Long = 0,
@@ -101,13 +99,11 @@ class FamlyViewModel(
             repository.accounts,
             repository.categories,
             repository.transactions,
-        ) { settings, accounts, categories, transactions ->
-            arrayOf(settings, accounts, categories, transactions)
+            repository.familyMembers,
+        ) { settings, accounts, categories, transactions, family ->
+            arrayOf(settings, accounts, categories, transactions, family)
         },
-        combine(repository.familyMembers, repository.nettedIouBalances) { family, iou ->
-            Pair(family, iou)
-        },
-    ) { core, familyIou ->
+    ) { core ->
         @Suppress("UNCHECKED_CAST")
         val settings = core[0] as AppSettings
         @Suppress("UNCHECKED_CAST")
@@ -116,8 +112,8 @@ class FamlyViewModel(
         val categories = core[2] as List<CategoryEntity>
         @Suppress("UNCHECKED_CAST")
         val transactions = core[3] as List<TransactionEntity>
-        val family = familyIou.first
-        val iou = familyIou.second
+        @Suppress("UNCHECKED_CAST")
+        val family = core[4] as List<FamilyMemberEntity>
         val period = BudgetCalculator.currentPeriod(settings.budgetPeriod.startDay)
         val startDay = period.start.toEpochDay()
         val endDay = period.end.toEpochDay()
@@ -135,7 +131,6 @@ class FamlyViewModel(
             categories = categories,
             transactions = transactions,
             familyMembers = family,
-            iouBalances = iou,
             safeToSpendKopecks = remaining,
             spentKopecks = spent,
             incomeKopecks = income,
@@ -341,14 +336,6 @@ class FamlyViewModel(
     fun inviteUrl(): String? =
         cachedInviteUrl ?: syncRepository.cachedInviteUrl()
             ?: _inviteCode.value?.let { InviteLinks.httpsJoinUrl(it) }
-
-    fun saveSplit(transactionId: String, memberIds: List<String>) =
-        viewModelScope.launch { repository.saveSplit(transactionId, memberIds) }
-
-    fun settleIou(iouId: String) = viewModelScope.launch { repository.settleIou(iouId) }
-
-    fun settleIouBetween(fromMemberId: String, toMemberId: String) =
-        viewModelScope.launch { repository.settleIouBetween(fromMemberId, toMemberId) }
 
     fun updateFamilyMember(
         memberId: String,

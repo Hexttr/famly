@@ -5,8 +5,6 @@ import com.famly.app.data.local.UserPreferences
 import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.CategoryEntity
 import com.famly.app.data.local.entity.FamilyMemberEntity
-import com.famly.app.data.local.entity.IouBalanceEntity
-import com.famly.app.data.local.entity.SplitAllocationEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.domain.nextAccountIcon
 import com.famly.app.domain.nextCategoryIcon
@@ -21,11 +19,8 @@ import com.famly.app.domain.FamlyAccess
 import com.famly.app.domain.analytics.ReportPeriod
 import com.famly.app.domain.analytics.filterTransactionsByPeriod
 import com.famly.app.domain.analytics.getReportPeriodDescription
-import com.famly.app.domain.iou.netIouBalances
-import com.famly.app.domain.iou.IouBalance
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import com.famly.app.domain.model.AppSettings
 import java.time.LocalDate
 import java.util.UUID
@@ -40,13 +35,8 @@ class FamlyRepository(
     val categories: Flow<List<CategoryEntity>> = db.categoryDao().observeAll()
     val transactions: Flow<List<TransactionEntity>> = db.transactionDao().observeAll()
     val familyMembers: Flow<List<FamilyMemberEntity>> = db.familyMemberDao().observeAll()
-    val iouBalances: Flow<List<IouBalanceEntity>> = db.iouBalanceDao().observeOpen()
 
     val recurringTransactions: Flow<List<TransactionEntity>> = db.transactionDao().observeRecurringTemplates()
-
-    val nettedIouBalances: Flow<List<IouBalance>> = iouBalances.map { list ->
-        netIouBalances(list.map { IouBalance(it.fromMemberId, it.toMemberId, it.amountKopecks) })
-    }
 
     fun observeTransaction(id: String): Flow<TransactionEntity?> =
         db.transactionDao().observeById(id)
@@ -279,7 +269,6 @@ class FamlyRepository(
     suspend fun deleteTransaction(id: String) {
         val tx = db.transactionDao().observeById(id).first() ?: return
         db.transactionDao().delete(id)
-        db.splitAllocationDao().deleteByTransaction(id)
         applyBalanceDelta(tx.accountId, tx.type, -tx.amountKopecks)
         syncRepository?.enqueueDeleted("transaction", id)
     }
@@ -296,82 +285,6 @@ class FamlyRepository(
                 updatedAt = System.currentTimeMillis(),
             ),
         )
-    }
-
-    suspend fun saveSplit(transactionId: String, memberIds: List<String>) {
-        val tx = db.transactionDao().observeById(transactionId).first() ?: return
-        val now = System.currentTimeMillis()
-        db.splitAllocationDao().deleteByTransaction(transactionId)
-        if (memberIds.isEmpty()) {
-            db.transactionDao().upsert(tx.copy(splitMemberIds = null, updatedAt = now))
-            return
-        }
-        val share = tx.amountKopecks / memberIds.size
-        memberIds.forEach { memberId ->
-            db.splitAllocationDao().upsert(
-                SplitAllocationEntity(
-                    id = UUID.randomUUID().toString(),
-                    transactionId = transactionId,
-                    memberId = memberId,
-                    shareKopecks = share,
-                    createdAt = now,
-                ),
-            )
-        }
-        db.transactionDao().upsert(
-            tx.copy(
-                splitMemberIds = memberIds.joinToString(","),
-                updatedAt = now,
-            ),
-        )
-        syncRepository?.enqueueTransaction(tx.copy(splitMemberIds = memberIds.joinToString(","), updatedAt = now))
-        updateIouFromSplit(tx, memberIds, now)
-    }
-
-    private suspend fun updateIouFromSplit(
-        tx: TransactionEntity,
-        memberIds: List<String>,
-        now: Long,
-    ) {
-        val settings = preferences.settings.first()
-        val members = db.familyMemberDao().observeAll().first()
-        val payer = members.find { it.userId == settings.userId }
-            ?: members.firstOrNull { it.role == "admin" }
-            ?: return
-        val share = tx.amountKopecks / memberIds.size
-        memberIds.filter { it != payer.id }.forEach { memberId ->
-            val iouId = "iou_${tx.id}_$memberId"
-            val balance = IouBalanceEntity(
-                id = iouId,
-                fromMemberId = memberId,
-                toMemberId = payer.id,
-                amountKopecks = share,
-                settledAt = null,
-                createdAt = now,
-                updatedAt = now,
-            )
-            db.iouBalanceDao().upsert(balance)
-            syncRepository?.enqueueIouBalance(balance)
-        }
-    }
-
-    suspend fun settleIou(iouId: String) {
-        val now = System.currentTimeMillis()
-        db.iouBalanceDao().settle(iouId, now)
-        db.iouBalanceDao().getById(iouId)?.let { syncRepository?.enqueueIouBalance(it.copy(settledAt = now, updatedAt = now)) }
-    }
-
-    suspend fun settleIouBetween(fromMemberId: String, toMemberId: String) {
-        val now = System.currentTimeMillis()
-        db.iouBalanceDao().observeOpen().first()
-            .filter {
-                (it.fromMemberId == fromMemberId && it.toMemberId == toMemberId) ||
-                    (it.fromMemberId == toMemberId && it.toMemberId == fromMemberId)
-            }
-            .forEach {
-                db.iouBalanceDao().settle(it.id, now)
-                syncRepository?.enqueueIouBalance(it.copy(settledAt = now, updatedAt = now))
-            }
     }
 
     suspend fun updateCategoryRollover(categoryId: String, enabled: Boolean) {
@@ -456,9 +369,6 @@ class FamlyRepository(
         syncRepository?.enqueueDeleted("account", id)
     }
 
-    suspend fun getSplitAllocations(transactionId: String): List<SplitAllocationEntity> =
-        db.splitAllocationDao().getByTransaction(transactionId)
-
     suspend fun exportBackupJson(): String {
         val settings = preferences.settings.first()
         return BackupExporter.export(
@@ -466,7 +376,6 @@ class FamlyRepository(
             categories = db.categoryDao().observeAll().first(),
             transactions = db.transactionDao().observeAll().first(),
             familyMembers = db.familyMemberDao().observeAll().first(),
-            iouBalances = db.iouBalanceDao().observeOpen().first(),
             settings = settings,
         )
     }

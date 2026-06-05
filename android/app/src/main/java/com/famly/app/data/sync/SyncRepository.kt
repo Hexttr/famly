@@ -5,7 +5,6 @@ import com.famly.app.data.local.UserPreferences
 import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.CategoryEntity
 import com.famly.app.data.local.entity.FamilyMemberEntity
-import com.famly.app.data.local.entity.IouBalanceEntity
 import com.famly.app.data.local.entity.PendingSyncEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.data.remote.FamlyApiClient
@@ -159,9 +158,6 @@ class SyncRepository(
     suspend fun enqueueFamilyMember(member: FamilyMemberEntity) {
         // Members are synced from server; local avatar changes stay local.
     }
-
-    suspend fun enqueueIouBalance(balance: IouBalanceEntity) =
-        enqueue(balance.toSyncEntity(System.currentTimeMillis()))
 
     suspend fun enqueueDeleted(type: String, id: String) {
         enqueueEntity(
@@ -445,7 +441,6 @@ class SyncRepository(
                         db.transactionDao().delete(entity.id)
                     }
                     "family_member" -> db.familyMemberDao().delete(entity.id)
-                    "iou_balance" -> db.iouBalanceDao().delete(entity.id)
                 }
                 return@forEach
             }
@@ -454,7 +449,6 @@ class SyncRepository(
                 "account" -> upsertIfNewer(payload.toAccount())
                 "category" -> upsertIfNewer(payload.toCategory())
                 "transaction" -> upsertIfNewer(payload.toTransaction())
-                "iou_balance" -> db.iouBalanceDao().upsert(payload.toIouBalance())
             }
         }
     }
@@ -543,29 +537,11 @@ class SyncRepository(
             put("recurringDay", recurringDay)
             put("lastRecurrenceEpochDay", lastRecurrenceEpochDay)
             put("isPrivate", isPrivate)
-            put("splitMemberIds", splitMemberIds)
             put("createdAt", createdAt)
             put("updatedAt", updatedAt)
         }.toString(),
         syncVersion = 1,
         updatedAt = now,
-    )
-
-    private fun IouBalanceEntity.toSyncEntity(now: Long) = SyncEntityDto(
-        type = "iou_balance",
-        id = id,
-        payload = JSONObject().apply {
-            put("id", id)
-            put("fromMemberId", fromMemberId)
-            put("toMemberId", toMemberId)
-            put("amountKopecks", amountKopecks)
-            put("settledAt", settledAt)
-            put("createdAt", createdAt)
-            put("updatedAt", updatedAt)
-        }.toString(),
-        syncVersion = 1,
-        updatedAt = now,
-        deleted = settledAt != null,
     )
 
     private fun JSONObject.toAccount() = AccountEntity(
@@ -625,16 +601,6 @@ class SyncRepository(
         visibility = getString("visibility"),
         avatar = getString("avatar"),
         syncVersion = optLong("syncVersion", 0),
-        createdAt = getLong("createdAt"),
-        updatedAt = getLong("updatedAt"),
-    )
-
-    private fun JSONObject.toIouBalance() = IouBalanceEntity(
-        id = getString("id"),
-        fromMemberId = getString("fromMemberId"),
-        toMemberId = getString("toMemberId"),
-        amountKopecks = getLong("amountKopecks"),
-        settledAt = if (has("settledAt") && !isNull("settledAt")) getLong("settledAt") else null,
         createdAt = getLong("createdAt"),
         updatedAt = getLong("updatedAt"),
     )

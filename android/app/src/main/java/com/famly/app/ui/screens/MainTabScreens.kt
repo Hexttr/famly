@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -622,7 +621,6 @@ fun MoreScreen(
         add(MoreMenuItem(Icons.Default.Settings, "Настройки", "settings"))
         add(MoreMenuItem(Icons.Default.Save, "Backup и экспорт", "backup"))
         add(MoreMenuItem(Icons.Default.Group, "Семья", "family"))
-        add(MoreMenuItem(Icons.Default.Handshake, "Балансы (IOU)", "balances"))
         add(MoreMenuItem(Icons.Default.BarChart, "Аналитика", "analytics"))
         if (showMonetization) add(MoreMenuItem(Icons.Default.Star, "Premium", "premium"))
     }
@@ -640,7 +638,7 @@ fun MoreScreen(
             )
         }
         items.forEach { item ->
-            val premiumOnly = showMonetization && item.route in listOf("family", "balances", "analytics")
+            val premiumOnly = showMonetization && item.route in listOf("family", "analytics")
             FamlyCard(
                 modifier = Modifier
                     .fillMaxWidth()

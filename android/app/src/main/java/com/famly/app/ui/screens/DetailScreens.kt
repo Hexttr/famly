@@ -139,7 +139,6 @@ fun OperationDetailScreen(
     transactionId: String,
     onBack: () -> Unit,
     onDelete: () -> Unit,
-    onSplit: () -> Unit,
     onUpdateRecurring: (Boolean, Int?) -> Unit,
 ) {
     val tx = state.transactions.find { it.id == transactionId } ?: return
@@ -197,22 +196,7 @@ fun OperationDetailScreen(
                 }
             }
         }
-        if (!tx.splitMemberIds.isNullOrBlank()) {
-            DetailRow("Split", "Разделено с семьёй")
-            TextButton(onClick = onSplit, modifier = Modifier.padding(horizontal = 16.dp)) {
-                Text("Изменить split →", color = Primary)
-            }
-        }
         Spacer(modifier = Modifier.height(16.dp))
-        if (tx.type == "expense" && FamlyAccess.hasPremium(state.settings)) {
-            Button(onClick = onSplit, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Text("Разделить с семьёй")
-            }
-        } else if (tx.type == "expense") {
-            Button(onClick = onSplit, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                Text("Разделить с семьёй (Премиум)")
-            }
-        }
         Button(
             onClick = onDelete,
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -702,7 +686,7 @@ fun PremiumPaywallScreen(state: FamlyUiState, onBack: () -> Unit, onSubscribe: (
                     "Семья до 6 человек",
                     "Облачная синхронизация",
                     "Роли и приватность",
-                    "Делить расходы и учёт долгов",
+                    "Приватность трат по участникам",
                     "Перенос остатка бюджета",
                     "Расширенная аналитика",
                     "Выгрузка CSV без ограничений",

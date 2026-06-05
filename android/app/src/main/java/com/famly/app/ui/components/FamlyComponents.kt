@@ -704,7 +704,7 @@ fun TrialBanner(
             Column(modifier = Modifier.weight(1f).padding(start = Spacing.sm)) {
                 Text("Пробный Премиум", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(
-                    "Осталось $trialDaysLeft дн. · семья, split, аналитика",
+                    "Осталось $trialDaysLeft дн. · семья, sync, аналитика",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                 )

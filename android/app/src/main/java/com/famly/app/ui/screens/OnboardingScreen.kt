@@ -39,7 +39,7 @@ private data class OnboardingSlide(val icon: String, val title: String, val text
 private val slides = listOf(
     OnboardingSlide("⚡", "Запись за 3 секунды", "Добавляйте расходы одним тапом. Без сложных форм."),
     OnboardingSlide("📊", "Бюджет под вашу зарплату", "Период с 28-го, safe-to-spend и лимиты — бесплатно."),
-    OnboardingSlide("👨‍👩‍👧", "Семья и синхронизация", "Семейный бюджет, sync и split — уже доступны."),
+    OnboardingSlide("👨‍👩‍👧", "Семья и синхронизация", "Общий бюджет семьи с облачной синхронизацией."),
 )
 
 @Composable

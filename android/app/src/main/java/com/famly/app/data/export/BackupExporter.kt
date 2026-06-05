@@ -3,7 +3,6 @@ package com.famly.app.data.export
 import com.famly.app.data.local.entity.AccountEntity
 import com.famly.app.data.local.entity.CategoryEntity
 import com.famly.app.data.local.entity.FamilyMemberEntity
-import com.famly.app.data.local.entity.IouBalanceEntity
 import com.famly.app.data.local.entity.TransactionEntity
 import com.famly.app.domain.model.AppSettings
 import org.json.JSONArray
@@ -17,7 +16,6 @@ object BackupExporter {
         categories: List<CategoryEntity>,
         transactions: List<TransactionEntity>,
         familyMembers: List<FamilyMemberEntity>,
-        iouBalances: List<IouBalanceEntity>,
         settings: AppSettings,
     ): String {
         val root = JSONObject()
@@ -27,7 +25,6 @@ object BackupExporter {
         root.put("categories", JSONArray(categories.map { it.toJson() }))
         root.put("transactions", JSONArray(transactions.map { it.toJson() }))
         root.put("familyMembers", JSONArray(familyMembers.map { it.toJson() }))
-        root.put("iouBalances", JSONArray(iouBalances.map { it.toJson() }))
         root.put("settings", settings.toJson())
         return root.toString(2)
     }
@@ -68,7 +65,6 @@ object BackupExporter {
         put("recurringDay", recurringDay)
         put("lastRecurrenceEpochDay", lastRecurrenceEpochDay)
         put("isPrivate", isPrivate)
-        put("splitMemberIds", splitMemberIds)
         put("createdAt", createdAt)
         put("updatedAt", updatedAt)
     }
@@ -81,16 +77,6 @@ object BackupExporter {
         put("visibility", visibility)
         put("avatar", avatar)
         put("syncVersion", syncVersion)
-        put("createdAt", createdAt)
-        put("updatedAt", updatedAt)
-    }
-
-    private fun IouBalanceEntity.toJson() = JSONObject().apply {
-        put("id", id)
-        put("fromMemberId", fromMemberId)
-        put("toMemberId", toMemberId)
-        put("amountKopecks", amountKopecks)
-        put("settledAt", settledAt)
         put("createdAt", createdAt)
         put("updatedAt", updatedAt)
     }
