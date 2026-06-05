@@ -29,6 +29,12 @@ fun Route.configureAdminWebRouting(
         call.respondBytes(bytes, ContentType.Text.CSS)
     }
 
+    get("/static/logo.png") {
+        val bytes = javaClass.classLoader.getResourceAsStream("admin/logo.png")?.readBytes()
+            ?: return@get call.respond(HttpStatusCode.NotFound)
+        call.respondBytes(bytes, ContentType.Image.PNG)
+    }
+
     get("") {
         if (AdminAuth.readAdminToken(call) != null) {
             call.respondRedirect("/admin/dashboard")

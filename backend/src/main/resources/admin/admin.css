@@ -12,6 +12,8 @@
   --border: #e2e8e5;
   --danger: #e63946;
   --success-bg: #e8f5e9;
+  --sidebar-width: 240px;
+  --sidebar-collapsed: 76px;
 }
 
 * { box-sizing: border-box; }
@@ -33,58 +35,229 @@ a:hover { text-decoration: underline; }
 }
 
 .admin-sidebar {
-  width: 220px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  width: var(--sidebar-width);
+  height: 100vh;
   background: var(--primary-dark);
   color: #fff;
+  display: flex;
+  flex-direction: column;
+  transition: width .22s ease;
+  overflow: hidden;
+}
+
+.admin-shell.sidebar-collapsed .admin-sidebar {
+  width: var(--sidebar-collapsed);
+}
+
+.sidebar-brand {
   flex-shrink: 0;
-  padding: 20px 0;
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 20px;
+  border-bottom: 1px solid rgba(255,255,255,.1);
 }
 
-.admin-sidebar .brand {
-  padding: 0 20px 20px;
-  font-weight: 700;
-  font-size: 18px;
-  border-bottom: 1px solid rgba(255,255,255,.12);
-  margin-bottom: 12px;
+.sidebar-logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  transition: width .22s ease, height .22s ease;
 }
 
-.admin-sidebar nav a {
-  display: block;
-  padding: 10px 20px;
-  color: rgba(255,255,255,.75);
+.admin-shell.sidebar-collapsed .sidebar-logo {
+  width: 52px;
+  height: 52px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 10px;
+}
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  margin-bottom: 4px;
+  color: rgba(255,255,255,.78);
   text-decoration: none;
   font-size: 14px;
+  font-weight: 500;
+  border-radius: 10px;
+  white-space: nowrap;
+  transition: background .15s ease, color .15s ease;
 }
 
-.admin-sidebar nav a:hover,
-.admin-sidebar nav a.active {
-  background: rgba(255,255,255,.1);
+.sidebar-nav a:hover,
+.sidebar-nav a.active {
+  background: rgba(255,255,255,.12);
   color: #fff;
   text-decoration: none;
 }
+
+.sidebar-nav a.active {
+  background: rgba(82,183,136,.22);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.nav-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity .15s ease;
+}
+
+.admin-shell.sidebar-collapsed .nav-label,
+.admin-shell.sidebar-collapsed .sidebar-action-label {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.admin-shell.sidebar-collapsed .sidebar-nav a {
+  justify-content: center;
+  padding: 11px;
+}
+
+.sidebar-footer {
+  flex-shrink: 0;
+  padding: 12px 10px 16px;
+  border-top: 1px solid rgba(255,255,255,.1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar-action,
+.sidebar-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255,255,255,.75);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background .15s ease, color .15s ease;
+}
+
+.admin-shell.sidebar-collapsed .sidebar-action,
+.admin-shell.sidebar-collapsed .sidebar-logout-btn {
+  justify-content: center;
+  padding: 10px;
+}
+
+.sidebar-action:hover,
+.sidebar-logout-btn:hover {
+  background: rgba(255,255,255,.1);
+  color: #fff;
+}
+
+.sidebar-logout-btn {
+  color: rgba(255,180,180,.9);
+}
+
+.sidebar-logout-btn:hover {
+  background: rgba(230,57,70,.18);
+  color: #ffb4b4;
+}
+
+.sidebar-logout-form { margin: 0; }
 
 .admin-main {
   flex: 1;
+  margin-left: var(--sidebar-width);
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  transition: margin-left .22s ease;
 }
 
-.admin-topbar {
+.admin-shell.sidebar-collapsed .admin-main {
+  margin-left: var(--sidebar-collapsed);
+}
+
+.page-header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 12px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  padding: 20px 28px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-.admin-topbar .email { font-size: 14px; color: var(--text-muted); }
+.page-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  line-height: 1.2;
+}
 
-.admin-content { padding: 24px; max-width: 1100px; width: 100%; }
+.page-title-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary-mid), var(--primary-light));
+  border-radius: 12px;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(45,106,79,.25);
+}
 
-h1 { margin: 0 0 20px; font-size: 24px; color: var(--primary); }
+.page-title-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-content {
+  padding: 28px;
+  max-width: 1200px;
+  width: 100%;
+}
 
 .grid {
   display: grid;
@@ -277,9 +450,24 @@ tbody tr:nth-child(even) { background: #fafcfb; }
   box-shadow: 0 8px 32px rgba(0,0,0,.2);
 }
 
+.login-brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.login-logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 4px 20px rgba(27,67,50,.2);
+}
+
 .login-card h1 {
   text-align: center;
   margin-bottom: 8px;
+  font-size: 22px;
 }
 
 .login-card .subtitle {
@@ -327,8 +515,27 @@ tbody tr:nth-child(even) { background: #fafcfb; }
 .mono { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; }
 
 @media (max-width: 768px) {
-  .admin-shell { flex-direction: column; }
-  .admin-sidebar { width: 100%; padding: 12px 0; }
-  .admin-sidebar nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 12px; }
-  .admin-sidebar nav a { padding: 8px 12px; border-radius: 8px; }
+  .admin-sidebar {
+    width: var(--sidebar-collapsed);
+  }
+  .admin-main {
+    margin-left: var(--sidebar-collapsed);
+  }
+  .nav-label,
+  .sidebar-action-label {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+  }
+  .sidebar-nav a,
+  .sidebar-action,
+  .sidebar-logout-btn {
+    justify-content: center;
+    padding: 11px;
+  }
+  .sidebar-logo {
+    width: 52px;
+    height: 52px;
+  }
+  .page-title { font-size: 24px; }
 }

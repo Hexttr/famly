@@ -13,6 +13,51 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 object AdminTemplates {
+    private data class NavItem(val id: String, val label: String, val path: String, val icon: String)
+
+    private val navItems = listOf(
+        NavItem("dashboard", "Обзор", "/admin/dashboard", iconDashboard),
+        NavItem("users", "Пользователи", "/admin/users", iconUsers),
+        NavItem("households", "Семьи", "/admin/households", iconHouseholds),
+        NavItem("sync", "Sync log", "/admin/sync", iconSync),
+        NavItem("audit", "Аудит", "/admin/audit", iconAudit),
+        NavItem("health", "Сервер", "/admin/health", iconHealth),
+    )
+
+    private const val iconDashboard = """<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>"""
+
+    private const val iconUsers = """<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>"""
+
+    private const val iconHouseholds = """<svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg>"""
+
+    private const val iconSync = """<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>"""
+
+    private const val iconAudit = """<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>"""
+
+    private const val iconHealth = """<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="6" rx="1"/><rect x="2" y="15" width="20" height="6" rx="1"/><path d="M6 6h.01"/><path d="M6 18h.01"/><path d="M10 6h8"/><path d="M10 18h8"/></svg>"""
+
+    private const val iconCollapse = """<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M14 12H20"/></svg>"""
+
+    private const val iconLogout = """<svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>"""
+
+    private fun iconFor(activeNav: String): String =
+        navItems.find { it.id == activeNav }?.icon ?: iconDashboard
+
+    private val sidebarScript = """
+        <script>
+        (function () {
+          var shell = document.getElementById('adminShell');
+          var btn = document.getElementById('sidebarCollapse');
+          var key = 'famly-admin-sidebar';
+          if (localStorage.getItem(key) === 'collapsed') shell.classList.add('sidebar-collapsed');
+          btn.addEventListener('click', function () {
+            shell.classList.toggle('sidebar-collapsed');
+            localStorage.setItem(key, shell.classList.contains('sidebar-collapsed') ? 'collapsed' : 'expanded');
+          });
+        })();
+        </script>
+    """.trimIndent()
+
     private val dateTimeFmt = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
         .withZone(ZoneId.systemDefault())
     private val dateFmt = DateTimeFormatter.ofPattern("dd.MM.yyyy")
@@ -40,7 +85,10 @@ object AdminTemplates {
         <body>
           <div class="login-page">
             <div class="login-card">
-              <h1>Famly Admin</h1>
+              <div class="login-brand">
+                <img class="login-logo" src="/admin/static/logo.png" alt="Famly"/>
+              </div>
+              <h1>Админ-панель</h1>
               <p class="subtitle">Панель управления «Мой (Наш) Бюджет»</p>
               ${if (error != null) """<div class="alert alert-error">${escapeHtml(error)}</div>""" else ""}
               <form method="post" action="/admin/login">
@@ -65,23 +113,19 @@ object AdminTemplates {
         flash: String? = null,
         flashError: Boolean = false,
     ): String {
-        val nav = listOf(
-            "dashboard" to ("Обзор" to "/admin/dashboard"),
-            "users" to ("Пользователи" to "/admin/users"),
-            "households" to ("Семьи" to "/admin/households"),
-            "sync" to ("Sync log" to "/admin/sync"),
-            "audit" to ("Аудит" to "/admin/audit"),
-            "health" to ("Сервер" to "/admin/health"),
-        )
-        val navHtml = nav.joinToString("\n") { (id, pair) ->
-            val cls = if (id == activeNav) "active" else ""
-            """<a class="$cls" href="${pair.second}">${pair.first}</a>"""
+        val navHtml = navItems.joinToString("\n") { item ->
+            val cls = if (item.id == activeNav) "active" else ""
+            """<a class="$cls" href="${item.path}" title="${escapeHtml(item.label)}">
+              <span class="nav-icon">${item.icon}</span>
+              <span class="nav-label">${escapeHtml(item.label)}</span>
+            </a>"""
         }
         val flashHtml = when {
             flash == null -> ""
             flashError -> """<div class="alert alert-error">${escapeHtml(flash)}</div>"""
             else -> """<div class="alert alert-success">${escapeHtml(flash)}</div>"""
         }
+        val pageIcon = iconFor(activeNav)
         return """
             <!DOCTYPE html>
             <html lang="ru">
@@ -92,21 +136,32 @@ object AdminTemplates {
               <link rel="stylesheet" href="/admin/static/admin.css"/>
             </head>
             <body>
-              <div class="admin-shell">
-                <aside class="admin-sidebar">
-                  <div class="brand">Famly Admin</div>
-                  <nav>$navHtml</nav>
+              <div class="admin-shell" id="adminShell">
+                <aside class="admin-sidebar" id="sidebar">
+                  <div class="sidebar-brand">
+                    <img class="sidebar-logo" src="/admin/static/logo.png" alt="Famly"/>
+                  </div>
+                  <nav class="sidebar-nav">$navHtml</nav>
+                  <div class="sidebar-footer">
+                    <button type="button" class="sidebar-action" id="sidebarCollapse" title="Свернуть">
+                      <span class="nav-icon">$iconCollapse</span>
+                      <span class="sidebar-action-label nav-label">Свернуть</span>
+                    </button>
+                    <form class="sidebar-logout-form" method="post" action="/admin/logout">
+                      <input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}"/>
+                      <button type="submit" class="sidebar-logout-btn" title="Выйти">
+                        <span class="nav-icon">$iconLogout</span>
+                        <span class="sidebar-action-label nav-label">Выйти</span>
+                      </button>
+                    </form>
+                  </div>
                 </aside>
                 <div class="admin-main">
-                  <header class="admin-topbar">
-                    <strong>${escapeHtml(title)}</strong>
-                    <div style="display:flex;align-items:center;gap:12px">
-                      <span class="email">${escapeHtml(adminEmail)}</span>
-                      <form method="post" action="/admin/logout" style="margin:0">
-                        <input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}"/>
-                        <button type="submit" class="btn btn-ghost btn-sm">Выйти</button>
-                      </form>
-                    </div>
+                  <header class="page-header">
+                    <h1 class="page-title">
+                      <span class="page-title-icon">$pageIcon</span>
+                      ${escapeHtml(title)}
+                    </h1>
                   </header>
                   <main class="admin-content">
                     $flashHtml
@@ -114,6 +169,7 @@ object AdminTemplates {
                   </main>
                 </div>
               </div>
+              $sidebarScript
             </body>
             </html>
         """.trimIndent()
