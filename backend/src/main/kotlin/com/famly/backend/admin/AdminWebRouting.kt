@@ -35,6 +35,12 @@ fun Route.configureAdminWebRouting(
         call.respondBytes(bytes, ContentType.Image.PNG)
     }
 
+    get("/static/favicon.svg") {
+        val bytes = javaClass.classLoader.getResourceAsStream("admin/favicon.svg")?.readBytes()
+            ?: return@get call.respond(HttpStatusCode.NotFound)
+        call.respondBytes(bytes, ContentType.Image.SVG)
+    }
+
     get("") {
         if (AdminAuth.readAdminToken(call) != null) {
             call.respondRedirect("/admin/dashboard")

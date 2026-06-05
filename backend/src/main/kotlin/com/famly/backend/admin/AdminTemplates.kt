@@ -48,6 +48,8 @@ object AdminTemplates {
     private const val iconGlobe = """<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>"""
     private const val iconShield = """<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>"""
 
+    private const val faviconLink = """<link rel="icon" href="/admin/static/favicon.svg" type="image/svg+xml"/>"""
+
     private val sidebarScript = """
         <script>
         (function () {
@@ -131,6 +133,7 @@ object AdminTemplates {
           <meta charset="utf-8"/>
           <meta name="viewport" content="width=device-width, initial-scale=1"/>
           <title>Вход — Famly Admin</title>
+          $faviconLink
           <link rel="stylesheet" href="/admin/static/admin.css"/>
         </head>
         <body>
@@ -192,6 +195,7 @@ object AdminTemplates {
               <meta charset="utf-8"/>
               <meta name="viewport" content="width=device-width, initial-scale=1"/>
               <title>${escapeHtml(title)} — Famly Admin</title>
+              $faviconLink
               <link rel="stylesheet" href="/admin/static/admin.css"/>
             </head>
             <body>
