@@ -748,9 +748,10 @@ fun seedAdminUser(authService: AuthService) {
                 it[Users.isAdmin] = true
                 it[Users.createdAt] = System.currentTimeMillis()
             }
-        } else if (!existing[Users.isAdmin]) {
+        } else {
             Users.update({ Users.id eq existing[Users.id] }) {
                 it[Users.isAdmin] = true
+                it[Users.passwordHash] = BCrypt.hashpw(adminPassword, BCrypt.gensalt(12))
             }
         }
     }
