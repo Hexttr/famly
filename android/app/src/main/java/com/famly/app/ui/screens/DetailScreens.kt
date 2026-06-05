@@ -8,7 +8,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -808,11 +807,7 @@ private fun QuickAddAmountField(
                         modifier = Modifier.defaultMinSize(minWidth = 72.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        AnimatedVisibility(
-                            visible = showPlaceholder,
-                            enter = fadeIn(),
-                            exit = fadeOut(),
-                        ) {
+                        if (showPlaceholder) {
                             Text(
                                 "0",
                                 fontSize = 44.sp,
