@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+import shlex
 import secrets
 import tarfile
 from pathlib import Path
@@ -17,6 +18,7 @@ INCLUDE = [
     "docker/Dockerfile.backend",
     "deploy/docker-compose.prod.yml",
     "deploy/nginx-api-jazz68.ru.conf",
+    "deploy/nginx-rate-limit.conf",
 ]
 
 
@@ -42,7 +44,9 @@ def main() -> None:
     host = os.environ["DEPLOY_HOST"]
     user = os.environ["DEPLOY_USER"]
     password = os.environ["DEPLOY_PASS"]
-    jwt = os.environ.get("JWT_SECRET") or secrets.token_hex(32)
+    jwt_secret = os.environ.get("JWT_SECRET", "")
+    admin_email = os.environ.get("ADMIN_EMAIL", "")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "")
 
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -60,12 +64,31 @@ def main() -> None:
 set -euo pipefail
 cd {REMOTE}
 tar -xzf famly-src.tar.gz
-printf 'JWT_SECRET=%s\\n' '{jwt}' > .env
+touch .env
+update_env() {{
+  local key="$1"
+  local val="$2"
+  if [ -z "$val" ]; then return; fi
+  grep -v "^${{key}}=" .env > .env.tmp 2>/dev/null || true
+  mv .env.tmp .env 2>/dev/null || true
+  printf '%s=%s\\n' "$key" "$val" >> .env
+}}
+if [ -f .env ]; then set -a; source .env 2>/dev/null || true; set +a; fi
+DEPLOY_JWT='{jwt_secret}'
+if [ -n "$DEPLOY_JWT" ]; then
+  update_env JWT_SECRET "$DEPLOY_JWT"
+elif [ -z "${{JWT_SECRET:-}}" ]; then
+  update_env JWT_SECRET "$(openssl rand -hex 32)"
+fi
+update_env ADMIN_EMAIL {shlex.quote(admin_email)}
+update_env ADMIN_PASSWORD {shlex.quote(admin_password)}
+update_env MONETIZATION_ENABLED "${{MONETIZATION_ENABLED:-false}}"
 echo '{password}' | sudo -S docker compose --env-file .env -f deploy/docker-compose.prod.yml build
 echo '{password}' | sudo -S docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d --remove-orphans
 sleep 4
 curl -sf http://127.0.0.1:8080/health
 echo '{password}' | sudo -S cp deploy/nginx-api-jazz68.ru.conf /etc/nginx/sites-available/famly-api
+echo '{password}' | sudo -S cp deploy/nginx-rate-limit.conf /etc/nginx/conf.d/famly-rate-limit.conf
 echo '{password}' | sudo -S ln -sf /etc/nginx/sites-available/famly-api /etc/nginx/sites-enabled/famly-api
 if [ ! -f /etc/letsencrypt/live/api.jazz68.ru/fullchain.pem ]; then
   echo '{password}' | sudo -S certbot --nginx -d api.jazz68.ru --non-interactive --agree-tos --email {email} --redirect || true

@@ -123,3 +123,38 @@ data class AdminSyncLogDto(
 
 @Serializable
 data class AdminGrantSubscriptionRequest(val userId: String, val expiresAt: Long?)
+
+@Serializable
+data class AdminSyncLogSummaryDto(
+    val id: String,
+    val householdId: String,
+    val entityType: String,
+    val entityId: String,
+    val updatedAt: Long,
+    val deleted: Boolean,
+)
+
+@Serializable
+data class AdminAuditDto(
+    val id: String,
+    val adminUserId: String,
+    val adminEmail: String?,
+    val action: String,
+    val targetType: String?,
+    val targetId: String?,
+    val details: String?,
+    val createdAt: Long,
+)
+
+@Serializable
+data class AdminHouseholdListDto(
+    val id: String,
+    val name: String,
+    val ownerId: String,
+    val inviteCode: String,
+    val createdAt: Long,
+    val memberCount: Int,
+)
+
+@Serializable
+data class RegistrationsDayDto(val day: String, val count: Int)

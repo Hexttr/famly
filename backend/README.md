@@ -28,9 +28,24 @@ Server: http://localhost:8080
 | POST | `/webhooks/rustore` | No | RuStore subscription events |
 | POST | `/webhooks/yookassa` | No | YooKassa payment events |
 
+## Admin panel
+
+Web UI: `https://api.jazz68.ru/admin` (or `http://localhost:8080/admin` locally).
+
+Set credentials in environment before first start (seeded on boot):
+
+- `ADMIN_EMAIL` — admin login email
+- `ADMIN_PASSWORD` — admin password (min 6 chars)
+
+Session: HttpOnly cookie (`famly_admin`), 8 h expiry. POST forms require CSRF token.
+
+JSON API (Bearer token from `POST /admin/login` with `Content-Type: application/json`) remains at `/admin/stats`, `/admin/users`, `/admin/households`, `/admin/sync-log`, etc.
+
 ## Environment
 
 - `JWT_SECRET` — production JWT secret
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD` — web admin login (optional locally)
+- `MONETIZATION_ENABLED` — `true` to enable subscription grant API
 
 ## Database
 

@@ -36,7 +36,28 @@ curl https://api.jazz68.ru/health
 curl https://api.jazz68.ru/legal/privacy
 ```
 
-## 4. Android release
+## 4. Admin panel
+
+URL: `https://api.jazz68.ru/admin`
+
+On the server, set admin credentials in `/home/user_adm/famly/.env`:
+
+```bash
+ADMIN_EMAIL=you@example.com
+ADMIN_PASSWORD=your-secure-password
+```
+
+The deploy script merges these values into `.env` without wiping existing secrets. Pass them when deploying:
+
+```bash
+set ADMIN_EMAIL=you@example.com
+set ADMIN_PASSWORD=your-secure-password
+python deploy/deploy_backend.py
+```
+
+After deploy, open `/admin` in a browser and sign in. Sessions last 8 hours (HttpOnly cookie).
+
+## 5. Android release
 
 В `android/app/build.gradle.kts`:
 

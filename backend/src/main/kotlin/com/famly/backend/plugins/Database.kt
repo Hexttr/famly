@@ -14,7 +14,9 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 
 fun Application.configureDatabase() {
-    val databaseUrl = System.getenv("DATABASE_URL") ?: "jdbc:h2:./build/famly;DB_CLOSE_DELAY=-1"
+    val databaseUrl = environment.config.propertyOrNull("database.url")?.getString()
+        ?: System.getenv("DATABASE_URL")
+        ?: "jdbc:h2:./build/famly;DB_CLOSE_DELAY=-1"
     val driver = when {
         databaseUrl.startsWith("jdbc:postgresql") -> "org.postgresql.Driver"
         else -> "org.h2.Driver"

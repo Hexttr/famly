@@ -8,19 +8,29 @@ import com.famly.backend.db.Households
 import com.famly.backend.db.Subscriptions
 import com.famly.backend.db.SyncLog
 import com.famly.backend.db.Users
+import com.famly.backend.models.AdminAuditDto
 import com.famly.backend.models.AdminHouseholdDto
+import com.famly.backend.models.AdminHouseholdListDto
 import com.famly.backend.models.AdminStatsResponse
 import com.famly.backend.models.AdminSyncLogDto
+import com.famly.backend.models.AdminSyncLogSummaryDto
 import com.famly.backend.models.AdminUserDto
 import com.famly.backend.models.HouseholdMemberDto
+import com.famly.backend.models.RegistrationsDayDto
 import com.famly.backend.models.SyncEntity
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
 import java.security.MessageDigest
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.util.Date
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 
 data class UserRecord(val id: String, val email: String, val passwordHash: String, val displayName: String, val isAdmin: Boolean)
 
@@ -54,31 +64,36 @@ class AuthService {
 
     fun login(email: String, password: String): Pair<String, String> {
         checkRateLimit(email)
-        return transaction {
-            require(email.isNotBlank()) { "Email is required" }
-            require(password.isNotBlank()) { "Password is required" }
-            val row = Users.selectAll().where { Users.email eq email.trim().lowercase() }.singleOrNull()
-                ?: throw IllegalArgumentException("Invalid credentials")
-            if (!verifyPassword(password, row[Users.passwordHash])) {
-                throw IllegalArgumentException("Invalid credentials")
-            }
-            val userId = row[Users.id]
-            if (!row[Users.passwordHash].startsWith("\$2")) {
-                Users.update({ Users.id eq userId }) {
-                    it[Users.passwordHash] = hashPassword(password)
-                }
-            }
-            userId to token(userId, admin = row[Users.isAdmin])
-        }
+        val (userId, _) = authenticate(email, password)
+        return userId to token(userId, admin = false)
     }
 
     fun adminLogin(email: String, password: String): Pair<String, String> {
-        val (userId, token) = login(email, password)
-        val isAdmin = transaction {
-            Users.selectAll().where { Users.id eq userId }.single()[Users.isAdmin]
-        }
+        checkRateLimit("admin:${email.trim().lowercase()}")
+        val (userId, isAdmin) = authenticate(email, password)
         if (!isAdmin) throw IllegalArgumentException("Admin access denied")
-        return userId to token(userId, admin = true)
+        return userId to adminToken(userId)
+    }
+
+    fun adminEmail(userId: String): String? = transaction {
+        Users.selectAll().where { Users.id eq userId }.singleOrNull()?.get(Users.email)
+    }
+
+    private fun authenticate(email: String, password: String): Pair<String, Boolean> = transaction {
+        require(email.isNotBlank()) { "Email is required" }
+        require(password.isNotBlank()) { "Password is required" }
+        val row = Users.selectAll().where { Users.email eq email.trim().lowercase() }.singleOrNull()
+            ?: throw IllegalArgumentException("Invalid credentials")
+        if (!verifyPassword(password, row[Users.passwordHash])) {
+            throw IllegalArgumentException("Invalid credentials")
+        }
+        val userId = row[Users.id]
+        if (!row[Users.passwordHash].startsWith("\$2")) {
+            Users.update({ Users.id eq userId }) {
+                it[Users.passwordHash] = hashPassword(password)
+            }
+        }
+        userId to row[Users.isAdmin]
     }
 
     fun isAdmin(userId: String): Boolean = transaction {
@@ -115,6 +130,13 @@ class AuthService {
         if (admin) builder.withClaim("role", "admin")
         return builder.sign(Algorithm.HMAC256(secret))
     }
+
+    fun adminToken(userId: String): String =
+        JWT.create()
+            .withClaim("userId", userId)
+            .withClaim("role", "admin")
+            .withExpiresAt(Date(System.currentTimeMillis() + 8 * 60 * 60 * 1000))
+            .sign(Algorithm.HMAC256(secret))
 
     private fun hashPassword(password: String): String = BCrypt.hashpw(password, BCrypt.gensalt(12))
 
@@ -413,6 +435,12 @@ class SyncService {
 }
 
 class AdminService {
+    private data class CachedStats(val stats: AdminStatsResponse, val at: Long)
+    private val statsCache = AtomicReference<CachedStats?>(null)
+    private val statsTtlMs = 60_000L
+
+    fun clampPageSize(requested: Int): Int = requested.coerceIn(1, 50)
+
     fun stats(): AdminStatsResponse = transaction {
         val now = System.currentTimeMillis()
         val dayAgo = now - 24 * 60 * 60 * 1000
@@ -424,22 +452,108 @@ class AdminService {
         )
     }
 
-    fun listUsers(): List<AdminUserDto> = transaction {
-        Users.selectAll().orderBy(Users.createdAt to SortOrder.DESC).map { row ->
+    fun statsCached(): AdminStatsResponse {
+        val now = System.currentTimeMillis()
+        statsCache.get()?.let { if (now - it.at < statsTtlMs) return it.stats }
+        val fresh = stats()
+        statsCache.set(CachedStats(fresh, now))
+        return fresh
+    }
+
+    fun usersCount(query: String? = null): Int = transaction {
+        val q = query?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
+        if (q == null) {
+            Users.selectAll().count().toInt()
+        } else {
+            Users.selectAll().where { Users.email like "%$q%" }.count().toInt()
+        }
+    }
+
+    fun listUsers(page: Int = 1, pageSize: Int = 25, query: String? = null): List<AdminUserDto> = transaction {
+        val size = clampPageSize(pageSize)
+        val offset = ((page.coerceAtLeast(1) - 1) * size).toLong()
+        val q = query?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
+        val rows = if (q == null) {
+            Users.selectAll().orderBy(Users.createdAt to SortOrder.DESC).limit(size, offset)
+        } else {
+            Users.selectAll()
+                .where { Users.email like "%$q%" }
+                .orderBy(Users.createdAt to SortOrder.DESC)
+                .limit(size, offset)
+        }.toList()
+        val userIds = rows.map { it[Users.id] }
+        val householdByUser = if (userIds.isEmpty()) {
+            emptyMap()
+        } else {
+            HouseholdMembers.selectAll()
+                .where { HouseholdMembers.userId inList userIds }
+                .associate { it[HouseholdMembers.userId] to it[HouseholdMembers.householdId] }
+        }
+        rows.map { row ->
             val userId = row[Users.id]
-            val householdId = HouseholdMembers.selectAll()
-                .where { HouseholdMembers.userId eq userId }
-                .singleOrNull()
-                ?.get(HouseholdMembers.householdId)
             AdminUserDto(
                 id = userId,
                 email = row[Users.email],
                 displayName = row[Users.displayName],
                 createdAt = row[Users.createdAt],
-                householdId = householdId,
+                householdId = householdByUser[userId],
                 isAdmin = row[Users.isAdmin],
             )
         }
+    }
+
+    fun listUsers(): List<AdminUserDto> = listUsers(page = 1, pageSize = 1000)
+
+    fun householdsCount(): Int = transaction { Households.selectAll().count().toInt() }
+
+    fun listHouseholdsPage(page: Int = 1, pageSize: Int = 25): List<AdminHouseholdListDto> = transaction {
+        val size = clampPageSize(pageSize)
+        val offset = ((page.coerceAtLeast(1) - 1) * size).toLong()
+        val rows = Households.selectAll()
+            .orderBy(Households.createdAt to SortOrder.DESC)
+            .limit(size, offset)
+            .toList()
+        val ids = rows.map { it[Households.id] }
+        val memberCounts = if (ids.isEmpty()) {
+            emptyMap()
+        } else {
+            HouseholdMembers.selectAll()
+                .where { HouseholdMembers.householdId inList ids }
+                .toList()
+                .groupBy { it[HouseholdMembers.householdId] }
+                .mapValues { it.value.size }
+        }
+        rows.map { row ->
+            val id = row[Households.id]
+            AdminHouseholdListDto(
+                id = id,
+                name = row[Households.name],
+                ownerId = row[Households.ownerId],
+                inviteCode = row[Households.inviteCode],
+                createdAt = row[Households.createdAt],
+                memberCount = memberCounts[id] ?: 0,
+            )
+        }
+    }
+
+    fun getHousehold(id: String): AdminHouseholdDto? = transaction {
+        val row = Households.selectAll().where { Households.id eq id }.singleOrNull() ?: return@transaction null
+        AdminHouseholdDto(
+            id = id,
+            name = row[Households.name],
+            ownerId = row[Households.ownerId],
+            inviteCode = row[Households.inviteCode],
+            createdAt = row[Households.createdAt],
+            members = HouseholdMembers.selectAll().where { HouseholdMembers.householdId eq id }.map { m ->
+                HouseholdMemberDto(
+                    m[HouseholdMembers.id],
+                    m[HouseholdMembers.userId],
+                    m[HouseholdMembers.displayName],
+                    m[HouseholdMembers.role],
+                    m[HouseholdMembers.visibility],
+                )
+            },
+        )
     }
 
     fun listHouseholds(): List<AdminHouseholdDto> = transaction {
@@ -462,6 +576,48 @@ class AdminService {
                 },
             )
         }
+    }
+
+    fun syncLogSummary(page: Int = 1, pageSize: Int = 25, entityType: String? = null): List<AdminSyncLogSummaryDto> =
+        transaction {
+            val size = clampPageSize(pageSize)
+            val offset = ((page.coerceAtLeast(1) - 1) * size).toLong()
+            val baseQuery = SyncLog.selectAll().let { query ->
+                if (entityType != null) query.where { SyncLog.entityType eq entityType } else query
+            }
+            baseQuery.orderBy(SyncLog.updatedAt to SortOrder.DESC).limit(size, offset).map { row ->
+                AdminSyncLogSummaryDto(
+                    row[SyncLog.id],
+                    row[SyncLog.householdId],
+                    row[SyncLog.entityType],
+                    row[SyncLog.entityId],
+                    row[SyncLog.updatedAt],
+                    row[SyncLog.deleted],
+                )
+            }
+        }
+
+    fun syncLogCount(entityType: String? = null): Int = transaction {
+        if (entityType != null) {
+            SyncLog.selectAll().where { SyncLog.entityType eq entityType }.count().toInt()
+        } else {
+            SyncLog.selectAll().count().toInt()
+        }
+    }
+
+    fun syncLogEntry(id: String, maxPayloadChars: Int = 2048): AdminSyncLogDto? = transaction {
+        val row = SyncLog.selectAll().where { SyncLog.id eq id }.singleOrNull() ?: return@transaction null
+        val payload = row[SyncLog.payload]
+        val truncated = if (payload.length > maxPayloadChars) payload.take(maxPayloadChars) + "…" else payload
+        AdminSyncLogDto(
+            row[SyncLog.id],
+            row[SyncLog.householdId],
+            row[SyncLog.entityType],
+            row[SyncLog.entityId],
+            truncated,
+            row[SyncLog.updatedAt],
+            row[SyncLog.deleted],
+        )
     }
 
     fun syncLog(limit: Int = 100, entityType: String? = null): List<AdminSyncLogDto> = transaction {
@@ -497,6 +653,69 @@ class AdminService {
                 row[SyncLog.updatedAt],
                 row[SyncLog.deleted],
             )
+        }
+    }
+
+    fun transactionSummaries(householdId: String, limit: Int = 20): List<AdminSyncLogSummaryDto> = transaction {
+        SyncLog.selectAll()
+            .where { (SyncLog.householdId eq householdId) and (SyncLog.entityType eq "transaction") }
+            .orderBy(SyncLog.updatedAt to SortOrder.DESC)
+            .limit(limit)
+            .map { row ->
+                AdminSyncLogSummaryDto(
+                    row[SyncLog.id],
+                    row[SyncLog.householdId],
+                    row[SyncLog.entityType],
+                    row[SyncLog.entityId],
+                    row[SyncLog.updatedAt],
+                    row[SyncLog.deleted],
+                )
+            }
+    }
+
+    fun listAudit(page: Int = 1, pageSize: Int = 25): List<AdminAuditDto> = transaction {
+        val size = clampPageSize(pageSize)
+        val offset = ((page.coerceAtLeast(1) - 1) * size).toLong()
+        val rows = AdminAuditLog.selectAll()
+            .orderBy(AdminAuditLog.createdAt to SortOrder.DESC)
+            .limit(size, offset)
+            .toList()
+        val adminIds = rows.map { it[AdminAuditLog.adminUserId] }.distinct()
+        val emails = if (adminIds.isEmpty()) {
+            emptyMap()
+        } else {
+            Users.selectAll().where { Users.id inList adminIds }.associate {
+                it[Users.id] to it[Users.email]
+            }
+        }
+        rows.map { row ->
+            AdminAuditDto(
+                id = row[AdminAuditLog.id],
+                adminUserId = row[AdminAuditLog.adminUserId],
+                adminEmail = emails[row[AdminAuditLog.adminUserId]],
+                action = row[AdminAuditLog.action],
+                targetType = row[AdminAuditLog.targetType],
+                targetId = row[AdminAuditLog.targetId],
+                details = row[AdminAuditLog.details],
+                createdAt = row[AdminAuditLog.createdAt],
+            )
+        }
+    }
+
+    fun auditCount(): Int = transaction { AdminAuditLog.selectAll().count().toInt() }
+
+    fun registrationsLast7Days(): List<RegistrationsDayDto> = transaction {
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        val startMs = today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
+        val counts = Users.selectAll()
+            .where { Users.createdAt greaterEq startMs }
+            .map { Instant.ofEpochMilli(it[Users.createdAt]).atZone(zone).toLocalDate() }
+            .groupingBy { it }
+            .eachCount()
+        (0..6).map { offset ->
+            val day = today.minusDays(6L - offset)
+            RegistrationsDayDto(day.toString(), counts[day] ?: 0)
         }
     }
 
