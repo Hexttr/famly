@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -161,6 +162,24 @@ fun FamlyNavHost(
         else -> HeaderRightSlot.None
     }
 
+    fun navigateToHome() {
+        val startId = navController.graph.findStartDestination().id
+        if (navController.currentBackStackEntry?.destination?.id == startId &&
+            navController.currentBackStackEntry?.destination?.route == Routes.HOME &&
+            navController.previousBackStackEntry == null
+        ) {
+            return
+        }
+        navController.navigate(Routes.HOME) {
+            popUpTo(startId) {
+                inclusive = false
+                saveState = false
+            }
+            launchSingleTop = true
+        }
+    }
+
+    CompositionLocalProvider(LocalNavigateHome provides ::navigateToHome) {
     Scaffold(
         topBar = {
             if (isMainTab) {
@@ -171,15 +190,7 @@ fun FamlyNavHost(
                     onSettings = { navController.navigate(Routes.SETTINGS) },
                     onAdd = { navController.navigate(Routes.CATEGORIES) },
                     onNotifications = { notificationsVisible = true },
-                    onHome = {
-                        navController.navigate(Routes.HOME) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onHome = ::navigateToHome,
                 )
             }
         },
@@ -187,12 +198,16 @@ fun FamlyNavHost(
             FamlyBottomNav(
                 selectedRoute = bottomNavRoute,
                 onTabSelected = { route ->
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+                    if (route == Routes.HOME) {
+                        navigateToHome()
+                    } else {
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 tabs = tabs.map { Triple(it.route, it.icon, it.label) },
@@ -414,8 +429,9 @@ fun FamlyNavHost(
             quickAddCategoryId = null
             quickAddInitialType = null
         },
-        onSave = { amount, type, cat, acc, note, rec ->
-            viewModel.addTransaction(amount, type, cat, acc, note, rec)
+        onSave = { amount, type, cat, acc, note, rec, dateEpochDay ->
+            viewModel.addTransaction(amount, type, cat, acc, note, rec, dateEpochDay)
         },
     )
+    }
 }

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CurrencyRuble
 import androidx.compose.material.icons.filled.Euro
@@ -47,6 +48,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -108,6 +112,9 @@ import com.famly.app.ui.theme.Primary
 import com.famly.app.ui.theme.Radius
 import com.famly.app.ui.theme.Spacing
 import com.famly.app.ui.theme.TextMuted
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import com.famly.app.ui.theme.TextSecondary
 import com.famly.app.ui.theme.famlySmShadow
 import com.famly.app.ui.theme.parseHexColor
@@ -719,7 +726,7 @@ fun QuickAddSheet(
     initialCategoryId: String? = null,
     initialType: String? = null,
     onDismiss: () -> Unit,
-    onSave: (amount: String, type: String, categoryId: String, accountId: String, note: String, recurring: Boolean) -> Unit,
+    onSave: (amount: String, type: String, categoryId: String, accountId: String, note: String, recurring: Boolean, dateEpochDay: Long?) -> Unit,
 ) {
     if (!visible) return
     var amount by remember { mutableStateOf("") }
@@ -736,6 +743,56 @@ fun QuickAddSheet(
     var accountId by remember { mutableStateOf(state.accounts.firstOrNull()?.id ?: "") }
     var note by remember { mutableStateOf("") }
     var recurring by remember { mutableStateOf(false) }
+    var customDate by remember { mutableStateOf<LocalDate?>(null) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val today = remember { LocalDate.now() }
+    val effectiveDate = customDate ?: today
+
+    LaunchedEffect(visible, initialCategoryId, initialType) {
+        if (!visible) return@LaunchedEffect
+        amount = ""
+        note = ""
+        recurring = false
+        customDate = null
+        type = initialType ?: "expense"
+        categoryId = initialCategoryId
+            ?: state.categories.firstOrNull { it.type == type }?.id
+            ?: ""
+        accountId = state.accounts.firstOrNull()?.id ?: ""
+    }
+
+    if (showDatePicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = effectiveDate
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            customDate = Instant.ofEpochMilli(millis)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalDate()
+                        }
+                        showDatePicker = false
+                    },
+                ) {
+                    Text("Готово")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Отмена")
+                }
+            },
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -787,6 +844,45 @@ fun QuickAddSheet(
                 placeholder = { Text("0", textAlign = TextAlign.Center) },
                 textStyle = MaterialTheme.typography.displaySmall.copy(textAlign = TextAlign.Center),
             )
+            Text(
+                "Дата",
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FamlyCard(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { showDatePicker = true },
+                    padding = 12.dp,
+                    cornerRadius = Radius.md,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+                        Column(modifier = Modifier.padding(start = 10.dp)) {
+                            Text(
+                                MoneyFormatter.formatTransactionDate(effectiveDate.toEpochDay(), today),
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
+                            )
+                            Text(
+                                if (customDate == null) "По умолчанию — сегодня" else MoneyFormatter.formatHumanDate(effectiveDate),
+                                fontSize = 12.sp,
+                                color = TextMuted,
+                            )
+                        }
+                    }
+                }
+                if (customDate != null) {
+                    TextButton(onClick = { customDate = null }) {
+                        Text("Сегодня")
+                    }
+                }
+            }
             Text("Категория", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
             LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.categories.filter { it.type == type }) { cat ->
@@ -820,7 +916,7 @@ fun QuickAddSheet(
             }
             Button(
                 onClick = {
-                    onSave(amount, type, categoryId, accountId, note, recurring)
+                    onSave(amount, type, categoryId, accountId, note, recurring, effectiveDate.toEpochDay())
                     onDismiss()
                 },
                 modifier = Modifier.fillMaxWidth(),

@@ -229,6 +229,7 @@ class FamlyViewModel(
         accountId: String,
         note: String?,
         isRecurring: Boolean,
+        dateEpochDay: Long? = null,
     ) = viewModelScope.launch {
         val amount = (amountRubles.replace(',', '.').toDoubleOrNull() ?: return@launch) * 100
         repository.addTransaction(
@@ -236,7 +237,7 @@ class FamlyViewModel(
             type = type,
             categoryId = categoryId,
             accountId = accountId,
-            dateEpochDay = LocalDate.now().toEpochDay(),
+            dateEpochDay = dateEpochDay ?: LocalDate.now().toEpochDay(),
             note = note?.takeIf { it.isNotBlank() },
             isRecurring = isRecurring,
         )

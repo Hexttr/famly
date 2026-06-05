@@ -14,6 +14,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.famly.app.ui.components.AppHeader
+import com.famly.app.ui.navigation.LocalNavigateHome
 import com.famly.app.ui.theme.Background
 import com.famly.app.ui.theme.LayoutInsets
 import com.famly.app.ui.theme.Spacing
@@ -25,7 +26,7 @@ fun ScreenScaffold(
 ) {
     Scaffold(
         topBar = {
-            AppHeader(showBack = true, onBack = onBack)
+            AppHeader(showBack = true, onBack = onBack, onHome = LocalNavigateHome.current)
         },
         containerColor = Background,
     ) { padding ->

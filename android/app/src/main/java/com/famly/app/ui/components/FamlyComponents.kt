@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.famly.app.R
 import com.famly.app.ui.theme.Border
 import com.famly.app.ui.theme.Expense
@@ -100,6 +101,7 @@ fun AppHeader(
             contentDescription = "Мой (Наш) Бюджет",
             modifier = Modifier
                 .align(Alignment.TopCenter)
+                .zIndex(2f)
                 .padding(top = HeaderLayout.inset)
                 .size(HeaderLayout.logoSize)
                 .clickable(onClick = onHome),

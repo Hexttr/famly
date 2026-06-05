@@ -25,6 +25,23 @@ object MoneyFormatter {
         return date.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))
     }
 
+    fun formatHumanDate(date: LocalDate): String {
+        val months = listOf(
+            "января", "февраля", "марта", "апреля", "мая", "июня",
+            "июля", "августа", "сентября", "октября", "ноября", "декабря",
+        )
+        return "${date.dayOfMonth} ${months[date.monthValue - 1]} ${date.year}"
+    }
+
+    fun formatTransactionDate(epochDay: Long, today: LocalDate = LocalDate.now()): String {
+        val date = LocalDate.ofEpochDay(epochDay)
+        return when (date) {
+            today -> "Сегодня"
+            today.minusDays(1) -> "Вчера"
+            else -> formatHumanDate(date)
+        }
+    }
+
     fun formatShortDate(date: LocalDate): String =
         date.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))
 
