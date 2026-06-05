@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CreditCard
@@ -136,7 +137,19 @@ fun HomeScreen(
                         fontWeight = FontWeight.SemiBold,
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Бюджет", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Icon(
+                            Icons.Default.AccountBalance,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            "Бюджет",
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = null,
@@ -668,7 +681,7 @@ fun MoreScreen(
             }
         }
         Text(
-            "Мой (Наш) Бюджет v1.0.4 · Сделано в России",
+            "Мой (Наш) Бюджет v1.0.5 · Сделано в России",
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.md, bottom = Spacing.md),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.labelSmall,

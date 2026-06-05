@@ -2,9 +2,16 @@
 
 ## Version
 
-- `versionName`: 1.0.4
-- `versionCode`: 5
+- `versionName`: 1.0.5
+- `versionCode`: 6
 - Monetization: **disabled** (`MONETIZATION_ENABLED=false`)
+
+### 1.0.5
+
+- Исправлена синхронизация семейного бюджета (join, pull, visibility)
+- Убраны split/IOU
+- Исправлено обрезание контента на вложенных экранах
+- UI: главная карточка, отчёты, кнопка «+» в шапке
 
 ## Build AAB
 
